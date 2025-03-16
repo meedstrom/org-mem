@@ -17,6 +17,13 @@
 
 ;;; Commentary:
 
+;; A submodule to
+
+;; 1. Also index ROAM_ALIASES and ROAM_REFS.
+;; 2. Make a SQL database.
+
+;; Activate `indexed-roam-mode'.
+
 ;;; Code:
 
 (require 'cl-lib)
@@ -25,9 +32,8 @@
 (require 'sqlite-mode)
 (require 'indexed)
 
-;; TODO: Eliminate
+;; TODO: Eliminate dependency
 (require 'ol)
-(require 'org-macs)
 
 
 ;;; Aliases and refs support
@@ -38,13 +44,16 @@
 (defvar indexed-roam--ref<>type (make-hash-table :test 'equal)) ;; REVIEW: weird
 
 (defun indexed-roam-refs (entry)
+  "Property ROAM_REFS in ENTRY, properly split."
   (gethash (indexed-id entry) indexed-roam--id<>refs))
 
 (defun indexed-roam-reflinks-to (entry)
+  "All links that point to a member of ENTRY\\='s ROAM_REFS."
   (cl-loop for ref in (indexed-roam-refs entry)
            append (gethash ref indexed--dest<>links)))
 
 (defun indexed-roam-aliases (entry)
+  "Property ROAM_ALIASES in ENTRY, properly split."
   (when-let* ((aliases (indexed-property :ROAM_ALIASES entry)))
     (split-string-and-unquote aliases)))
 
@@ -131,12 +140,14 @@ What this means?  See indexed-test.el"
 ;;;###autoload
 (defun indexed-roam (&optional sql &rest args)
   "Return the SQLite handle to the org-roam-like database.
-Each call checks if it is alive, and renews if not."
+Each call checks if it is alive, and renews if not.
+
+If arguments SQL and ARGS provided, pass to `sqlite-select'."
   (cl-assert (member 'indexed-roam--mk-db indexed--post-reset-functions))
   (or (ignore-errors (sqlite-pragma indexed-roam--connection "im_still_here"))
       (setq indexed-roam--connection (indexed-roam--open-new-db)))
   (if sql
-      (sqlite-execute indexed-roam--connection sql args)
+      (sqlite-select indexed-roam--connection sql args)
     indexed-roam--connection))
 
 (defun indexed-roam--open-new-db (&optional loc)
@@ -157,6 +168,7 @@ LOC, write the database as a file to LOC."
     db))
 
 (defun indexed-roam--configure (db)
+  "Set up tables, schemata and PRAGMA settings in DB."
   (sqlite-execute db "PRAGMA user_version = 19;")
   (sqlite-execute db "PRAGMA foreign_keys = on;")
   ;; Note to devs: try M-x `indexed-roam--insert-schemata-atpt'
@@ -233,6 +245,11 @@ LOC, write the database as a file to LOC."
 
 ;; This whole macro smells, but performs better than serial inserts
 (defmacro indexed-roam--insert-en-masse (db table-sym n-cols)
+  "Insert into DB the values of list named TABLE-SYM.
+Insert into a table inside DB of the same name.
+
+N-COLS must be the expected number of columns, and the list named
+TABLE-SYM must be flat and divisible by N-COLS."
   (let ((template-row (concat "(" (string-join (make-list n-cols "?")
                                                ", ")
                               ")")))
@@ -244,6 +261,7 @@ LOC, write the database as a file to LOC."
       (apply #'nconc ,table-sym))))
 
 (defun indexed-roam--populate (db row-sets)
+  "Populate DB with ROW-SETS, an output of `indexed-roam--mk-rows'."
   (seq-let (files nodes aliases citations refs tags links) row-sets
     (with-sqlite-transaction db
       (indexed-roam--insert-en-masse db files 5)
@@ -254,12 +272,8 @@ LOC, write the database as a file to LOC."
       (indexed-roam--insert-en-masse db tags 2)
       (indexed-roam--insert-en-masse db links 5))))
 
-;; (benchmark-call #'indexed-roam--mk-rows)
-;; (prog1 nil (indexed-roam--mk-rows))
-
-;; native-compile
 (defun indexed-roam--mk-rows (&optional specific-files)
-  "Return everything org-node knows, that org-roam can consume.
+  "Return info that org-roam can consume.
 
 Specifically, return seven lists of rows, one for each SQL table
 defined by `indexed-roam--configure'.
@@ -281,9 +295,8 @@ With SPECIFIC-FILES, only return data that involves those files."
      do
      (unless (gethash file seen-files)
        (puthash file t seen-files)
-       (push (indexed-roam--mk-file-row entry) file-rows))
+       (push (indexed-roam--mk-file-row file) file-rows))
      (cl-symbol-macrolet ((..deadline     (indexed-deadline entry))
-                          (..file         (indexed-file entry))
                           (..id           (indexed-id entry))
                           (..scheduled    (indexed-scheduled entry)))
        ;; See `org-roam-db-insert-aliases'
@@ -294,11 +307,12 @@ With SPECIFIC-FILES, only return data that involves those files."
                 (push (list ..id tag) tag-rows))
        ;; See `org-roam-db-insert-file-node' and `org-roam-db-insert-node-data'
        (push (list ..id
-                   ..file
+                   (indexed-file entry)
                    (indexed-heading-lvl entry)
                    (indexed-pos entry)
                    (indexed-todo entry)
                    (indexed-priority entry)
+                   ;; HACK: efficient
                    (and ..scheduled
                         (concat (substring ..scheduled 1 11) "T12:00:00"))
                    (and ..deadline
@@ -341,14 +355,12 @@ With SPECIFIC-FILES, only return data that involves those files."
     (list
      file-rows node-rows alias-rows citation-rows ref-rows tag-rows link-rows)))
 
-(defun indexed-roam--mk-file-row (entry)
-  (let* ((file (indexed-file entry))
-         (lisp-mtime
-          (prin1-to-string
-           (seconds-to-time
-            (indexed-mtime (indexed-file-data entry))))))
+(defun indexed-roam--mk-file-row (file)
+  "Return info about FILE."
+  (let* ((data (indexed-file-data file))
+         (lisp-mtime (prin1-to-string (seconds-to-time (indexed-mtime data)))))
     (list file
-          (indexed-file-title entry)
+          (indexed-title data)
           ""         ; HACK: Hashing is slow, skip
           lisp-mtime ; HACK: org-roam doesn't use atime anyway
           lisp-mtime)))
@@ -372,12 +384,12 @@ Suitable on `org-node-rescan-functions'."
       (sqlite-execute db "DELETE FROM files WHERE file LIKE ?" (list file)))
     (indexed-roam--populate db rows)))
 
-;; TODO: Maybe generalize. Track a list of open DBs and select among them
-(defun indexed-roam-show-contents (&optional db)
+;; TODO: Maybe generalize: track a list of open DBs and explore any of them
+(defun indexed-roam-explore (&optional db)
   "Explore contents of currently used SQLite DB.
 
-With optional argument DB, use that database connection
-instead of `indexed-roam--connection'."
+With optional argument DB, explore that database connection
+instead of default `indexed-roam--connection'."
   (interactive)
   (cl-assert (sqlite-available-p))
   (let ((db (or db (indexed-roam))))
@@ -422,14 +434,14 @@ Must load library \"org-roam\"."
 ;;; Mode
 
 ;;;###autoload
-(define-minor-mode indexed-roam-mode ()
+(define-minor-mode indexed-roam-mode
+  "Index extra data sought by org-roam and org-node et al."
   :global t
+  :group 'indexed
   (if indexed-roam-mode
       (progn
         (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables -95)
-        ;; FIXME: Some niggling issues before we can enable by default
-        ;; (add-hook 'indexed--post-reset-functions 'indexed-roam--mk-db -91)
-        ))
+        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-db -91)))
   (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables)
   (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-db))
 

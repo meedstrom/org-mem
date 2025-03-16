@@ -39,13 +39,11 @@
 (defvar $global-todo-re)
 (defvar $nonheritable-tags)
 (defvar $inlinetask-min-level)
+(defvar $structures-to-ignore) ; TODO: implement
+(defvar $drawers-to-ignore) ; TODO: implement
 
-;; TODO: implement
-(defvar $structures-to-ignore)
-(defvar $drawers-to-ignore)
-
-;; TODO: just use nconc instead of global variable
-(defvar indexed-org-parser--found-links nil)
+(defvar indexed-org-parser--found-links nil
+  "Link objects found so far.")
 
 (defun indexed-org-parser--make-todo-regexp (keywords-string)
   "Build a regexp from KEYWORDS-STRING.
@@ -170,7 +168,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       (or (search-forward ":" pos-eol t)
           (error "Possibly malformed property drawer"))
       (unless (= pos-eol (point))
-        ;; Let's just not collect it if it looks like e.g.
+        ;; Let's just not collect monstrosities like this:
         ;; :header-args:emacs-lisp+: :results silent :noweb yes :var end=9
         (when (looking-at-p " ")
           (push (string-trim (buffer-substring (point) pos-eol))

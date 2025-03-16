@@ -24,6 +24,14 @@
 
 ;;; Commentary:
 
+;; An efficient cache of metadata about all your Org files.
+
+;; Builds fast.
+
+;; Provides two APIs:
+;;  - regular elisp accessors such as `indexed-olpath-to', `indexed-pos' etc
+;;  - an in-memory SQLite database that mimics the org-roam database
+
 ;;; Code:
 
 ;; TODO: A special-mode buffer for exploring all indexed objects,
@@ -32,35 +40,15 @@
 ;; TODO: Awareness of CUSTOM_ID, not just ID
 
 ;; TODO: Collect links even if there is no nearby-id (aka "origin"),
-;;       bc file:pos can still locate it
+;;       bc file + pos can still locate it
 
 (require 'cl-lib)
 (require 'subr-x)
 (require 'indexed-org-parser)
 (require 'el-job)
 
-(defgroup indexed nil ""
+(defgroup indexed nil "Cache metadata on all Org files."
   :group 'text)
-
-(defvar indexed--file<>data (make-hash-table :test 'equal))
-(defvar indexed--id<>entry (make-hash-table :test 'equal))
-(defvar indexed--id<>file (make-hash-table :test 'equal)) ;; Literally `org-id-locations'
-(defvar indexed--origin<>links (make-hash-table :test 'equal))
-(defvar indexed--dest<>links (make-hash-table :test 'equal))
-(defvar indexed--title<>id (make-hash-table :test 'equal))
-;; https://github.com/BurntSushi/ripgrep/discussions/3013
-(defvar indexed--file<>lnum.entry (make-hash-table :test 'equal)) 
-
-;; TODO: change into functions
-(defvar indexed-org-entries nil)
-(defvar indexed-org-links nil)
-(defvar indexed-org-files nil)
-
-;; It is a common need to iterate over all entries, and this is easier than
-;; \(cl-loop for entry being each hash-value of indexed--id<>entry ...)
-(defun indexed-org-id-nodes ()
-  ""
-  (hash-table-values indexed--id<>entry))
 
 (defcustom indexed-warn-title-collisions t
   "Whether to print message when two org-ID nodes have the same title."
@@ -68,16 +56,16 @@
 
 (defcustom indexed-seek-link-types
   '("http" "https" "id")
-  "perf issue
+  "Performance knob.
 Users of org-ref would extend this to ~70 types."
   :type '(repeat string))
 
 (defcustom indexed-seek-id-nodes-only nil
-  "perf issue"
+  "Performance knob."
   :type 'boolean)
 
 (defcustom indexed-org-dirs '("~/org/")
-  ""
+  "List of directories to index."
   :type '(repeat directory))
 
 (defcustom indexed-org-dirs-excludes
@@ -85,11 +73,38 @@ Users of org-ref would extend this to ~70 types."
     "/logseq/version-files/"
     "/node_modules/"
     ".sync-conflict-")
-  ""
+  "Path substrings of files that should not be indexed.
+
+If you have accidentally let org-id add a directory of backup files, try
+\\[org-node-forget-dir].
+
+It is not necessary to exclude backups or autosaves that end in ~ or #
+or .bak, since the workhorse `indexed--relist-org-files' only considers
+files that end in precisely \".org\" anyway.
+
+You can eke out a performance boost by excluding directories with a
+humongous amount of files, such as the infamous \"node_modules\", even
+if they contain no Org files.  However, directories that start with a
+period or underscore are always ignored, so no need to specify
+e.g. \"~/.local/\" or \".git/\" for that reason."
   :type '(repeat string))
+
 
 
 ;;; Lisp API
+
+(defvar indexed--file<>data (make-hash-table :test 'equal))
+(defvar indexed--id<>entry (make-hash-table :test 'equal))
+(defvar indexed--id<>file (make-hash-table :test 'equal)) ;; Literally `org-id-locations'.
+(defvar indexed--origin<>links (make-hash-table :test 'equal))
+(defvar indexed--dest<>links (make-hash-table :test 'equal))
+(defvar indexed--title<>id (make-hash-table :test 'equal))
+(defvar indexed--file<>lnum.entry (make-hash-table :test 'equal)) ;; https://github.com/BurntSushi/ripgrep/discussions/3013
+
+;; TODO: change into functions
+(defvar indexed-org-entries nil)
+(defvar indexed-org-links nil)
+(defvar indexed-org-files nil)
 
 ;; Hypothetical data types:
 
@@ -140,35 +155,37 @@ Users of org-ref would extend this to ~70 types."
 ;;   (:method ((x indexed-file-data)) (indexed-file-data-toplvl-id x)))
 ;; ...
 
-(defun indexed-entries ()
-  (cl-loop
-   for lnum.entry being each hash-value of indexed--file<>lnum.entry
-   append (cl-loop for (_lnum . entry) in lnum.entry
-                   collect entry)))
-
 (defun indexed-file-data (thing)
+  "Return file-data object for wherever THING is."
   (if (vectorp thing)
       (gethash (indexed-file thing) indexed--file<>data)
     (gethash thing indexed--file<>data)))
 
 (defun indexed-tags (entry)
+  "ENTRY tags, with inheritance."
   (delete-dups (append (indexed-tags-local entry)
                        (indexed-tags-inherited entry))))
 
-(defun indexed-file-title-or-basename (entry)
-  (or (indexed-file-title entry)
-      (file-name-nondirectory (indexed-file entry))))
+(defun indexed-file-title-or-basename (thing)
+  "The #+title, fall back on file basename, where THING is."
+  (or (indexed-file-title thing)
+      (file-name-nondirectory (indexed-file thing))))
 
 (defun indexed-olpath-with-self (entry)
+  "Outline path, including ENTRY\\='s own heading."
   (append (indexed-olpath-to entry)
           (list (indexed-title entry))))
 
 (defalias 'indexed-olpath-with-title-with-self
   (defun indexed-olpath-with-self-with-title (entry &optional filename-fallback)
+    "Outline path, including file #+title, and ENTRY\\='s own heading.
+With FILENAME-FALLBACK, use file basename if there is no #+title."
     (append (indexed-olpath-with-title entry filename-fallback)
             (list (indexed-title entry)))))
 
 (defun indexed-olpath-with-title (entry &optional filename-fallback)
+  "Outline path to ENTRY, including file #+title.
+With FILENAME-FALLBACK, use file basename if there is no #+title."
   (if (/= 0 (indexed-heading-lvl entry))
       (let ((top (if filename-fallback
                      (indexed-file-title-or-basename entry)
@@ -179,11 +196,13 @@ Users of org-ref would extend this to ~70 types."
     nil))
 
 (defun indexed-entries-in (files)
+  "All entries in FILES."
   (setq files (ensure-list files))
   (cl-loop for file in files
            append (cdr (gethash file indexed--file<>lnum.entry))))
 
 (defun indexed-id-nodes-in (files)
+  "All ID-nodes in FILES."
   (setq files (ensure-list files))
   (cl-loop for entry being each hash-value of indexed--id<>entry
            when (member (indexed-file entry) files)
@@ -193,16 +212,20 @@ Users of org-ref would extend this to ~70 types."
 ;; havent even considered parsing.  will be easier for `indexed-links-from' to
 ;; print em anyway as no need to resolve them.  thats a todo
 (defun indexed-id-links-to (entry)
-  "See also `indexed-roam-reflinks-to' and `indexed-links-from'."
+  "All ID-links that point to ENTRY.
+See also `indexed-roam-reflinks-to' and `indexed-links-from'."
   (gethash (indexed-id entry) indexed--dest<>links))
 
 (defun indexed-links-from (id)
+  "All links found under the entry with ID."
   (gethash id indexed--origin<>links))
 
 (defun indexed-entry-by-id (id)
+  "The entry with ID."
   (gethash id indexed--id<>entry))
 
 (defun indexed-entry-near-lnum-in-file (lnum file)
+  "The entry at line-number LNUM in FILE."
   (cl-loop
    with last
    for (entry-lnum . entry) in (gethash file indexed--file<>lnum.entry)
@@ -211,6 +234,7 @@ Users of org-ref would extend this to ~70 types."
 
 ;; TODO: Refactor the hash table to just file<>entries.
 (defun indexed-entry-near-pos-in-file (pos file)
+  "The entry at char-position POS in FILE."
   (cl-loop
    with last
    for (_ . entry) in (gethash file indexed--file<>lnum.entry)
@@ -222,27 +246,49 @@ Users of org-ref would extend this to ~70 types."
 ;;   (mapcar #'caddr (indexed-crumbs entry)))
 
 (defun indexed-property (prop entry)
+  "Value of property PROP in ENTRY."
   (plist-get (indexed-properties entry) prop))
 
 (defun indexed-property-assert (prop entry)
+  "Value of property PROP in ENTRY, throw error if nil."
   (or (plist-get (indexed-properties entry) prop)
       (error "No property %s in entry %s" prop entry)))
 
-(defun indexed-file-title (any)
-  (indexed-title (indexed-file-data any)))
+(defun indexed-file-title (thing)
+  "From file where THING is, return value of #+title."
+  (indexed-title (indexed-file-data thing)))
 
-;; may be first heading or real title
+;; IDK if useful, throwing stuff at a wall here.
 (defun indexed-toptitle (file)
+  "File #+title or topmost heading in FILE."
   (indexed-title (car (indexed-entries-in file))))
 
 (defun indexed-root-heading-to (entry)
+  "Root heading in tree that contains ENTRY."
   (car (indexed-olpath-to entry)))
 
 (defun indexed-heading-above (link)
+  "Heading of entry where LINK is.
+Does not require LINK to have an origin ID."
   (let ((entry (indexed-entry-near-lnum-in-file (indexed-file link)
                                                 (indexed-lnum link))))
     (unless (= 0 (indexed-heading-lvl entry))
       (indexed-title entry))))
+
+;; It is a common need to iterate over all entries. This is easier than doing
+;; (cl-loop for entry being each hash-value of indexed--id<>entry ...)
+;; every time.
+(defun indexed-org-id-nodes ()
+  "All org-ID nodes.
+An org-ID node is an entry with an ID."
+  (hash-table-values indexed--id<>entry))
+
+(defun indexed-entries ()
+  "All entries."
+  (cl-loop
+   for lnum.entry being each hash-value of indexed--file<>lnum.entry
+   append (cl-loop for (_lnum . entry) in lnum.entry
+                   collect entry)))
 
 
 ;;; Core logic
@@ -272,7 +318,7 @@ If not running, start it."
 
 ;;;###autoload
 (define-minor-mode indexed-mode
-  "."
+  "Re-index every now and then."
   :global t
   (if indexed-mode
       (progn (add-hook 'indexed--post-reset-functions #'indexed--activate-timer)
@@ -301,13 +347,11 @@ If not running, start it."
     (set (car var) (cdr var)))
   (indexed-org-parser--parse-file file))
 
-;; (indexed--scan-full)
-
-(defvar indexed--old-ids-tbl nil)
-
+;; (defvar indexed--old-ids-tbl nil)
 (defun indexed--finalize-full (parse-results _job)
+  "Handle PARSE-RESULTS from `indexed--scan-full'."
   (run-hooks 'indexed--pre-reset-hook)
-  (setq indexed--old-ids-tbl (copy-hash-table indexed--id<>entry))
+  ;; (setq indexed--old-ids-tbl (copy-hash-table indexed--id<>entry))
   (clrhash indexed--id<>entry)
   (clrhash indexed--file<>data)
   (clrhash indexed--origin<>links)
@@ -369,7 +413,6 @@ Note though that org-id would not necessarily have truenames."
               nconc (indexed--dir-files-recursive
                      dir ".org" indexed-org-dirs-excludes)))))
 
-;; At least 2x as fast as `directory-files-recursively' in my applications.
 ;; (progn (ignore-errors (native-compile #'indexed--dir-files-recursive)) (benchmark-run 100 (indexed--dir-files-recursive org-roam-directory "org" '("logseq/"))))
 (defun indexed--dir-files-recursive (dir suffix excludes)
   "Faster, purpose-made variant of `directory-files-recursively'.
@@ -435,6 +478,7 @@ already contains an abbreviated truename."
         paths))))
 
 (defun indexed--mk-work-vars ()
+  "Make alist of variables needed by `indexed-org-parser--parse-file'."
   (let ((org-link-bracket-re
          ;; Copy-pasta. Mmm.
          "\\[\\[\\(\\(?:[^][\\]\\|\\\\\\(?:\\\\\\\\\\)*[][]\\|\\\\+[^][]\\)+\\)]\\(?:\\[\\([^z-a]+?\\)]\\)?]")
@@ -491,6 +535,7 @@ Make it target only LINK-TYPES instead of all the cars of
 ;;; Commands
 
 (defun indexed-problems ()
+  "List problems encountered while parsing."
   (interactive)
   (if indexed--problems
       (indexed--pop-to-tabulated-list

@@ -1,5 +1,7 @@
-* indexed.el
+* Indexed
 An efficient cache of metadata about all your Org files.
+
+Builds very fast (1--2s for me).
 
 This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
 
@@ -25,9 +27,9 @@ Two different APIs to access the same data.
 
 Why two?  It's free.  When the data has been gathered anyway, there is no reason to /only/ insert it into a SQLite db, nor /only/ put it in a hash table.
 
-And hash table is nicer for simple lookups.  SQL excels for complex lookups.
+And hash table is nicer for simple lookups, SQL for complex lookups.
 
-For the elisp, see [[#appendix-i][Appendix I]]. For the SQL, see below.
+For the elisp, see [[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-i-api][Appendix I]]. For the SQL, see below.
 
 ** A SQLite database, for free
 
@@ -47,13 +49,15 @@ to
 (sqlite-select (indexed-roam) "select tag from tags where id = ?;" (list id))
 #+end_src
 
-or if you like opaque and mysterious aliases,
+or if you like mysterious aliases,
 
 #+begin_src elisp
 (indexed-roam "select tag from tags where id = ?;" id)
 #+end_src
 
 For now, you can't use the =[:select ...]= s-exp language from EmacSQL.  Someone would need to patch or repackage [[https://github.com/magit/emacsql/blob/main/emacsql-compiler.el][emacsql-compiler.el]] so it can format statements without quoting.
+
+Use command =M-x indexed-roam-explore= to see what's in your database!
 
 *** Diskless
 There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
@@ -116,59 +120,62 @@ The content before first heading, is now also recorded as an "entry".  This is n
 Small distinguisher: The zeroth-level entry can never have a TODO state, priority, SCHEDULED/DEADLINE, but implementation-wise, that just means several fields are nil.
 
 ** Appendix I: API
-:PROPERTIES:
-:CUSTOM_ID: appendix-i
-:END:
 
-- indexed-lnum
-- indexed-pos
-- indexed-file
-- indexed-id
-- indexed-title
-- indexed-olpath-to
-- indexed-heading-lvl
-- indexed-tags-inherited
-- indexed-tags-local
+Functions
+
 - indexed-deadline
-- indexed-priority
-- indexed-properties
-- indexed-scheduled
-- indexed-todo
-- indexed-mtime
-- indexed-origin
 - indexed-dest
-- indexed-type
 - indexed-entries
-- indexed-file-data
-- indexed-tags
-- indexed-file-title-or-basename
-- indexed-olpath-with-self
-- indexed-olpath-with-self-with-title
-- indexed-olpath-with-title
 - indexed-entries-in
-- indexed-id-nodes-in
-- indexed-id-links-to
-- indexed-links-from
 - indexed-entry-by-id
 - indexed-entry-near-lnum-in-file
 - indexed-entry-near-pos-in-file
+- indexed-file
+- indexed-file-data
+- indexed-file-title
+- indexed-file-title-or-basename
+- indexed-heading-above
+- indexed-heading-lvl
+- indexed-id
+- indexed-id-links-to
+- indexed-id-nodes-in
+- indexed-links-from
+- indexed-lnum
+- indexed-mtime
+- indexed-olpath-to
+- indexed-olpath-with-self
+- indexed-olpath-with-self-with-title
+- indexed-olpath-with-title
+- indexed-org-entries
+- indexed-org-files
+- indexed-org-id-nodes
+- indexed-org-links
+- indexed-origin
+- indexed-pos
+- indexed-priority
+- indexed-properties
 - indexed-property
 - indexed-property-assert
-- indexed-file-title
-- indexed-toptitle
 - indexed-root-heading-to
-- indexed-heading-above
+- indexed-scheduled
+- indexed-tags
+- indexed-tags-inherited
+- indexed-tags-local
+- indexed-title
+- indexed-todo
+- indexed-toptitle
+- indexed-type
+
+Hooks
+
+- indexed--pre-reset-hook
+- indexed--post-reset-functions
 - indexed-record-file-functions
 - indexed-record-entry-functions
 - indexed-record-link-functions
-- indexed-mode
-- indexed-problems
-- indexed-title-collisions
-- indexed-dead-id-links
-- indexed-org-entries
-- indexed-org-links
-- indexed-org-files
-- indexed-org-id-nodes
+
+Config
+
 - indexed-warn-title-collisions
 - indexed-seek-link-types
 - indexed-seek-id-nodes-only
