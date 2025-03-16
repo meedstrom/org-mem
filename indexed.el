@@ -341,8 +341,8 @@ If not running, start it."
                    :funcall-per-input #'indexed-org-parser--parse-file
                    :callback #'indexed--finalize-full)))
 
-;; Do M-x edebug-defun on `indexed-org-parser--parse-file',
-;; then eval this to start debugging.
+;; To debug: do M-x edebug-defun on `indexed-org-parser--parse-file',
+;; then eval this.
 ;; (indexed--debug-parse-file "~/org/some-file.org")
 (defun indexed--debug-parse-file (file)
   "Run `indexed-org-parser--parse-file' on FILE in correct environment."
@@ -350,11 +350,9 @@ If not running, start it."
     (set (car var) (cdr var)))
   (indexed-org-parser--parse-file file))
 
-;; (defvar indexed--old-ids-tbl nil)
 (defun indexed--finalize-full (parse-results _job)
   "Handle PARSE-RESULTS from `indexed--scan-full'."
   (run-hooks 'indexed--pre-reset-hook)
-  ;; (setq indexed--old-ids-tbl (copy-hash-table indexed--id<>entry))
   (clrhash indexed--id<>entry)
   (clrhash indexed--file<>data)
   (clrhash indexed--origin<>links)
