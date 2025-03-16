@@ -289,7 +289,7 @@ With SPECIFIC-FILES, only return data that involves those files."
         (print-length nil)
         (seen-files (make-hash-table :test 'equal)))
     (cl-loop
-     for entry in (indexed-org-id-nodes)
+     for entry in (indexed-id-nodes)
      as file = (indexed-file entry)
      when (or (not specific-files) (member file specific-files))
      do
@@ -322,7 +322,7 @@ With SPECIFIC-FILES, only return data that involves those files."
                    ;; Can we avoid prin1-to-string because we know exactly
                    ;; what data types these are?
                    (prin1-to-string (indexed-properties entry))
-                   (prin1-to-string (indexed-olpath-to entry)))
+                   (prin1-to-string (indexed-olpath entry)))
              node-rows)
        ;; See `org-roam-db-insert-refs'
        (cl-loop for ref in (indexed-roam-refs entry) do

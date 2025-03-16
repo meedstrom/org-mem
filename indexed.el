@@ -29,7 +29,7 @@
 ;; Builds fast.
 
 ;; Provides two APIs:
-;;  - regular elisp accessors such as `indexed-olpath-to', `indexed-pos' etc
+;;  - regular elisp accessors such as `indexed-olpath', `indexed-pos' etc
 ;;  - an in-memory SQLite database that mimics the org-roam database
 
 ;;; Code:
@@ -101,9 +101,6 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 (defvar indexed--file<>data (make-hash-table :test 'equal))
 (defvar indexed--file<>lnum.entry (make-hash-table :test 'equal)) ;; https://github.com/BurntSushi/ripgrep/discussions/3013
 
-;; TODO: change into functions
-(defun indexed-org-files ())
-
 ;; Hypothetical data types:
 
 ;; #s(entry    LNUM  POS   FILE     ID          TITLE   t      t      t       ...)
@@ -118,7 +115,7 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 (defsubst indexed-file (any)             "ANY." (aref any 2))
 (defsubst indexed-id (entry/file)        "ENTRY/FILE." (aref entry/file 3))
 (defsubst indexed-title (entry/file)     "ENTRY/FILE." (aref entry/file 4))
-(defsubst indexed-olpath-to (entry)      "ENTRY." (aref entry 8))
+(defsubst indexed-olpath (entry)      "ENTRY." (aref entry 8))
 (defsubst indexed-heading-lvl (entry)    "ENTRY." (aref entry 9))
 (defsubst indexed-tags-inherited (entry) "ENTRY." (aref entry 10))
 (defsubst indexed-tags-local (entry)     "ENTRY." (aref entry 11))
@@ -171,7 +168,7 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 
 (defun indexed-olpath-with-self (entry)
   "Outline path, including ENTRY\\='s own heading."
-  (append (indexed-olpath-to entry)
+  (append (indexed-olpath entry)
           (list (indexed-title entry))))
 
 (defalias 'indexed-olpath-with-title-with-self
@@ -189,8 +186,8 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
                      (indexed-file-title-or-basename entry)
                    (indexed-file-title entry))))
         (if top
-            (cons top (indexed-olpath-to entry))
-          (indexed-olpath-to entry)))
+            (cons top (indexed-olpath entry))
+          (indexed-olpath entry)))
     nil))
 
 (defun indexed-entries-in (files)
@@ -240,7 +237,7 @@ See also `indexed-roam-reflinks-to' and `indexed-links-from'."
    else do (setq last entry)))
 
 ;; TODO: when we put a list CRUMBS with more info abt outline context
-;; (defun indexed-olpath-to (entry)
+;; (defun indexed-olpath (entry)
 ;;   (mapcar #'caddr (indexed-crumbs entry)))
 
 (defun indexed-property (prop entry)
@@ -263,7 +260,7 @@ See also `indexed-roam-reflinks-to' and `indexed-links-from'."
 
 (defun indexed-root-heading-to (entry)
   "Root heading in tree that contains ENTRY."
-  (car (indexed-olpath-to entry)))
+  (car (indexed-olpath entry)))
 
 (defun indexed-heading-above (link)
   "Heading of entry where LINK is.
@@ -276,7 +273,7 @@ Does not require LINK to have an origin ID."
 ;; It is a common need to iterate over all entries. This is easier than doing
 ;; (cl-loop for entry being each hash-value of indexed--id<>entry ...)
 ;; every time.
-(defun indexed-org-id-nodes ()
+(defun indexed-id-nodes ()
   "All org-ID nodes.
 An org-ID node is an entry with an ID."
   (hash-table-values indexed--id<>entry))
@@ -287,6 +284,14 @@ An org-ID node is an entry with an ID."
    for lnum.entry being each hash-value of indexed--file<>lnum.entry
    append (cl-loop for (_lnum . entry) in lnum.entry
                    collect entry)))
+
+(defun indexed-entries ()
+  "All links."
+  (hash-table-values indexed--dest<>links))
+
+(defun indexed-org-files ()
+  "All Org files that have been indexed."
+  (hash-table-keys indexed--file<>data))
 
 
 ;;; Core logic

@@ -122,52 +122,65 @@ Small distinguisher: The zeroth-level entry can never have a TODO state, priorit
 
 ** Appendix I: API
 
-Functions
+There are three types of objects: /file-data/, /entry/ and /link/.  Many functions can operate on more than one type.
 
-- indexed-deadline
-- indexed-dest
-- indexed-entry-by-id
-- indexed-entry-near-lnum-in-file
-- indexed-entry-near-pos-in-file
+Polymorphic functions
 - indexed-file
 - indexed-file-data
 - indexed-file-title
 - indexed-file-title-or-basename
-- indexed-heading-above
-- indexed-heading-lvl
 - indexed-id
-- indexed-id-links-to
-- indexed-id-nodes-in
-- indexed-links-from
+- indexed-title
 - indexed-lnum
+- indexed-pos
+
+Functions operating on raw file paths
+- indexed-entry-near-lnum-in-file
+- indexed-entry-near-pos-in-file
+- indexed-id-nodes-in
+- indexed-entries-in
+
+Functions operating on raw id
+- indexed-entry-by-id
+- indexed-links-from
+
+Functions operating on FILE-DATA only
 - indexed-mtime
-- indexed-olpath-to
+
+Functions operating on LINK only
+- indexed-dest
+- indexed-origin
+- indexed-type
+- indexed-heading-above
+
+Functions operating on ENTRY only
+- indexed-deadline
+- indexed-heading-lvl
+- indexed-id-links-to
+- indexed-olpath
 - indexed-olpath-with-self
 - indexed-olpath-with-self-with-title
 - indexed-olpath-with-title
-- indexed-org-id-nodes
-- indexed-origin
-- indexed-pos
 - indexed-priority
 - indexed-properties
 - indexed-property
 - indexed-property-assert
+- indexed-roam-aliases
+- indexed-roam-reflinks-to
+- indexed-roam-refs
 - indexed-root-heading-to
 - indexed-scheduled
 - indexed-tags
 - indexed-tags-inherited
 - indexed-tags-local
-- indexed-title
 - indexed-todo
 - indexed-toptitle
-- indexed-type
 
-Functions to list a lot of objects
+Functions without argument (good for iterating over the entire cache)
 
-- indexed-id-nodes
 - indexed-entries
-- indexed-org-links
-- indexed-entries-in
+- indexed-id-nodes
+- indexed-links
 - indexed-org-files
 
 Hooks
@@ -178,7 +191,7 @@ Hooks
 - indexed-record-entry-functions
 - indexed-record-link-functions
 
-Config
+Config settings
 
 - indexed-warn-title-collisions
 - indexed-seek-link-types
