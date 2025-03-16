@@ -18,6 +18,7 @@ Data will exist after you setup like this and wait a second or two.
 #+begin_src elisp
 (setq indexed-org-dirs '("~/org" "~/Sync/notes"))
 (indexed-mode)
+(indexed-roam-mode) ;; optional
 #+end_src
 
 Two different APIs to access the same data.
@@ -125,8 +126,6 @@ Functions
 
 - indexed-deadline
 - indexed-dest
-- indexed-entries
-- indexed-entries-in
 - indexed-entry-by-id
 - indexed-entry-near-lnum-in-file
 - indexed-entry-near-pos-in-file
@@ -146,10 +145,7 @@ Functions
 - indexed-olpath-with-self
 - indexed-olpath-with-self-with-title
 - indexed-olpath-with-title
-- indexed-org-entries
-- indexed-org-files
 - indexed-org-id-nodes
-- indexed-org-links
 - indexed-origin
 - indexed-pos
 - indexed-priority
@@ -165,6 +161,14 @@ Functions
 - indexed-todo
 - indexed-toptitle
 - indexed-type
+
+Functions to list a lot of objects
+
+- indexed-id-nodes
+- indexed-entries
+- indexed-org-links
+- indexed-entries-in
+- indexed-org-files
 
 Hooks
 

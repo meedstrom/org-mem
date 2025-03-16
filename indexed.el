@@ -93,18 +93,16 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 
 ;;; Lisp API
 
-(defvar indexed--file<>data (make-hash-table :test 'equal))
 (defvar indexed--id<>entry (make-hash-table :test 'equal))
 (defvar indexed--id<>file (make-hash-table :test 'equal)) ;; Literally `org-id-locations'.
 (defvar indexed--origin<>links (make-hash-table :test 'equal))
 (defvar indexed--dest<>links (make-hash-table :test 'equal))
 (defvar indexed--title<>id (make-hash-table :test 'equal))
+(defvar indexed--file<>data (make-hash-table :test 'equal))
 (defvar indexed--file<>lnum.entry (make-hash-table :test 'equal)) ;; https://github.com/BurntSushi/ripgrep/discussions/3013
 
 ;; TODO: change into functions
-(defvar indexed-org-entries nil)
-(defvar indexed-org-links nil)
-(defvar indexed-org-files nil)
+(defun indexed-org-files ())
 
 ;; Hypothetical data types:
 
@@ -359,12 +357,9 @@ If not running, start it."
   (clrhash indexed--title<>id)
   (clrhash indexed--file<>lnum.entry)
   (clrhash indexed--id<>file)
-  (setq indexed-org-entries nil)
-  (setq indexed-org-links nil)
   (setq indexed--collisions nil)
   (seq-let (_missing-files file-data entries links problems) parse-results
     (dolist (fdata file-data)
-      (push (indexed-file fdata) indexed-org-files)
       (puthash (indexed-file fdata) fdata indexed--file<>data)
       (run-hook-with-args 'indexed-record-file-functions fdata))
     (dolist (entry entries)
@@ -554,7 +549,7 @@ Make it target only LINK-TYPES instead of all the cars of
                              (goto-char ,pos)))
                (format "%s" signal)))))
     (message "Congratulations, no problems scanning %d entries in %d files!"
-             (length indexed-org-entries)
+             (length (indexed-entries))
              (hash-table-count indexed--file<>data))))
 
 ;; TODO: Consider if/how below commands could be moved out of core
