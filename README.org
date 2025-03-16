@@ -197,7 +197,7 @@ Config settings
 - indexed-seek-link-types
 - indexed-seek-id-nodes-only
 - indexed-org-dirs
-- indexed-org-dirs-excludes
+- indexed-org-dirs-exclude
 
 ** Appendix II: Make your own database
 Steps:

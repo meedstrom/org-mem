@@ -441,9 +441,9 @@ Must load library \"org-roam\"."
   (if indexed-roam-mode
       (progn
         (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables -95)
-        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-db -91)))
-  (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables)
-  (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-db))
+        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-db -91))
+    (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables)
+    (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-db)))
 
 (provide 'indexed-roam)
 

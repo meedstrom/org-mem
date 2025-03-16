@@ -68,7 +68,7 @@ Users of org-ref would extend this to ~70 types."
   "List of directories to index."
   :type '(repeat directory))
 
-(defcustom indexed-org-dirs-excludes
+(defcustom indexed-org-dirs-exclude
   '("/logseq/bak/"
     "/logseq/version-files/"
     "/node_modules/"
@@ -377,12 +377,11 @@ If not running, start it."
           (let ((other-id (gethash title indexed--title<>id)))
             (when (and other-id (not (string= id other-id)))
               (push (list title id other-id) indexed--collisions)))
-          (if (gethash id indexed--id<>entry)
-              ;; Same ID twice!  Major user error, nothing should work.
-              (progn (push (list title id id) indexed--collisions)
-                     (error "Same ID found twice: %s" id))
-            (puthash id entry indexed--id<>entry)
-            (puthash title id indexed--title<>id))))
+          (when (gethash id indexed--id<>entry)
+            ;; Major user error!
+            (message "Same ID found twice: %s" id))
+          (puthash id entry indexed--id<>entry)
+          (puthash title id indexed--title<>id)))
       (run-hook-with-args 'indexed-record-entry-functions entry))
     (dolist (link links)
       (push link (gethash (indexed-origin link) indexed--origin<>links))
@@ -411,7 +410,7 @@ Note though that org-id would not necessarily have truenames."
     (indexed--abbrev-file-names
      (cl-loop for dir in (delete-dups (mapcar #'file-truename indexed-org-dirs))
               nconc (indexed--dir-files-recursive
-                     dir ".org" indexed-org-dirs-excludes)))))
+                     dir ".org" indexed-org-dirs-exclude)))))
 
 ;; (progn (ignore-errors (native-compile #'indexed--dir-files-recursive)) (benchmark-run 100 (indexed--dir-files-recursive org-roam-directory "org" '("logseq/"))))
 (defun indexed--dir-files-recursive (dir suffix excludes)
