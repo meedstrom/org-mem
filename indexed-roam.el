@@ -253,12 +253,13 @@ TABLE-SYM must be flat and divisible by N-COLS."
   (let ((template-row (concat "(" (string-join (make-list n-cols "?")
                                                ", ")
                               ")")))
-    `(sqlite-execute
-      ,db
-      (concat ,(format "INSERT INTO %S VALUES " table-sym)
-              (string-join (make-list (length ,table-sym) ,template-row)
-                           ", "))
-      (apply #'nconc ,table-sym))))
+    `(if ,table-sym
+         (sqlite-execute
+          ,db
+          (concat ,(format "INSERT INTO %S VALUES " table-sym)
+                  (string-join (make-list (length ,table-sym) ,template-row)
+                               ", "))
+          (apply #'nconc ,table-sym)))))
 
 (defun indexed-roam--populate (db row-sets)
   "Populate DB with ROW-SETS, an output of `indexed-roam--mk-rows'."
