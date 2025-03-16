@@ -388,8 +388,6 @@ Assume PLIST is a flat plist, with symbol keys and string values."
            " ")
           ")"))
 
-(indexed-property 'ROAM_ALIASES entry)
-
 
 ;;; Optional
 
