@@ -64,6 +64,19 @@ Use command =M-x indexed-roam-explore= to see what's in your database!
 There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
 
 There is little point modifying it.  Use =SELECT= queries only.
+
+*** Lists are strings
+
+The values in =nodes.properties=, =nodes.olp= and =files.mtime= are stringified lists.  Same as in EmacSQL, but EmacSQL is smart and reads back from string for you.  Alas, this database just works with the built-in =sqlite-select=.  Do it manually:
+
+#+begin_src elisp
+(let ((results
+       (sqlite-select
+        (indexed-roam)
+        "select properties from nodes where id = 'fde5cfe0-48e3-51ed-8c65-1ee702933925';")))
+  (car (read-from-string (caar results)))))
+#+end_src
+
 ** Data only
 
 A design choice: Indexed *only* delivers data.  It could easily ship conveniences like, let's call it a function "indexed-goto":
