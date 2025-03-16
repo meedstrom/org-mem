@@ -285,7 +285,7 @@ An org-ID node is an entry with an ID."
    append (cl-loop for (_lnum . entry) in lnum.entry
                    collect entry)))
 
-(defun indexed-entries ()
+(defun indexed-links ()
   "All links."
   (hash-table-values indexed--dest<>links))
 
