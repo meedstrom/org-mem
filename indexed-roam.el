@@ -17,12 +17,10 @@
 
 ;;; Commentary:
 
-;; A submodule to
+;; A submodule with two purposes
 
-;; 1. Also index ROAM_ALIASES and ROAM_REFS.
-;; 2. Make a SQL database.
-
-;; Activate `indexed-roam-mode'.
+;; 1. make Indexed aware of ROAM_ALIASES and ROAM_REFS
+;; 2. make a SQL database
 
 ;;; Code:
 
@@ -138,12 +136,26 @@ What this means?  See indexed-test.el"
   (indexed-roam))
 
 ;;;###autoload
+(define-minor-mode indexed-roam-mode
+  "Index extra things org-roam and org-node need to know."
+  :global t
+  :group 'indexed
+  (if indexed-roam-mode
+      (progn
+        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables -95)
+        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-db -91)
+        (indexed--scan-full))
+    (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables)
+    (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-db)))
+
+;;;###autoload
 (defun indexed-roam (&optional sql &rest args)
   "Return the SQLite handle to the org-roam-like database.
 Each call checks if it is alive, and renews if not.
 
 If arguments SQL and ARGS provided, pass to `sqlite-select'."
-  (cl-assert (member 'indexed-roam--mk-db indexed--post-reset-functions))
+  (unless indexed-roam-mode
+    (error "Enable `indexed-roam-mode' to use `indexed-roam'"))
   (or (ignore-errors (sqlite-pragma indexed-roam--connection "im_still_here"))
       (setq indexed-roam--connection (indexed-roam--open-new-db)))
   (if sql
@@ -227,7 +239,7 @@ LOC, write the database as a file to LOC."
 	FOREIGN KEY (source) REFERENCES nodes (id) ON DELETE CASCADE
 );"))
 
-  ;; That's it for theoretical compatibility with org-roam db version 19.
+  ;; That's it for theoretical compatibility with org-roam db.
   ;; Now play with perf settings.
   ;; https://www.sqlite.org/pragma.html
   ;; https://www.sqlite.org/inmemorydb.html
@@ -434,18 +446,6 @@ Must load library \"org-roam\"."
 
 ;;; Mode
 
-;;;###autoload
-(define-minor-mode indexed-roam-mode
-  "Index extra data sought by org-roam and org-node et al."
-  :global t
-  :group 'indexed
-  (if indexed-roam-mode
-      (progn
-        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables -95)
-        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-db -91)
-        (indexed--scan-full))
-    (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables)
-    (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-db)))
 
 (provide 'indexed-roam)
 

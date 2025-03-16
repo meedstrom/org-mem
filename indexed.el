@@ -60,10 +60,6 @@
 Users of org-ref would extend this to ~70 types."
   :type '(repeat string))
 
-(defcustom indexed-seek-id-nodes-only nil
-  "Performance knob."
-  :type 'boolean)
-
 (defcustom indexed-org-dirs '("~/org/")
   "List of directories to index."
   :type '(repeat directory))
@@ -385,6 +381,7 @@ If not running, start it."
       (push link (gethash (indexed-origin link) indexed--origin<>links))
       (push link (gethash (indexed-dest link)   indexed--dest<>links))
       (run-hook-with-args 'indexed-record-link-functions link))
+    (setq indexed--time-elapsed (float-time (time-since indexed--time-at-begin-full-scan)))
     (run-hook-with-args 'indexed--post-reset-functions parse-results)
     (when (and indexed--collisions indexed-warn-title-collisions)
       (message "Some ID nodes share title, see M-x indexed-title-collisions"))
