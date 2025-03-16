@@ -114,9 +114,7 @@ Users of org-ref would extend this to ~70 types."
 (defsubst indexed-properties (entry)     "ENTRY." (aref entry 14))
 (defsubst indexed-scheduled (entry)      "ENTRY." (aref entry 15))
 (defsubst indexed-todo (entry)           "ENTRY." (aref entry 16))
-
 (defsubst indexed-mtime (file)           "FILE." (aref file 7))
-
 (defsubst indexed-origin (link)          "LINK." (aref link 3))
 (defsubst indexed-dest (link)            "LINK." (aref link 4))
 (defsubst indexed-type (link)            "LINK." (aref link 5))
@@ -145,7 +143,8 @@ Users of org-ref would extend this to ~70 types."
 (defun indexed-entries ()
   (cl-loop
    for lnum.entry being each hash-value of indexed--file<>lnum.entry
-   collect (cdr lnum.entry)))
+   append (cl-loop for (_lnum . entry) in lnum.entry
+                   collect entry)))
 
 (defun indexed-file-data (thing)
   (if (vectorp thing)
@@ -268,7 +267,7 @@ Users of org-ref would extend this to ~70 types."
              (indexed--scan-full))
     (cancel-timer indexed--timer)))
 
-(defun indexed--activate-timer ()
+(defun indexed--activate-timer (&rest _)
   "Adjust `indexed--timer' based on duration of last indexing.
 If not running, start it."
   (let ((new-delay (* 25 (1+ indexed--time-elapsed))))
@@ -303,10 +302,13 @@ If not running, start it."
 
 ;; (indexed--scan-full)
 
+(defvar indexed--old-ids-tbl nil)
+
 (defun indexed--finalize-full (parse-results _job)
   (run-hooks 'indexed--pre-reset-hook)
-  (clrhash indexed--file<>data)
+  (setq indexed--old-ids-tbl (copy-hash-table indexed--id<>entry))
   (clrhash indexed--id<>entry)
+  (clrhash indexed--file<>data)
   (clrhash indexed--origin<>links)
   (clrhash indexed--dest<>links)
   (clrhash indexed--title<>id)
@@ -330,8 +332,12 @@ If not running, start it."
           (let ((other-id (gethash title indexed--title<>id)))
             (when (and other-id (not (string= id other-id)))
               (push (list title id other-id) indexed--collisions)))
-          (puthash id entry indexed--id<>entry)
-          (puthash title id indexed--title<>id)))
+          (if (gethash id indexed--id<>entry)
+              ;; Same ID twice!  Major user error, nothing should work.
+              (progn (push (list title id id) indexed--collisions)
+                     (error "Same ID found twice: %s" id))
+            (puthash id entry indexed--id<>entry)
+            (puthash title id indexed--title<>id))))
       (run-hook-with-args 'indexed-record-entry-functions entry))
     (dolist (link links)
       (push link (gethash (indexed-origin link) indexed--origin<>links))
@@ -362,7 +368,7 @@ Note though that org-id would not necessarily have truenames."
               nconc (indexed--dir-files-recursive
                      dir ".org" indexed-org-dirs-excludes)))))
 
-;; About 2x as fast as `directory-files-recursively' in my applications.
+;; At least 2x as fast as `directory-files-recursively' in my applications.
 ;; (progn (ignore-errors (native-compile #'indexed--dir-files-recursive)) (benchmark-run 100 (indexed--dir-files-recursive org-roam-directory "org" '("logseq/"))))
 (defun indexed--dir-files-recursive (dir suffix excludes)
   "Faster, purpose-made variant of `directory-files-recursively'.

@@ -1,21 +1,13 @@
 * indexed.el
 An efficient cache of metadata about all your Org files.
 
-This library came from asking myself "what could I move out of org-node, that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
+This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
 
 Many Org plugins now do reinvent the wheel, when it comes to keeping track of some or many files and what may be in them.
 
 Example: org-roam's DB, org-node's hash tables, orgrr's hash tables, ..., and some just re-run grep all the time, which still leads to writing elisp to cross-reference the results with something useful.
 
 And let's not talk about the org-agenda (try putting 2000 files into =org-agenda-files=).  It suffers on account of needing to open each file anew to know anything about them.
-
-#+begin_quote
-[ASIDE: I see ongoing effort in org-element to cache more and better, which has a lot of potential.
-
-We'll see where that goes but I'll point out that it makes sense to have two or more parsers for the same thing.  One that is /correct and complete/ (org-element's fancy computer-science AVL parse tree), one that is /fast but incomplete/ (what everyone is reinventing).
-
-Not least because when you run into org-element bugs -- which will happen -- you won't be stranded with nothing working.  This library does not even load Org, but can still tell you what entries you have where so you can jump to them and only /then/ load Org.]
-#+end_quote
 
 * Quick overview
 
@@ -35,9 +27,7 @@ Why two?  It's free.  When the data has been gathered anyway, there is no reason
 
 And hash table is nicer for simple lookups.  SQL excels for complex lookups.
 
-For the elisp, see file indexed.el.  That's your reference manual.
-
-For the SQL, see below.
+For the elisp, see [[#appendix-i][Appendix I]]. For the SQL, see below.
 
 * A SQLite database, for free
 
@@ -69,7 +59,6 @@ For now, you can't use the =[:select ...]= s-exp language from EmacSQL.  Someone
 There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
 
 There is little point modifying it.  Use =SELECT= queries only.
-
 * Data only
 
 A design choice: Indexed *only* delivers data.  It could easily ship conveniences like, let's call it a function "indexed-goto":
@@ -126,7 +115,67 @@ The content before first heading, is now also recorded as an "entry".  This is n
 
 Small distinguisher: The zeroth-level entry can never have a TODO state, priority, SCHEDULED/DEADLINE, but implementation-wise, that just means several fields are nil.
 
-* Appendix I: Make your own database
+* Appendix I: API
+:PROPERTIES:
+:CUSTOM_ID: appendix-i
+:END:
+
+- indexed-lnum
+- indexed-pos
+- indexed-file
+- indexed-id
+- indexed-title
+- indexed-olpath-to
+- indexed-heading-lvl
+- indexed-tags-inherited
+- indexed-tags-local
+- indexed-deadline
+- indexed-priority
+- indexed-properties
+- indexed-scheduled
+- indexed-todo
+- indexed-mtime
+- indexed-origin
+- indexed-dest
+- indexed-type
+- indexed-entries
+- indexed-file-data
+- indexed-tags
+- indexed-file-title-or-basename
+- indexed-olpath-with-self
+- indexed-olpath-with-self-with-title
+- indexed-olpath-with-title
+- indexed-entries-in
+- indexed-id-nodes-in
+- indexed-id-links-to
+- indexed-links-from
+- indexed-entry-by-id
+- indexed-entry-near-lnum-in-file
+- indexed-entry-near-pos-in-file
+- indexed-property
+- indexed-property-assert
+- indexed-file-title
+- indexed-toptitle
+- indexed-root-heading-to
+- indexed-heading-above
+- indexed-record-file-functions
+- indexed-record-entry-functions
+- indexed-record-link-functions
+- indexed-mode
+- indexed-problems
+- indexed-title-collisions
+- indexed-dead-id-links
+- indexed-org-entries
+- indexed-org-links
+- indexed-org-files
+- indexed-org-id-nodes
+- indexed-warn-title-collisions
+- indexed-seek-link-types
+- indexed-seek-id-nodes-only
+- indexed-org-dirs
+- indexed-org-dirs-excludes
+
+* Appendix II: Make your own database
 Steps:
 
 1. Read indexed-roam.el as a reference implementation

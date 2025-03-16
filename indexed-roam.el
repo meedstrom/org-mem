@@ -20,8 +20,8 @@
 ;;; Code:
 
 ;; on by default?
-;; (add-hook 'indexed--post-reset-functions 'indexed-roam--mk-lisp-tables -95)
-;; (add-hook 'indexed--post-reset-functions 'indexed-roam--mk-db)
+(add-hook 'indexed--post-reset-functions 'indexed-roam--mk-lisp-tables -95)
+(add-hook 'indexed--post-reset-functions 'indexed-roam--mk-db -91)
 
 ;; FIXME: how filter by stuff in org-roam-directory only?
 
@@ -30,8 +30,11 @@
 (require 'sqlite)
 (require 'sqlite-mode)
 (require 'indexed)
+
+;; TODO: Eliminate
 (eval-when-compile
-  (require 'ol))
+  (require 'ol)
+  (require 'org-macs))
 
 
 ;;; Aliases and refs support
@@ -259,6 +262,7 @@ LOC, write the database as a file to LOC."
       (indexed-roam--insert-en-masse db links 5))))
 
 ;; (benchmark-call #'indexed-roam--mk-rows)
+;; (prog1 nil (indexed-roam--mk-rows))
 
 (defun indexed-roam--mk-rows (&optional specific-files)
   "Return everything org-node knows, that org-roam can consume.
@@ -276,7 +280,7 @@ With SPECIFIC-FILES, only return data that involves those files."
         link-rows
         (seen-files (make-hash-table :test 'equal)))
     (cl-loop
-     for entry in indexed-org-entries
+     for entry in (indexed-org-id-nodes)
      as file = (indexed-file entry)
      when (or (not specific-files) (member file specific-files))
      do
@@ -303,12 +307,15 @@ With SPECIFIC-FILES, only return data that involves those files."
                    (and ..scheduled
                         (format-time-string
                          "%FT%T%z"
-                         (encode-time (parse-time-string ..scheduled))))
+                         (encode-time (org-parse-time-string ..scheduled))))
                    (and ..deadline
                         (format-time-string
                          "%FT%T%z"
-                         (encode-time (parse-time-string ..deadline))))
+                         (encode-time (org-parse-time-string ..deadline))))
                    (indexed-title entry)
+                   ;; FIXME: Perf hotspot here.
+                   ;; Can we avoid prin1-to-string because we know exactly
+                   ;; what data types these are?
                    (prin1-to-string (indexed-properties entry))
                    (prin1-to-string (indexed-olpath-to entry)))
              node-rows)
@@ -321,22 +328,21 @@ With SPECIFIC-FILES, only return data that involves those files."
                         ref-rows))))
      (dolist (link (append (indexed-id-links-to entry)
                            (indexed-roam-reflinks-to entry)))
-       (let ((origin-node (gethash (plist-get link :origin)
-                                   indexed--id<>entry)))
-         (unless origin-node
-           (error "Unknown ID: %s" (plist-get link :origin)))
-         (if (plist-get link :type)
-             ;; See `org-roam-db-insert-link'
-             (push (list (plist-get link :pos)
-                         (plist-get link :origin)
-                         (plist-get link :dest)
-                         (plist-get link :type))
-                   link-rows)
-           ;; See `org-roam-db-insert-citation'
-           (push (list (plist-get link :origin)
-                       (substring (plist-get link :dest) 1)
-                       (plist-get link :pos))
-                 citation-rows)))))
+       (let ((origin-node (gethash (indexed-origin link) indexed--id<>entry)))
+         (if (not origin-node)
+             (message "Unknown ID: %s" (indexed-origin link))
+           (if (indexed-type link)
+               ;; See `org-roam-db-insert-link'
+               (push (list (indexed-pos link)
+                           (indexed-origin link)
+                           (indexed-dest link)
+                           (indexed-type link))
+                     link-rows)
+             ;; See `org-roam-db-insert-citation'
+             (push (list (indexed-origin link)
+                         (substring (indexed-dest link) 1)
+                         (indexed-pos link))
+                   citation-rows))))))
     (list
      file-rows node-rows alias-rows citation-rows ref-rows tag-rows link-rows)))
 
