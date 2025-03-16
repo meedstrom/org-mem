@@ -18,7 +18,7 @@
 ;; Author:   Martin Edström <meedstrom91@gmail.com>
 ;; URL:      https://github.com/meedstrom/org-node
 ;; Created:  2025-03-15
-;; Keywords: org
+;; Keywords: text
 ;; Package-Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1") (el-job "2.2.0"))
 
@@ -56,10 +56,10 @@
 (defvar indexed-org-links nil)
 (defvar indexed-org-files nil)
 
+;; It is a common need to iterate over all entries, and this is easier than
+;; \(cl-loop for entry being each hash-value of indexed--id<>entry ...)
 (defun indexed-org-id-nodes ()
-  "
-It is a common need to iterate over all entries, and this is easier than
-\(cl-loop for entry being each hash-value of indexed--id<>entry ...)."
+  ""
   (hash-table-values indexed--id<>entry))
 
 (defcustom indexed-warn-title-collisions t
@@ -258,15 +258,6 @@ Users of org-ref would extend this to ~70 types."
 (defvar indexed-record-entry-functions nil)
 (defvar indexed-record-link-functions nil)
 
-(define-minor-mode indexed-mode
-  "."
-  :global t
-  (if indexed-mode
-      (progn (add-hook 'indexed--post-reset-functions 'indexed--activate-timer)
-             (indexed--activate-timer)
-             (indexed--scan-full))
-    (cancel-timer indexed--timer)))
-
 (defun indexed--activate-timer (&rest _)
   "Adjust `indexed--timer' based on duration of last indexing.
 If not running, start it."
@@ -278,6 +269,16 @@ If not running, start it."
       (cancel-timer indexed--timer)
       (setq indexed--timer
             (run-with-idle-timer new-delay t #'indexed--scan-full)))))
+
+;;;###autoload
+(define-minor-mode indexed-mode
+  "."
+  :global t
+  (if indexed-mode
+      (progn (add-hook 'indexed--post-reset-functions #'indexed--activate-timer)
+             (indexed--activate-timer)
+             (indexed--scan-full))
+    (cancel-timer indexed--timer)))
 
 (defvar indexed--time-at-begin-full-scan nil)
 (defun indexed--scan-full ()
@@ -434,8 +435,12 @@ already contains an abbreviated truename."
         paths))))
 
 (defun indexed--mk-work-vars ()
-  (let ((reduced-plain-re (indexed--mk-plain-re indexed-seek-link-types)))
+  (let ((org-link-bracket-re
+         ;; Copy-pasta. Mmm.
+         "\\[\\[\\(\\(?:[^][\\]\\|\\\\\\(?:\\\\\\\\\\)*[][]\\|\\\\+[^][]\\)+\\)]\\(?:\\[\\([^z-a]+?\\)]\\)?]")
+        (reduced-plain-re (indexed--mk-plain-re indexed-seek-link-types)))
     (list
+     (cons '$bracket-re org-link-bracket-re)
      (cons '$plain-re reduced-plain-re)
      (cons '$merged-re (concat org-link-bracket-re "\\|" reduced-plain-re))
      (cons '$inlinetask-min-level (bound-and-true-p org-inlinetask-min-level))

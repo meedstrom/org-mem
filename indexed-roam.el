@@ -19,12 +19,6 @@
 
 ;;; Code:
 
-;; on by default?
-(add-hook 'indexed--post-reset-functions 'indexed-roam--mk-lisp-tables -95)
-(add-hook 'indexed--post-reset-functions 'indexed-roam--mk-db -91)
-
-;; FIXME: how filter by stuff in org-roam-directory only?
-
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sqlite)
@@ -32,9 +26,8 @@
 (require 'indexed)
 
 ;; TODO: Eliminate
-(eval-when-compile
-  (require 'ol)
-  (require 'org-macs))
+(require 'ol)
+(require 'org-macs)
 
 
 ;;; Aliases and refs support
@@ -264,6 +257,7 @@ LOC, write the database as a file to LOC."
 ;; (benchmark-call #'indexed-roam--mk-rows)
 ;; (prog1 nil (indexed-roam--mk-rows))
 
+;; native-compile
 (defun indexed-roam--mk-rows (&optional specific-files)
   "Return everything org-node knows, that org-roam can consume.
 
@@ -278,6 +272,7 @@ With SPECIFIC-FILES, only return data that involves those files."
         ref-rows
         tag-rows
         link-rows
+        (print-length nil)
         (seen-files (make-hash-table :test 'equal)))
     (cl-loop
      for entry in (indexed-org-id-nodes)
@@ -305,15 +300,11 @@ With SPECIFIC-FILES, only return data that involves those files."
                    (indexed-todo entry)
                    (indexed-priority entry)
                    (and ..scheduled
-                        (format-time-string
-                         "%FT%T%z"
-                         (encode-time (org-parse-time-string ..scheduled))))
+                        (concat (substring ..scheduled 1 11) "T12:00:00"))
                    (and ..deadline
-                        (format-time-string
-                         "%FT%T%z"
-                         (encode-time (org-parse-time-string ..deadline))))
+                        (concat (substring ..deadline 1 11) "T12:00:00"))
                    (indexed-title entry)
-                   ;; FIXME: Perf hotspot here.
+                   ;; FIXME: Perf hotspot here. (30-70% of compute)
                    ;; Can we avoid prin1-to-string because we know exactly
                    ;; what data types these are?
                    (prin1-to-string (indexed-properties entry))
@@ -329,6 +320,8 @@ With SPECIFIC-FILES, only return data that involves those files."
      (dolist (link (append (indexed-id-links-to entry)
                            (indexed-roam-reflinks-to entry)))
        (let ((origin-node (gethash (indexed-origin link) indexed--id<>entry)))
+         (if (not (indexed-pos link))
+             (message "Null link pos in %s" link))
          (if (not origin-node)
              (message "Unknown ID: %s" (indexed-origin link))
            (if (indexed-type link)
@@ -336,12 +329,14 @@ With SPECIFIC-FILES, only return data that involves those files."
                (push (list (indexed-pos link)
                            (indexed-origin link)
                            (indexed-dest link)
-                           (indexed-type link))
+                           (indexed-type link)
+                           nil)
                      link-rows)
              ;; See `org-roam-db-insert-citation'
              (push (list (indexed-origin link)
                          (substring (indexed-dest link) 1)
-                         (indexed-pos link))
+                         (indexed-pos link)
+                         nil)
                    citation-rows))))))
     (list
      file-rows node-rows alias-rows citation-rows ref-rows tag-rows link-rows)))
@@ -422,6 +417,21 @@ Must load library \"org-roam\"."
                 (string-replace ", " ",\n\t"
                                 (emacsql-format exp table schema))
                 ";\""))))
+
+
+;;; Mode
+
+;;;###autoload
+(define-minor-mode indexed-roam-mode ()
+  :global t
+  (if indexed-roam-mode
+      (progn
+        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables -95)
+        ;; FIXME: Some niggling issues before we can enable by default
+        ;; (add-hook 'indexed--post-reset-functions 'indexed-roam--mk-db -91)
+        ))
+  (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables)
+  (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-db))
 
 (provide 'indexed-roam)
 

@@ -34,6 +34,7 @@
 
 ;; Tell compiler these aren't free variables
 (defvar $plain-re)
+(defvar $bracket-re)
 (defvar $merged-re)
 (defvar $global-todo-re)
 (defvar $nonheritable-tags)
@@ -67,8 +68,7 @@ Format string S for display - this means replace every link inside S
 with only their description if they have one, and in any case strip the
 brackets."
   (replace-regexp-in-string
-   ;; Copy-pasted value of `org-link-bracket-re'
-   "\\[\\[\\(\\(?:[^][\\]\\|\\\\\\(?:\\\\\\\\\\)*[][]\\|\\\\+[^][]\\)+\\)]\\(?:\\[\\([^z-a]+?\\)]\\)?]"
+   $bracket-re
    (lambda (m) (or (match-string 2 m) (match-string 1 m)))
    s nil t))
 
@@ -121,10 +121,10 @@ the subheading potentially has an ID of its own."
               (when chop (setq path (substring path 0 chop)))))
           (push (vector t
                         link-pos
-                      file
-                      id-here
-                      (string-replace "%20" " " path)
-                      link-type)
+                        file
+                        id-here
+                        (string-replace "%20" " " path)
+                        link-type)
                 indexed-org-parser--found-links))))
 
     ;; Start over and look for @citekeys
@@ -318,8 +318,7 @@ Also set some variables, including global variables."
                           nil
                           PROPS
                           nil
-                          nil
-                          )
+                          nil)
                   found-entries)
             (goto-char (point-max))
             ;; We should now be at the first heading
@@ -387,6 +386,7 @@ Also set some variables, including global variables."
                                 (+ 1 (point) (skip-chars-forward "^]>\n")))
                           (goto-char HERE))
                       nil))
+              (and SCHED (length< SCHED 11) (error "Malformed SCHEDULED"))
               (setq DEADLINE
                     (if (re-search-forward "[\t\s]*DEADLINE: +" FAR t)
                         (prog1 (buffer-substring
@@ -394,6 +394,7 @@ Also set some variables, including global variables."
                                 (+ 1 (point) (skip-chars-forward "^]>\n")))
                           (goto-char HERE))
                       nil))
+              (and DEADLINE (length< DEADLINE 11) (error "Malformed DEADLINE"))
               (when (or SCHED
                         DEADLINE
                         (re-search-forward "[\t\s]*CLOSED: +" FAR t))
@@ -454,8 +455,7 @@ Also set some variables, including global variables."
                              PRIORITY
                              PROPS
                              SCHED
-                             TODO-STATE
-                             )))
+                             TODO-STATE)))
                 (push entry found-entries))
 
               ;; Heading analyzed, now collect links in entry body!
