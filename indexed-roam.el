@@ -30,9 +30,6 @@
 (require 'sqlite-mode)
 (require 'indexed)
 
-;; TODO: Eliminate dependency
-(require 'ol)
-
 
 ;;; Aliases and refs support
 
@@ -334,7 +331,7 @@ With SPECIFIC-FILES, only return data that involves those files."
                    ;; FIXME: Perf hotspot here. (30-70% of compute)
                    ;; Can we avoid prin1-to-string because we know exactly
                    ;; what data types these are?
-                   (prin1-to-string (indexed-properties entry))
+                   (indexed-roam--convert-plist (indexed-properties entry))
                    (prin1-to-string (indexed-olpath entry)))
              node-rows)
        ;; See `org-roam-db-insert-refs'
@@ -377,6 +374,21 @@ With SPECIFIC-FILES, only return data that involves those files."
           ""         ; HACK: Hashing is slow, skip
           lisp-mtime ; HACK: org-roam doesn't use atime anyway
           lisp-mtime)))
+
+(defun indexed-roam--convert-plist (plist)
+  "Turn PLIST into a string.
+Assume PLIST is a flat plist, with symbol keys and string values."
+  (concat "("
+          (string-join
+           (cl-loop for (key value) on plist by #'cddr
+                    collect (concat "(\"" (substring (symbol-name key) 1)
+                                    "\" . "
+                                    (prin1-to-string value)
+                                    ")"))
+           " ")
+          ")"))
+
+(indexed-property 'ROAM_ALIASES entry)
 
 
 ;;; Optional
