@@ -19,6 +19,8 @@
 
 ;; Will add code here soon.
 
+;; Support keeping the cache up to date, without doing a reset so often.
+
 ;;; Code:
 
 
