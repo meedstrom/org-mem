@@ -1,0 +1,144 @@
+* indexed.el
+An efficient cache of metadata about all your Org files.
+
+This library came from asking myself "what could I move out of org-node, that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
+
+Many Org plugins now do reinvent the wheel, when it comes to keeping track of some or many files and what may be in them.
+
+Example: org-roam's DB, org-node's hash tables, orgrr's hash tables, ..., and some just re-run grep all the time, which still leads to writing elisp to cross-reference the results with something useful.
+
+And let's not talk about the org-agenda (try putting 2000 files into =org-agenda-files=).  It suffers on account of needing to open each file anew to know anything about them.
+
+#+begin_quote
+[ASIDE: I see ongoing effort in org-element to cache more and better, which has a lot of potential.
+
+We'll see where that goes but I'll point out that it makes sense to have two or more parsers for the same thing.  One that is /correct and complete/ (org-element's fancy computer-science AVL parse tree), one that is /fast but incomplete/ (what everyone is reinventing).
+
+Not least because when you run into org-element bugs -- which will happen -- you won't be stranded with nothing working.  This library does not even load Org, but can still tell you what entries you have where so you can jump to them and only /then/ load Org.]
+#+end_quote
+
+* Quick overview
+
+Data will exist after you setup like this and wait a second or two.
+
+#+begin_src elisp
+(setq indexed-org-dirs '("~/org" "~/Sync/notes"))
+(indexed-mode)
+#+end_src
+
+Two different APIs to access the same data.
+
+- sql
+- elisp
+
+Why two?  It's free.  When the data has been gathered anyway, there is no reason to /only/ insert it into a SQLite db, nor /only/ put it in a hash table.
+
+And hash table is nicer for simple lookups.  SQL excels for complex lookups.
+
+For the elisp, see file indexed.el.  That's your reference manual.
+
+For the SQL, see below.
+
+* A SQLite database, for free
+
+You can create your own database, but probably won't need to.  Included is a near-drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
+
+As a plugin dev, perhaps the main thing you needed from org-roam was its SQL database.  If so, you can now make your plugins useful to a wider crowd!
+
+Due to identical table schemata, you can often convert from e.g.
+
+#+begin_src elisp
+(org-roam-db-query [:select tag :from tags :where (= id $s1)] id)
+#+end_src
+
+to
+
+#+begin_src elisp
+(sqlite-select (indexed-roam) "select tag from tags where id = ?;" (list id))
+#+end_src
+
+or if you like opaque and mysterious aliases,
+
+#+begin_src elisp
+(indexed-roam "select tag from tags where id = ?;" id)
+#+end_src
+
+For now, you can't use the =[:select ...]= s-exp language from EmacSQL.  Someone would need to patch or repackage [[https://github.com/magit/emacsql/blob/main/emacsql-compiler.el][emacsql-compiler.el]] so it can format statements without quoting.
+
+** Diskless
+There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
+
+There is little point modifying it.  Use =SELECT= queries only.
+
+* Data only
+
+A design choice: Indexed *only* delivers data.  It could easily ship conveniences like, let's call it a function "indexed-goto":
+
+#+begin_src elisp
+(defun indexed-goto (entry)
+  (find-file (indexed-file entry))
+  (goto-char (indexed-pos entry))
+#+end_src
+
+but in my experience, that will spiral into dozens of lines over time, to handle a variety of edge cases, and then it will no longer be universally applicable.  Maybe you prefer to handle edge cases different than I do.
+
+So, it is up to you to write your own "goto" function.
+
+Plus, it'd sound weird -- a "goto" isn't a noun, can't be "indexed"!
+
+* RFC 1: Naming
+
+How would /you/ name a library that does what this does?
+
+It's essentially org-roam without any UI stuff, left as an exercise for the reader.  Or org-id with more info than just IDs.
+
+("org-lookup"?)
+
+It could be extended to track other file types---AsciiDoc, Markdown, RST---so you can be cosmopolitan and switch dialects according to mood.  "This Monday's living up to its name, think I'm gonna just chill in an AsciiDoc file".  That's my official justification for not putting an "org-" prefix or some such.
+
+My real justification is easier to read code that uses the API.
+
+Still, just "indexed-" feels a bit weird sometimes.
+
+# Would be sweet with global generics in Emacs like "level", "title", "line-num", "id" etc so you could just type =(level HEADING)= to get a heading's level...
+
+* RFC 2: What kinds of data do you want?
+
+Lots of info can be re-constructed once you have the right atoms to work with.
+
+For example, if you have scant info and only know a link's position and a list of headings with positions, you can still figure out what heading is above that exact link by finding whichever heading has the numerically nearest position, right?  Such calculations can even be cheap.
+
+But sometimes, a thing is very expensive to calculate, and then it's worth caching with an indexer like this.
+
+That's why among other things, Indexed stores *both the line number and the buffer position* of every entry.
+
+It's data I'd appreciate to find provided, when I need it.
+
+Funny thing with line numbers in Emacs, it's expensive to calculate them (but char position is cheap), and some tools like Ripgrep /only/ yield line number.  It's also expensive to calculate a char position back from line number, so you're left with no way to cross-reference things at scale without running the CPU hot.
+
+That is, unless you've indexed both.
+
+Let me know about any more things like this!
+
+* RFC 3: Should entries with heading level zero be called something else?
+
+The content before first heading, is now also recorded as an "entry".  This is not technically correct Org jargon.
+
+Small distinguisher: The zeroth-level entry can never have a TODO state, priority, SCHEDULED/DEADLINE, but implementation-wise, that just means several fields are nil.
+
+* Appendix I: Make your own database
+Steps:
+
+1. Read indexed-roam.el as a reference implementation
+
+   - See how it looks up the indexed data it needs.
+   - See which things require a =prin1-to-string=.
+   - See how arguments are ultimately passed to =sqlite-execute=.
+
+     Alas, this file got a bit hard to read after squeezing for performance, but it can be done simpler. [TODO: write a simple reference impl]
+
+2. Hook your own DB-creator onto =indexed--post-reset-functions=, or just on a repeating timer or some suitable hook.
+
+3. Done!
+
+# In a private branch, I'm preparing functionality to keep indexing in real time without doing a full reset so often.
