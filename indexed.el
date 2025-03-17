@@ -419,7 +419,9 @@ If not running, start it."
     (when indexed--next-message
       (setq indexed--next-message
             (format
-             "indexed: Analyzed %d entries (%d with ID) in %d files in %.2fs"
+             "indexed: Analyzed %d lines in %d entries (%d with ID) in %d files in %.2fs"
+             (apply #'+ (mapcar #'indexed-file-data-max-lines
+                                (hash-table-values indexed--file<>data)))
              (length (indexed-org-entries))
              (length (indexed-org-id-nodes))
              (length (indexed-org-files))
