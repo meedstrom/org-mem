@@ -341,9 +341,11 @@ If not running, start it."
   "Re-index every now and then."
   :global t
   (if indexed-mode
-      (progn (add-hook 'indexed-post-reset-functions #'indexed--activate-timer)
-             (indexed--activate-timer)
-             (indexed--scan-full))
+      (progn
+        (add-hook 'indexed-post-reset-functions #'indexed--activate-timer)
+        (indexed--activate-timer)
+        (indexed--scan-full))
+    (remove-hook 'indexed-post-reset-functions #'indexed--activate-timer)
     (cancel-timer indexed--timer)))
 
 (define-minor-mode indexed-update-on-save-mode
