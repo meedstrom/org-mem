@@ -396,6 +396,7 @@ If not running, start it."
     (set (car var) (cdr var)))
   (indexed-org-parser--parse-file file))
 
+(defvar indexed--id-collisions nil)
 (defun indexed--finalize-full (parse-results _job)
   "Handle PARSE-RESULTS from `indexed--scan-full'."
   (run-hooks 'indexed-pre-reset-functions)
@@ -432,6 +433,8 @@ If not running, start it."
     (run-hook-with-args 'indexed-post-reset-functions parse-results)
     (message "%s" indexed--next-message)
     (setq indexed--next-message nil)
+    (when indexed--id-collisions
+      (message "Saw same ID twice, see M-x indexed-list-id-collisions"))
     (when (and indexed--collisions indexed-warn-title-collisions)
       (message "Some IDs share title, see M-x indexed-list-title-collisions"))
     (when (setq indexed--problems problems)
@@ -453,10 +456,13 @@ If not running, start it."
         (when (and other-id (not (string= id other-id)))
           (push (list (format-time-string "%H:%M") title id other-id)
                 indexed--collisions)))
-      (when (gethash id indexed--id<>entry)
-        ;; major user error!
-        ;; should we just signal error and shut down everything?
-        (message "Same ID found twice: %s" id))
+      (when-let* ((other-entry (gethash id indexed--id<>entry)))
+        ;; user error, or bug
+        (push (list (format-time-string "%H:%M")
+                    id
+                    (indexed-title entry)
+                    (indexed-title other-entry))
+              indexed--id-collisions))
       (puthash id entry indexed--id<>entry)
       (puthash title id indexed--title<>id))))
 

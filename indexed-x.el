@@ -90,11 +90,11 @@
                    :load-features '(indexed-org-parser)
                    :funcall-per-input #'indexed-org-parser--parse-file
                    :inputs (ensure-list files)
-                   :callback #'indexed-x--finalize-modified)))
+                   :callback #'indexed-x--finalize-targeted)))
 
 (defvar indexed-x-pre-update-functions nil)
 (defvar indexed-x-post-update-functions nil)
-(defun indexed-x--finalize-modified (results _job)
+(defun indexed-x--finalize-targeted (results _job)
   "Use RESULTS to update tables.
 Argument JOB is the el-job object."
   (run-hook-with-args 'indexed-x-pre-update-functions results)
@@ -114,10 +114,7 @@ Argument JOB is the el-job object."
       (push prob indexed--problems))
     (run-hook-with-args 'indexed-x-post-update-functions results)
     (when problems
-      (message "Scan had problems, see M-x org-node-list-scan-problems"))
-    ;; (run-hook-with-args 'org-node-rescan-functions
-    ;; (append missing-files found-files))
-    ))
+      (message "Scan had problems, see M-x org-node-list-scan-problems"))))
 
 (defvar indexed-x-forget-file-functions nil)
 (defvar indexed-x-forget-entry-functions nil)
