@@ -1,10 +1,13 @@
 * Indexed
 An efficient cache of metadata about all your Org files.
 
-Builds very fast.  Numbers from my =M-x indexed-reset=:
+Builds very fast.
+
+Numbers from my =M-x indexed-reset=:
 
 #+begin_example
-indexed: Analyzed 160616 lines in 10734 entries (3397 with ID) in 2394 files in 1.37s + 0.16s to build SQLite DB
+indexed: Analyzed 160616 lines in 10734 entries (3397 with ID)
+         in 2394 files in 1.37s + 0.16s to build SQLite DB
 #+end_example
 
 This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
@@ -13,7 +16,7 @@ Many Org plugins now do reinvent the wheel, when it comes to keeping track of so
 
 Example: org-roam's DB, org-node's hash tables, orgrr's hash tables, ..., and some just re-run grep all the time, which still leads to writing elisp to cross-reference the results with something useful.
 
-And let's not talk about the org-agenda (try putting 2000 files into =org-agenda-files=).  It suffers on account of needing to open each file anew to know anything about them.
+And let's not talk about the org-agenda (try putting 2000 files into =org-agenda-files=).  It needs to open each file in real-time to know anything about them, so it grinds to a halt.
 
 ** Quick overview
 
@@ -34,7 +37,7 @@ Why two?  It's free.  When the data has been gathered anyway, there is no reason
 
 And hash table is nicer for simple lookups, SQL for complex lookups.
 
-For the elisp, see [[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-i-api][Appendix I]].
+For the elisp, see [[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-i-api][Appendix I]]. For the SQL, see below.
 
 ** A SQLite database, for free
 
