@@ -137,7 +137,7 @@ What this means?  See indexed-test.el."
                  path)))))
 
 
-;;; Database
+;;; Mode
 
 (defvar indexed-roam--connection nil
   "A SQLite handle.")
@@ -167,6 +167,9 @@ What this means?  See indexed-test.el."
     (remove-hook 'indexed-x-post-update-functions #'indexed-roam--record-refs)
     (remove-hook 'indexed-x-post-update-functions #'indexed-roam--update-db)
     (remove-hook 'indexed-post-reset-functions #'indexed-roam--mk-db)))
+
+
+;;; Database
 
 ;;;###autoload
 (defun indexed-roam (&optional sql &rest args)
@@ -346,7 +349,9 @@ With SPECIFIC-FILES, only return data that involves those files."
                    (indexed-pos entry)
                    (indexed-todo entry)
                    (indexed-priority entry)
-                   ;; HACK: efficient
+                   ;; HACK: efficient. `indexed-org-parser--parse-file' will
+                   ;; warn the user on finding a SCHEDULED/DEADLINE not
+                   ;; 11+ chars long, so this is safe.
                    (and ..scheduled
                         (concat (substring ..scheduled 1 11) "T12:00:00"))
                    (and ..deadline

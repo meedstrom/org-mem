@@ -316,6 +316,7 @@ An org-ID node is an entry with an ID."
 (defvar indexed--timer (timer-create))
 (defvar indexed--problems nil)
 (defvar indexed--collisions nil)
+(defvar indexed--id-collisions nil)
 (defvar indexed--time-elapsed 1.0)
 
 (defvar indexed-pre-reset-functions nil)
@@ -349,9 +350,8 @@ If not running, start it."
     (cancel-timer indexed--timer)))
 
 (define-minor-mode indexed-update-on-save-mode
-  ""
+  "Update cache when Emacs saves or deletes a file."
   :global t
-  :group 'indexed
   (if indexed-update-on-save-mode
       (progn
         (require 'indexed-x)
@@ -362,19 +362,10 @@ If not running, start it."
     ;; (advice-remove 'rename-file         #'indexed-x--handle-rename)
     (advice-remove 'delete-file         #'indexed-x--handle-delete)))
 
-;; (defun indexed--manual-message (&rest _)
-;;   (remove-hook 'indexed-post-reset-functions #'indexed--manual-message)
-;;   (format "indexed: Analyzed %d entries (%d with ID) in %d files in %.2fs"
-;;            (length (indexed-org-entries))
-;;            (length (indexed-org-id-nodes))
-;;            (length (indexed-org-files))
-;;            (float-time (time-since indexed--time-at-begin-full-scan))))
-
 (defvar indexed--next-message nil)
 (defun indexed-reset ()
   (interactive)
   (setq indexed--next-message t)
-  ;; (add-hook 'indexed-post-reset-functions #'indexed--manual-message -5)
   (indexed--scan-full))
 
 (defvar indexed--time-at-begin-full-scan nil)
@@ -398,7 +389,6 @@ If not running, start it."
     (set (car var) (cdr var)))
   (indexed-org-parser--parse-file file))
 
-(defvar indexed--id-collisions nil)
 (defun indexed--finalize-full (parse-results _job)
   "Handle PARSE-RESULTS from `indexed--scan-full'."
   (run-hooks 'indexed-pre-reset-functions)
@@ -471,8 +461,8 @@ If not running, start it."
 
 ;;; Subroutines
 
-;; (benchmark-call #'indexed--relist-org-files)  => 0.009714744 s
-;; (benchmark-call #'org-roam-list-files)        => 1.488666741 s
+;; (benchmark-call #'indexed--relist-org-files)  => 0.026 s
+;; (benchmark-call #'org-roam-list-files)        => 4.141 s
 (defun indexed--relist-org-files ()
   "Query filesystem for Org files under `indexed-org-dirs'.
 
