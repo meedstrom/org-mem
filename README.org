@@ -1,7 +1,11 @@
 * Indexed
 An efficient cache of metadata about all your Org files.
 
-Builds very fast (1--2s for me).
+Builds very fast.  Numbers from my =M-x indexed-reset=:
+
+#+begin_example
+indexed: Analyzed 160616 lines in 10734 entries (3397 with ID) in 2394 files in 1.37s + 0.16s to build SQLite DB
+#+end_example
 
 This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
 
@@ -101,7 +105,7 @@ How would /you/ name a library that does what this does?
 
 It's essentially org-roam without any UI stuff, left as an exercise for the reader.  Or org-id with more info than just IDs.
 
-("org-lookup"?)
+("org-lookup"? "docdb"?)
 
 It could be extended to track other file types---AsciiDoc, Markdown, RST---so you can be cosmopolitan and switch dialects according to mood.  "This Monday's living up to its name, think I'm gonna just chill in an AsciiDoc file".  That's my official justification for not putting an "org-" prefix or some such.
 
@@ -120,8 +124,6 @@ For example, if you have scant info and only know a link's position and a list o
 But sometimes, a thing is very expensive to calculate, and then it's worth caching with an indexer like this.
 
 That's why among other things, Indexed stores *both the line number and the buffer position* of every entry.
-
-It's data I'd appreciate to find provided, when I need it.
 
 Funny thing with line numbers in Emacs, it's expensive to calculate them (but char position is cheap), and some tools like Ripgrep /only/ yield line number.  It's also expensive to calculate a char position back from line number, so you're left with no way to cross-reference things at scale without running the CPU hot.
 
