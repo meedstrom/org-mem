@@ -200,8 +200,8 @@ Functions without argument (good for iterating over the entire cache)
 
 Hooks
 
-- indexed--pre-reset-hook
-- indexed--post-reset-functions
+- indexed-pre-reset-functions
+- indexed-post-reset-functions
 - indexed-record-file-functions
 - indexed-record-entry-functions
 - indexed-record-link-functions
@@ -225,7 +225,7 @@ Steps:
 
      Alas, this file got a bit hard to read after squeezing for performance, but it can be done simpler. [TODO: write a simple reference impl]
 
-2. Hook your own DB-creator onto =indexed--post-reset-functions=, or just on a repeating timer or some suitable hook.
+2. Hook your own DB-creator onto =indexed-post-reset-functions=, or just on a repeating timer or some suitable hook.
 
 3. Done!
 

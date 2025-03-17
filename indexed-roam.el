@@ -26,9 +26,10 @@
 
 (require 'cl-lib)
 (require 'subr-x)
+(require 'seq)
+(require 'indexed)
 (require 'sqlite)
 (require 'sqlite-mode)
-(require 'indexed)
 
 
 ;;; Aliases and refs support
@@ -52,15 +53,39 @@
   (when-let* ((aliases (indexed-property :ROAM_ALIASES entry)))
     (split-string-and-unquote aliases)))
 
-(defun indexed-roam--mk-lisp-tables (indexing-results)
-  "Designed for `indexed--post-reset-functions'.
-Loop over INDEXING-RESULTS to record aliases and refs."
+(defun indexed-roam--record-aliases (entry)
+  "Add any ENTRY aliases to `indexed--title<>id'."
+  (when-let* ((id (indexed-id entry)))
+    (dolist (alias (indexed-roam-aliases entry))
+      ;; Include aliases in the collision-checks
+      (when-let* ((other-id (gethash alias indexed--title<>id)))
+        (unless (string= id other-id)
+          (push (list alias id other-id) indexed--collisions)))
+      (puthash alias id indexed--title<>id))))
+
+(defun indexed-roam--forget-aliases-refs (entry)
+  (dolist (ref (indexed-roam-refs entry))
+    (dolist (id (gethash ref indexed-roam--ref<>id))
+      (remhash id indexed-roam--id<>refs))
+    (remhash ref indexed-roam--ref<>id))
+  (dolist (alias (indexed-roam-aliases entry))
+    (remhash title indexed--title<>id)))
+
+(defun indexed-roam--wipe-lisp-tables (_)
   (clrhash indexed-roam--ref<>id)
-  (clrhash indexed-roam--id<>refs)
-  (with-current-buffer (setq indexed-roam--work-buf
-                             (get-buffer-create " *indexed-roam*" t))
+  (clrhash indexed-roam--id<>refs))
+
+(defun indexed-roam--record-refs (indexing-results)
+  "Loop over all INDEXING-RESULTS and record the ROAM_REFS.
+This allows the accessor `indexed-roam-refs' to work.
+
+Designed for both `indexed-post-reset-functions' and
+`indexed-x-post-update-functions'."
+  (save-current-buffer
+    ;; PERF: Reuse one temp buffer.
+    (set-buffer (setq indexed-roam--work-buf
+                      (get-buffer-create " *indexed-roam*" t)))
     (dolist (entry (nth 2 indexing-results))
-      (indexed-roam--record-aliases entry)
       (when-let* ((id (indexed-id entry))
                   (refs (indexed-roam--split-refs-field
                          (indexed-property :ROAM_REFS entry))))
@@ -68,19 +93,9 @@ Loop over INDEXING-RESULTS to record aliases and refs."
         (dolist (ref refs)
           (puthash ref id indexed-roam--ref<>id))))))
 
-(defun indexed-roam--record-aliases (entry)
-  "Add any ENTRY aliases to `indexed--title<>id'."
-  (when-let* ((id (indexed-id entry)))
-    (dolist (alias (indexed-roam-aliases entry))
-      ;; Check collisions with aliases too
-      (when-let* ((other-id (gethash alias indexed--title<>id)))
-        (unless (string= id other-id)
-          (push (list alias id other-id) indexed--collisions)))
-      (puthash alias id indexed--title<>id))))
-
 (defun indexed-roam--split-refs-field (roam-refs)
   "Split a ROAM-REFS field correctly.
-What this means?  See indexed-test.el"
+What this means?  See indexed-test.el."
   (when roam-refs
     (cl-assert (eq (current-buffer) indexed-roam--work-buf))
     (erase-buffer)
@@ -96,7 +111,7 @@ What this means?  See indexed-test.el"
               (push (buffer-substring (+ 2 beg) (1- (search-forward "]")))
                     links)
               (delete-region beg end))
-          (error "Missing close-bracket in ROAM_REFS property")))
+          (error "Missing close-bracket in ROAM_REFS property %s" roam-refs)))
       ;; Return merged list
       (cl-loop
        for link? in (append links (split-string-and-unquote (buffer-string)))
@@ -128,22 +143,27 @@ What this means?  See indexed-test.el"
 
 (defun indexed-roam--mk-db (_)
   "Close current `indexed-roam--connection' and populate a new one."
-  (interactive)
   (ignore-errors (sqlite-close indexed-roam--connection))
   (indexed-roam))
 
 ;;;###autoload
 (define-minor-mode indexed-roam-mode
-  "Index extra things org-roam and org-node need to know."
+  "Index extra things that org-roam and org-node need to know."
   :global t
   :group 'indexed
   (if indexed-roam-mode
       (progn
-        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables -95)
-        (add-hook 'indexed--post-reset-functions #'indexed-roam--mk-db -91)
+        (add-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases)
+        (add-hook 'indexed-x-forget-entry-functions #'indexed-roam--forget-aliases-refs)
+        (add-hook 'indexed-post-reset-functions    #'indexed-roam--record-refs -95)
+        (add-hook 'indexed-x-post-update-functions #'indexed-roam--record-refs)
+        (add-hook 'indexed-post-reset-functions #'indexed-roam--mk-db)
         (indexed--scan-full))
-    (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-lisp-tables)
-    (remove-hook 'indexed--post-reset-functions #'indexed-roam--mk-db)))
+    (remove-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases)
+    (remove-hook 'indexed-x-forget-entry-functions #'indexed-roam--forget-aliases-refs)
+    (remove-hook 'indexed-post-reset-functions    #'indexed-roam--record-refs)
+    (remove-hook 'indexed-x-post-update-functions #'indexed-roam--record-refs)
+    (remove-hook 'indexed-post-reset-functions #'indexed-roam--mk-db)))
 
 ;;;###autoload
 (defun indexed-roam (&optional sql &rest args)
@@ -258,7 +278,7 @@ LOC, write the database as a file to LOC."
 Insert into a table inside DB of the same name.
 
 N-COLS must be the expected number of columns, and the list named
-TABLE-SYM must be flat and divisible by N-COLS."
+TABLE-SYM must only contain lists of exactly that many items."
   (let ((template-row (concat "(" (string-join (make-list n-cols "?")
                                                ", ")
                               ")")))
@@ -328,9 +348,6 @@ With SPECIFIC-FILES, only return data that involves those files."
                    (and ..deadline
                         (concat (substring ..deadline 1 11) "T12:00:00"))
                    (indexed-title entry)
-                   ;; FIXME: Perf hotspot here. (30-70% of compute)
-                   ;; Can we avoid prin1-to-string because we know exactly
-                   ;; what data types these are?
                    (indexed-roam--convert-plist (indexed-properties entry))
                    (prin1-to-string (indexed-olpath entry)))
              node-rows)

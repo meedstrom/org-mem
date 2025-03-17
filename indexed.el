@@ -20,7 +20,7 @@
 ;; Created:  2025-03-15
 ;; Keywords: text
 ;; Package-Version: 0.1.0
-;; Package-Requires: ((emacs "29.1") (el-job "2.2.0"))
+;; Package-Requires: ((emacs "29.1") (llama "0.5.0") (el-job "2.2.0"))
 
 ;;; Commentary:
 
@@ -44,8 +44,14 @@
 
 (require 'cl-lib)
 (require 'subr-x)
+(require 'seq)
 (require 'indexed-org-parser)
 (require 'el-job)
+
+(define-obsolete-variable-alias
+  'indexed--pre-reset-hook 'indexed-pre-reset-functions "2025-03-17")
+(define-obsolete-variable-alias
+  'indexed--post-reset-functions 'indexed-post-reset-functions "2025-03-17")
 
 (defgroup indexed nil "Cache metadata on all Org files."
   :group 'text)
@@ -84,7 +90,6 @@ if they contain no Org files.  However, directories that start with a
 period or underscore are always ignored, so no need to specify
 e.g. \"~/.local/\" or \".git/\" for that reason."
   :type '(repeat string))
-
 
 
 ;;; Lisp API
@@ -298,7 +303,6 @@ An org-ID node is an entry with an ID."
   (gethash (gethash title indexed--title<>id)
            indexed--id<>entry))
 
-
 
 ;;; Core logic
 
@@ -307,8 +311,8 @@ An org-ID node is an entry with an ID."
 (defvar indexed--collisions nil)
 (defvar indexed--time-elapsed 1.0)
 
-(defvar indexed--pre-reset-hook nil)
-(defvar indexed--post-reset-functions nil)
+(defvar indexed-pre-reset-functions nil)
+(defvar indexed-post-reset-functions nil)
 (defvar indexed-record-file-functions nil)
 (defvar indexed-record-entry-functions nil)
 (defvar indexed-record-link-functions nil)
@@ -330,7 +334,7 @@ If not running, start it."
   "Re-index every now and then."
   :global t
   (if indexed-mode
-      (progn (add-hook 'indexed--post-reset-functions #'indexed--activate-timer)
+      (progn (add-hook 'indexed-post-reset-functions #'indexed--activate-timer)
              (indexed--activate-timer)
              (indexed--scan-full))
     (cancel-timer indexed--timer)))
@@ -358,7 +362,7 @@ If not running, start it."
 
 (defun indexed--finalize-full (parse-results _job)
   "Handle PARSE-RESULTS from `indexed--scan-full'."
-  (run-hooks 'indexed--pre-reset-hook)
+  (run-hooks 'indexed-pre-reset-functions)
   (clrhash indexed--id<>entry)
   (clrhash indexed--file<>data)
   (clrhash indexed--origin<>links)
@@ -372,32 +376,34 @@ If not running, start it."
       (puthash (indexed-file fdata) fdata indexed--file<>data)
       (run-hook-with-args 'indexed-record-file-functions fdata))
     (dolist (entry entries)
-      (let ((id   (indexed-id entry))
-            (file (indexed-file entry))
-            (lnum (indexed-lnum entry))
-            (title (indexed-title entry)))
-        (push (cons lnum entry) (gethash file indexed--file<>lnum.entry))
-        (when id
-          (let ((other-id (gethash title indexed--title<>id)))
-            (when (and other-id (not (string= id other-id)))
-              (push (list title id other-id) indexed--collisions)))
-          (when (gethash id indexed--id<>entry)
-            ;; Major user error!
-            (message "Same ID found twice: %s" id))
-          (puthash id entry indexed--id<>entry)
-          (puthash title id indexed--title<>id)))
+      (indexed--record-entry entry)
       (run-hook-with-args 'indexed-record-entry-functions entry))
     (dolist (link links)
       (push link (gethash (indexed-origin link) indexed--origin<>links))
       (push link (gethash (indexed-dest link)   indexed--dest<>links))
       (run-hook-with-args 'indexed-record-link-functions link))
     (setq indexed--time-elapsed (float-time (time-since indexed--time-at-begin-full-scan)))
-    (run-hook-with-args 'indexed--post-reset-functions parse-results)
+    (run-hook-with-args 'indexed-post-reset-functions parse-results)
     (when (and indexed--collisions indexed-warn-title-collisions)
       (message "Some ID nodes share title, see M-x indexed-title-collisions"))
     (when (setq indexed--problems problems)
       (message "Indexing had problems, see M-x indexed-problems"))))
 
+(defun indexed--record-entry (entry)
+  (let ((id   (indexed-id entry))
+        (file (indexed-file entry))
+        (lnum (indexed-lnum entry))
+        (title (indexed-title entry)))
+    (push (cons lnum entry) (gethash file indexed--file<>lnum.entry))
+    (when id
+      (let ((other-id (gethash title indexed--title<>id)))
+        (when (and other-id (not (string= id other-id)))
+          (push (list title id other-id) indexed--collisions)))
+      (when (gethash id indexed--id<>entry)
+        ;; Major user error!
+        (message "Same ID found twice: %s" id))
+      (puthash id entry indexed--id<>entry)
+      (puthash title id indexed--title<>id))))
 
 ;;; Subroutines
 
@@ -537,6 +543,18 @@ Make it target only LINK-TYPES instead of all the cars of
 
 
 ;;; Commands
+;; TODO: Consider if/how this stuff ought to be moved out of core
+
+(defun indexed--goto-file-pos (file.pos)
+  "Go to FILE at POS."
+  (find-file (car file.pos))
+  (goto-char (cdr file.pos)))
+
+(defun indexed--goto-id (id)
+  "Go to ID."
+  (let ((entry (indexed-entry-by-id id)))
+    (find-file (indexed-file entry))
+    (goto-char (indexed-pos entry))))
 
 (defun indexed-problems ()
   "List problems encountered while parsing."
@@ -549,19 +567,16 @@ Make it target only LINK-TYPES instead of all the cars of
        :entries
        (cl-loop
         for ( time file pos signal ) in indexed--problems collect
-        (list (+ (sxhash file) pos)
-              (vector
-               time
-               (buttonize (format "%s:%d" (file-name-nondirectory file) pos)
-                          `(lambda (_button)
-                             (find-file ,file)
-                             (goto-char ,pos)))
-               (format "%s" signal)))))
+        (list (sxhash (cons file pos))
+              (vector time
+                      (buttonize (format "%s:%d" (file-name-nondirectory file)
+                                         pos)
+                                 #'indexed--goto-file-pos
+                                 (cons file pos))
+                      (format "%s" signal)))))
     (message "Congratulations, no problems scanning %d entries in %d files!"
              (length (indexed-entries))
              (hash-table-count indexed--file<>data))))
-
-;; TODO: Consider if/how below commands could be moved out of core
 
 (defun indexed-title-collisions ()
   "Pop up a buffer listing title collisions between org-ID nodes."
@@ -569,24 +584,19 @@ Make it target only LINK-TYPES instead of all the cars of
   (if indexed--collisions
       (indexed--pop-to-tabulated-list
        :buffer "*title collisions*"
-       :format [("Non-unique name" 30 t) ("ID" 37 t) ("Other ID" 0 t)]
+       :format [("Time" 5 t) ("Shared name" 30 t) ("ID" 37 t) ("Other ID" 0 t)]
        :reverter #'indexed-title-collisions
        :entries (cl-loop
                  for row in indexed--collisions
-                 collect (seq-let (msg id1 id2) row
+                 collect (seq-let (name id1 id2) row
                            (list
                             (sxhash row)
-                            (vector msg
-                                    (buttonize id1 'indexed--goto-id id1)
-                                    (buttonize id2 'indexed--goto-id id2))))))
+                            (vector (format-time-string "%H:%M")
+                                    name
+                                    (buttonize id1 #'indexed--goto-id id1)
+                                    (buttonize id2 #'indexed--goto-id id2))))))
     (message "Congratulations, no title collisions! (among %d ID-nodes)"
              (hash-table-count indexed--title<>id))))
-
-(defun indexed--goto-id (id)
-  "Go to ID in unsophisticated way."
-  (let ((entry (indexed-entry-by-id id)))
-    (find-file (indexed-file entry))
-    (goto-char (indexed-pos entry))))
 
 (defun indexed-dead-id-links ()
   "List links that lead to no known ID."
@@ -617,8 +627,7 @@ Make it target only LINK-TYPES instead of all the cars of
                                     (goto-char ,(indexed-pos link)))
                                  dest))))))))
 
-;; wrapper so i dont have to remember the boilerplate,
-;; nor update in many places
+;; so i dont have to remember the boilerplate nor update in many places
 (cl-defun indexed--pop-to-tabulated-list (&key buffer format entries reverter)
   "Create, populate and display a `tabulated-list-mode' buffer.
 
