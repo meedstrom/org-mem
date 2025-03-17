@@ -116,24 +116,7 @@ My real justification is easier to read code that uses the API.
 
 Still, just "indexed-" feels a bit weird sometimes.
 
-# Would be sweet with global generics in Emacs like "level", "title", "line-num", "id" etc so you could just type =(level HEADING)= to get a heading's level...
-
-** RFC 2: What kinds of data do you want?
-
-Lots of info can be re-constructed once you have the right atoms to work with.
-
-For example, if you have scant info and only know a link's position and a list of headings with positions, you can still figure out what heading is above that exact link by finding whichever heading has the numerically nearest position, right?  Such calculations can even be cheap.
-
-But sometimes, a thing is very expensive to calculate, and then it's worth caching with an indexer like this.
-
-That's why among other things, Indexed stores *both the line number and the buffer position* of every entry.
-
-Funny thing with line numbers in Emacs, it's expensive to calculate them (but char position is cheap), and some tools like Ripgrep /only/ yield line number.  It's also expensive to calculate a char position back from line number, so you're left with no way to cross-reference things at scale without running the CPU hot.
-
-That is, unless you've indexed both.
-
-Let me know about any more things like this!
-
+** +RFC 2+
 ** RFC 3: Should entries with heading level zero be called something else?
 
 The content before first heading, is now also recorded as an "entry".  This is not technically correct Org jargon.
@@ -212,12 +195,15 @@ Hooks
 - indexed-record-file-functions
 - indexed-record-entry-functions
 - indexed-record-link-functions
+- indexed-x-pre-update-functions
+- indexed-x-post-update-functions
+- indexed-x-forget-file-functions
+- indexed-x-forget-entry-functions
 
 Config settings
 
 - indexed-warn-title-collisions
 - indexed-seek-link-types
-- indexed-seek-id-nodes-only
 - indexed-org-dirs
 - indexed-org-dirs-exclude
 

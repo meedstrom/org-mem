@@ -199,7 +199,7 @@ LOC, write the database as a file to LOC."
     (when indexed--next-message
       (setq indexed--next-message
             (concat indexed--next-message
-                    (format " + %.2fs to build %s"
+                    (format " (+ %.2fs to build %s)"
                             (float-time (time-since T)) name))))
     db))
 

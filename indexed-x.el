@@ -79,9 +79,6 @@
 ;;                 (mapcar #'file-truename)
 ;;                 (indexed--abbrev-file-names))))
 
-;; FIXME: Hook `indexed-x-pre-update-functions' should run,
-;;        either go back to just running `indexed-x--scan-targeted' or
-;;        make a "forget-file-functions" hook?
 (defun indexed-x--handle-delete (file &optional _trash)
   "Arrange to forget nodes and links in FILE."
   (when indexed-mode
@@ -207,6 +204,7 @@ Unlike `indexed-x-ensure-buffer-file-known', this will re-record no
 matter what, which is useful in the context that a heading title has
 changed."
   (require 'org)
+  (require 'ol)
   (when (and buffer-file-truename
              (derived-mode-p 'org-mode))
     (indexed-x-ensure-buffer-file-known)
@@ -252,8 +250,8 @@ changed."
               :scheduled (cdr (assoc "SCHEDULED" props))))))))))
 
 (defun indexed-x--tags-at-point-inherited-only ()
-  "Like `org-get-tags', but get only the inherited tags.
-Respects `org-tags-exclude-from-inheritance'."
+  "Like `org-get-tags', but get only the inherited tags."
+  (require 'org)
   (let ((all-tags (if org-use-tag-inheritance
                       ;; NOTE: Above option can have complex rules.
                       ;; This will handle them correctly, but it's moot as
