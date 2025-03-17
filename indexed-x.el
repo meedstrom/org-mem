@@ -34,6 +34,19 @@
 (require 'seq)
 (require 'llama)
 (require 'indexed)
+(require 'indexed-org-parser)
+(defvar org-use-tag-inheritance)
+(defvar org-trust-scanner-tags)
+(declare-function org-current-level "org")
+(declare-function org-entry-beginning-position "org")
+(declare-function org-entry-get-with-inheritance "org")
+(declare-function org-entry-properties "org")
+(declare-function org-get-heading "org")
+(declare-function org-get-outline-path "org")
+(declare-function org-get-tags "org")
+(declare-function org-get-title "org")
+(declare-function org-get-todo-state "org")
+(declare-function org-link-display-format "ol")
 (declare-function tramp-tramp-file-p "tramp")
 
 (defun indexed-x--tramp-file-p (file)
@@ -158,6 +171,100 @@ Put the forgotten links into `indexed-x-last-removed-links'."
                           do (push link indexed-x-last-removed-links)
                           else collect link)
                  indexed--dest<>links))))
+
+
+;;; Helper API for weird situations
+
+(defun indexed-x-ensure-buffer-file-known ()
+  "Ensure file data is in cache right now.
+Use this if you cannot wait for `indexed-update-on-save-mode'
+to pick it up."
+  (require 'org)
+  (when (and buffer-file-truename
+             (derived-mode-p 'org-mode)
+             (not (gethash buffer-file-truename indexed--file<>data))
+             (file-exists-p buffer-file-truename))
+    ;; Satisfice w/ incomplete data for now
+    (puthash buffer-file-truename
+             (record 'indexed-file-data
+                     buffer-file-truename
+                     (org-get-title)
+                     0
+                     (point-max)
+                     nil)
+             indexed--file<>data)
+    ;; XXX HACK untested
+    (when-let* ((boundp 'el-job--all-jobs)
+                (job-for-later (gethash 'indexed-x el-job--all-jobs)))
+      (push buffer-file-truename (el-job-queued-inputs job-for-later)))))
+
+(defun indexed-x-ensure-entry-at-point-known ()
+  "Record the entry at point.
+Use this if you cannot wait for `indexed-update-on-save-mode'
+to pick it up.
+
+Unlike `indexed-x-ensure-buffer-file-known', this will re-record no
+matter what, which is useful in the context that a heading title has
+changed."
+  (require 'org)
+  (when (and buffer-file-truename
+             (derived-mode-p 'org-mode))
+    (indexed-x-ensure-buffer-file-known)
+    (let ((id (org-entry-get-with-inheritance "ID"))
+          (case-fold-search t))
+      (save-excursion
+        (without-restriction
+          (when id
+            (goto-char (point-min))
+            (re-search-forward (concat "^[\t\s]*:id: +" (regexp-quote id))))
+          (let ((props (cl-loop
+                        with props = (org-entry-properties)
+                        for cell in props
+                        do (setcar cell (intern (concat ":" (car cell))))
+                        finally return props))
+                (heading (org-get-heading t t t t))
+                (ftitle (org-get-title)))
+            (when heading
+              (setq heading (org-link-display-format
+                             (substring-no-properties heading))))
+            (when ftitle
+              (setq ftitle (org-link-display-format
+                            (substring-no-properties ftitle))))
+            (indexed--record-entry
+             (indexed-org-entry--make-obj
+              :id id
+              :title (or heading ftitle)
+              :file-name buffer-file-truename
+              :pos (if heading (org-entry-beginning-position) 1)
+              ;; NOTE: Don't use `org-reduced-level' since indexed-org-parser.el
+              ;;       also does not correct for that
+              :heading-lvl (or (org-current-level) 0)
+              :olpath (org-get-outline-path)
+              :lnum (if heading (line-number-at-pos
+                                 (org-entry-beginning-position) t)
+                      1)
+              :priority nil ;; HACK
+              :properties props
+              :tags-local (org-get-tags nil t)
+              :tags-inherited (indexed-x--tags-at-point-inherited-only)
+              :todo-state (when heading (org-get-todo-state))
+              :deadline (cdr (assoc "DEADLINE" props))
+              :scheduled (cdr (assoc "SCHEDULED" props))))))))))
+
+(defun indexed-x--tags-at-point-inherited-only ()
+  "Like `org-get-tags', but get only the inherited tags.
+Respects `org-tags-exclude-from-inheritance'."
+  (let ((all-tags (if org-use-tag-inheritance
+                      ;; NOTE: Above option can have complex rules.
+                      ;; This will handle them correctly, but it's moot as
+                      ;; `indexed-org-parser--parse-file' will not.
+                      (org-get-tags)
+                    (let ((org-use-tag-inheritance t)
+                          (org-trust-scanner-tags nil))
+                      (org-get-tags)))))
+    (cl-loop for tag in all-tags
+             when (get-text-property 0 'inherited tag)
+             collect (substring-no-properties tag))))
 
 (provide 'indexed-x)
 

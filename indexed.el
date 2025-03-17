@@ -167,7 +167,7 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 (defalias 'indexed-scheduled      #'indexed-org-entry-scheduled)
 (defalias 'indexed-tags-inherited #'indexed-org-entry-tags-inherited)
 (defalias 'indexed-tags-local     #'indexed-org-entry-tags-local)
-(defalias 'indexed-todo           #'indexed-org-entry-todo-state)
+(defalias 'indexed-todo           #'indexed-org-entry-todo-state) ;;XXX
 (defalias 'indexed-dest           #'indexed-org-link-dest)
 (defalias 'indexed-origin         #'indexed-org-link-nearby-id) ;;XXX
 (defalias 'indexed-type           #'indexed-org-link-type)
