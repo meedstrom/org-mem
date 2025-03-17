@@ -82,22 +82,6 @@
         (indexed-x--forget-links-from
          (mapcar #'indexed-id (indexed-entries-in file)))))))
 
-(defun indexed-x-record-entry (&rest args)
-  "See `indexed-org-entry--make-obj' for ARGS."
-  (let ((link (apply #'indexed-org-link--make-obj args)))
-    (cl-destructuring-bind (&key dest origin) args
-      
-      (push link (gethash dest indexed--dest<>links))  
-      (push link (gethash origin indexed--origin<>links)))))
-
-(defun indexed-x-record-link (&rest args)
-  "See `indexed-org-link--make-obj' for ARGS."
-  (let ((link (apply #'indexed-org-link--make-obj args)))
-    (cl-destructuring-bind (&key dest origin) args
-      
-      (push link (gethash dest indexed--dest<>links))  
-      (push link (gethash origin indexed--origin<>links)))))
-
 (defun indexed-x--scan-targeted (files)
   "Arrange to scan FILES."
   (when files
@@ -124,8 +108,7 @@ Argument JOB is the el-job object."
       (indexed--record-entry entry)
       (run-hook-with-args 'indexed-record-entry-functions entry))
     (dolist (link links)
-      (push link (gethash (indexed-origin link) indexed--origin<>links))
-      (push link (gethash (indexed-dest link)   indexed--dest<>links))
+      (indexed--record-link link)
       (run-hook-with-args 'indexed-record-link-functions link))
     (dolist (prob problems)
       (push prob indexed--problems))

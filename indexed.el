@@ -52,6 +52,9 @@
 ;; TODO: Reconsider whether `indexed-org-entry-properties' should be a plist
 ;;       or alist.  Probably change to alist.
 
+;; TODO: Collect clocks so you can check for dangling clocks at init
+;;       without slowing down init
+
 (require 'cl-lib)
 (require 'subr-x)
 (require 'seq)
