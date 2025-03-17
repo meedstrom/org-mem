@@ -289,6 +289,16 @@ An org-ID node is an entry with an ID."
   "All Org files that have been indexed."
   (hash-table-keys indexed--file<>data))
 
+;; new
+
+(defun indexed-id-by-title (title)
+  (gethash title indexed--title<>id))
+
+(defun indexed-id-node-by-title (title)
+  (gethash (gethash title indexed--title<>id)
+           indexed--id<>entry))
+
+
 
 ;;; Core logic
 

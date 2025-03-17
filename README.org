@@ -77,6 +77,8 @@ The values in =nodes.properties=, =nodes.olp= and =files.mtime= are stringified 
   (car (read-from-string (caar results)))))
 #+end_src
 
+Or use the elisp API instead: =(indexed-properties NODE)=.
+
 ** Data only
 
 A design choice: Indexed *only* delivers data.  It could easily ship conveniences like, let's call it a function "indexed-goto":
