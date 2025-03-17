@@ -40,7 +40,14 @@
 ;; TODO: Awareness of CUSTOM_ID, not just ID
 
 ;; TODO: Collect links even if there is no nearby-id (aka "origin"),
-;;       bc file + pos can still locate it
+;;       bc file + pos can still locate it.
+
+;;       Then let `indexed-links-from' print 'em all.
+
+;; TODO: Replace olpath in the struct with a list CRUMBS with more info,
+;;       then calc olpath like
+;; (defun indexed-olpath (entry)
+;;   (mapcar #'caddr (indexed-crumbs entry)))
 
 (require 'cl-lib)
 (require 'subr-x)
@@ -97,70 +104,140 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 (defvar indexed--file<>data (make-hash-table :test 'equal))
 (defvar indexed--file<>entries (make-hash-table :test 'equal))
 
-;; Hypothetical data types:
+(cl-defstruct (indexed-file-data (:constructor nil) (:copier nil))
+  (file-name  () :read-only t :type string)
+  (file-title () :read-only t :type string)
+  (max-lines  () :read-only t :type integer)
+  (mtime      () :read-only t :type integer)
+  (ptmax      () :read-only t :type integer)
+  (toplvl-id  () :read-only t :type string))
 
-;; #s(entry    LNUM  POS   FILE     ID          TITLE   t      t      t       ...)
-;; #s(file     LINES PTMAX t        TOPLVL-ID   TITLE   t      t      MTIME)
-;; #s(link     t     POS   FILE     NEARBY-ID   DEST   TYPE)
-;; #s(citation t     POS   FILE     NEARBY-ID   DEST)
+(cl-defstruct (indexed-org-link (:constructor nil) (:copier nil))
+  (dest      () :read-only t :type string)
+  (file-name () :read-only t :type string)
+  (nearby-id () :read-only t :type string)
+  (pos       () :read-only t :type integer)
+  (type      () :read-only t :type string))
 
-;; prolly gonna regret this
-;; but I lisp for a reason
-(defsubst indexed-lnum (thing) "Line-number of THING." (aref thing 0))
-(defsubst indexed-pos (thing) "Char position of THING." (aref thing 1))
-(defsubst indexed-file (thing) "File name where THING is." (aref thing 2))
-(defsubst indexed-id (entry/file) "Org-ID of ENTRY/FILE." (aref entry/file 3))
-(defsubst indexed-title (entry/file) "Title of ENTRY/FILE." (aref entry/file 4))
-(defsubst indexed-olpath (entry) "Outline path to ENTRY." (aref entry 8))
-(defsubst indexed-heading-lvl (entry) "Number of stars in ENTRY heading." (aref entry 9))
-(defsubst indexed-tags-inherited (entry) "Tags inherited by ENTRY." (aref entry 10))
-(defsubst indexed-tags-local (entry) "Tags defined on ENTRY." (aref entry 11))
-(defsubst indexed-deadline (entry) "Org DEADLINE date under ENTRY." (aref entry 12))
-(defsubst indexed-priority (entry) "Priority of ENTRY." (aref entry 13))
-(defsubst indexed-properties (entry) "Plist of properties for ENTRY." (aref entry 14))
-(defsubst indexed-scheduled (entry) "Org SCHEDULED date under ENTRY." (aref entry 15))
-(defsubst indexed-todo (entry) "TODO-state of ENTRY." (aref entry 16))
-(defsubst indexed-mtime (file) "FILE\\='s last-modification time, integer." (aref file 7))
-(defsubst indexed-origin (link) "Nearby ID where LINK was found." (aref link 3))
-(defsubst indexed-dest (link) "Destination of LINK." (aref link 4))
-(defsubst indexed-type (link) "LINK type." (aref link 5))
+(cl-defstruct (indexed-org-entry (:constructor nil) (:copier nil))
+  (deadline       () :read-only t :type string)
+  (file-name      () :read-only t :type string)
+  (heading-lvl    () :read-only t :type integer)
+  (id             () :read-only t :type string)
+  (lnum           () :read-only t :type integer)
+  (olpath         () :read-only t :type list)
+  (pos            () :read-only t :type integer)
+  (priority       () :read-only t :type string)
+  (properties     () :read-only t :type list)
+  (scheduled      () :read-only t :type string)
+  (tags-inherited () :read-only t :type list)
+  (tags-local     () :read-only t :type list)
+  (title          () :read-only t :type string)
+  (todo-state     () :read-only t :type string))
 
-;; The proper way to do it...
+(cl-defgeneric indexed-pos (thing)
+  "Get char position of THING."
+  (:method ((x indexed-org-entry)) (indexed-org-entry-pos x))
+  (:method ((x indexed-org-link)) (indexed-org-link-pos x)))
 
-;; (cl-defstruct (indexed-file-data (:constructor nil) (:copier nil)) lines ptmax toplvl-id file mtime)
-;; (cl-defstruct (indexed-org-entry (:constructor nil) (:copier nil)) lnum pos file id title crumbs heading-lvl tags-inherited tags-local deadline priority properties scheduled todo)
-;; (cl-defstruct (indexed-org-link (:constructor nil) (:copier nil)) pos file nearby-id dest type)
-;; (cl-defgeneric indexed-pos ()
-;;   (:method ((x indexed-org-entry)) (indexed-org-entry-pos x))
-;;   (:method ((x indexed-org-link)) (indexed-org-link-pos x)))
-;; (cl-defgeneric indexed-lnum ()
-;;   (:method ((x indexed-file-data)) (indexed-file-data-lines x))
-;;   (:method ((x indexed-org-entry)) (indexed-org-entry-lnum x)))
-;; (cl-defgeneric indexed-file ()
-;;   (:method ((x indexed-org-link)) (indexed-org-link-file x))
-;;   (:method ((x indexed-org-entry)) (indexed-org-entry-file x))
-;;   (:method ((x indexed-file-data)) (indexed-file-data-file x)))
-;; (cl-defgeneric indexed-id ()
-;;   (:method ((x indexed-org-link)) (indexed-org-link-origin x))
-;;   (:method ((x indexed-org-entry)) (indexed-org-entry-id x))
-;;   (:method ((x indexed-file-data)) (indexed-file-data-toplvl-id x)))
-;; ...
+(cl-defgeneric indexed-file-name (thing)
+  "Name of file name where THING is."
+  (:method ((x indexed-org-link)) (indexed-org-link-file-name x))
+  (:method ((x indexed-org-entry)) (indexed-org-entry-file-name x))
+  (:method ((x indexed-file-data)) (indexed-file-data-file-name x)))
+
+;; Short...
+;; Could become generics if supporting other file types than Org.
+(defalias 'indexed-title          #'indexed-org-entry-title)
+(defalias 'indexed-olpath         #'indexed-org-entry-olpath)
+(defalias 'indexed-deadline       #'indexed-org-entry-deadline)
+(defalias 'indexed-heading-lvl    #'indexed-org-entry-heading-lvl)
+(defalias 'indexed-priority       #'indexed-org-entry-priority)
+(defalias 'indexed-properties     #'indexed-org-entry-properties)
+(defalias 'indexed-lnum           #'indexed-org-entry-lnum)
+(defalias 'indexed-id             #'indexed-org-entry-id)
+(defalias 'indexed-scheduled      #'indexed-org-entry-scheduled)
+(defalias 'indexed-tags-inherited #'indexed-org-entry-tags-inherited)
+(defalias 'indexed-tags-local     #'indexed-org-entry-tags-local)
+(defalias 'indexed-todo           #'indexed-org-entry-todo-state)
+(defalias 'indexed-dest           #'indexed-org-link-dest)
+(defalias 'indexed-origin         #'indexed-org-link-nearby-id) ;;XXX
+(defalias 'indexed-type           #'indexed-org-link-type)
+
+(defun indexed-entry-by-id (id)
+  "The entry with ID."
+  (gethash id indexed--id<>entry))
+
+(defun indexed-entry-near-lnum-in-file (lnum file)
+  "The entry at line-number LNUM in FILE."
+  (cl-loop
+   with last
+   for entry in (gethash file indexed--file<>entries)
+   if (<= lnum (indexed-lnum entry)) return (or last entry)
+   else do (setq last entry)))
+
+(defun indexed-entry-near-pos-in-file (pos file)
+  "The entry at char-position POS in FILE."
+  (cl-loop
+   with last
+   for entry in (gethash file indexed--file<>entries)
+   if (<= pos (indexed-pos entry)) return (or last entry)
+   else do (setq last entry)))
+
+(defun indexed-entries-in (files)
+  "All entries in FILES."
+  (cl-loop for file in (ensure-list files)
+           append (gethash file indexed--file<>entries)))
 
 (defun indexed-file-data (thing)
-  "Return file-data object for wherever THING is."
-  (if (vectorp thing)
-      (gethash (indexed-file thing) indexed--file<>data)
-    (gethash thing indexed--file<>data)))
+  "Return file-data object for wherever THING is.
+If THING is a file name, return the object for that file name."
+  (gethash (if (stringp thing) thing (indexed-file-name thing))
+           indexed--file<>data))
 
-(defun indexed-tags (entry)
-  "ENTRY tags, with inheritance."
-  (delete-dups (append (indexed-tags-local entry)
-                       (indexed-tags-inherited entry))))
+(defalias 'indexed-mtime
+  (defun indexed-file-mtime (thing)
+    (indexed-file-data-mtime (indexed-file-data thing))))
+
+(defun indexed-file-title (thing)
+  "From file where THING is, return value of #+title."
+  (indexed-file-data-file-title (indexed-file-data thing)))
 
 (defun indexed-file-title-or-basename (thing)
   "The #+title, fall back on file basename, where THING is."
   (or (indexed-file-title thing)
-      (file-name-nondirectory (indexed-file thing))))
+      (file-name-nondirectory (indexed-file-name thing))))
+
+(defun indexed-heading-above (link)
+  "Heading of entry where LINK is."
+  (let ((entry (indexed-entry-near-pos-in-file (indexed-file-name link)
+                                               (indexed-pos link))))
+    (unless (= 0 (indexed-heading-lvl entry))
+      (indexed-title entry))))
+
+(defun indexed-id-nodes-in (files)
+  "All ID-nodes in FILES."
+  (setq files (ensure-list files))
+  (cl-loop for entry being each hash-value of indexed--id<>entry
+           when (member (indexed-file-name entry) files)
+           collect entry))
+
+(defun indexed-links-from (id)
+  "All links found under the entry with ID."
+  (gethash id indexed--origin<>links))
+
+(defun indexed-id-by-title (title)
+  "The ID that currently corresponds to TITLE."
+  (gethash title indexed--title<>id))
+
+(defun indexed-id-links-to (entry)
+  "All ID-links that point to ENTRY."
+  (gethash (indexed-id entry) indexed--dest<>links))
+
+(defun indexed-id-node-by-title (title)
+  "Among entries that have ID, find the one titled TITLE."
+  (gethash (gethash title indexed--title<>id)
+           indexed--id<>entry))
 
 (defun indexed-olpath-with-self (entry)
   "Outline path, including ENTRY\\='s own heading."
@@ -186,53 +263,22 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
           (indexed-olpath entry)))
     nil))
 
-(defun indexed-entries-in (files)
-  "All entries in FILES."
-  (cl-loop for file in (ensure-list files)
-           append (gethash file indexed--file<>entries))
+(defun indexed-org-entries ()
+  "All entries."
+  (apply #'append (hash-table-values indexed--file<>entries)))
 
-(defun indexed-id-nodes-in (files)
-  "All ID-nodes in FILES."
-  (setq files (ensure-list files))
-  (cl-loop for entry being each hash-value of indexed--id<>entry
-           when (member (indexed-file entry) files)
-           collect entry))
+(defun indexed-org-files ()
+  "All Org files that have been indexed."
+  (hash-table-keys indexed--file<>data))
 
-;; cannot make a plain all-links-to, bc there are many kinds of org links i
-;; havent even considered parsing.  will be easier for `indexed-links-from' to
-;; print em anyway as no need to resolve them.  thats a todo
-(defun indexed-id-links-to (entry)
-  "All ID-links that point to ENTRY.
-See also `indexed-roam-reflinks-to' and `indexed-links-from'."
-  (gethash (indexed-id entry) indexed--dest<>links))
+(defun indexed-org-id-nodes ()
+  "All org-ID nodes.
+An org-ID node is an entry with an ID."
+  (hash-table-values indexed--id<>entry))
 
-(defun indexed-links-from (id)
-  "All links found under the entry with ID."
-  (gethash id indexed--origin<>links))
-
-(defun indexed-entry-by-id (id)
-  "The entry with ID."
-  (gethash id indexed--id<>entry))
-
-(defun indexed-entry-near-lnum-in-file (lnum file)
-  "The entry at line-number LNUM in FILE."
-  (cl-loop
-   with last
-   for entry in (gethash file indexed--file<>entries)
-   if (<= lnum (indexed-lnum entry)) return (or last entry)
-   else do (setq last entry)))
-
-(defun indexed-entry-near-pos-in-file (pos file)
-  "The entry at char-position POS in FILE."
-  (cl-loop
-   with last
-   for entry in (gethash file indexed--file<>entries)
-   if (<= pos (indexed-pos entry)) return (or last entry)
-   else do (setq last entry)))
-
-;; TODO: when we put a list CRUMBS with more info abt outline context
-;; (defun indexed-olpath (entry)
-;;   (mapcar #'caddr (indexed-crumbs entry)))
+(defun indexed-org-links ()
+  "All links."
+  (hash-table-values indexed--dest<>links))
 
 (defun indexed-property (prop entry)
   "Value of property PROP in ENTRY."
@@ -243,52 +289,18 @@ See also `indexed-roam-reflinks-to' and `indexed-links-from'."
   (or (plist-get (indexed-properties entry) prop)
       (error "No property %s in entry %s" prop entry)))
 
-(defun indexed-file-title (thing)
-  "From file where THING is, return value of #+title."
-  (indexed-title (indexed-file-data thing)))
-
-;; IDK if useful, throwing stuff at a wall here.
-(defun indexed-toptitle (file)
-  "File #+title or topmost heading in FILE."
-  (indexed-title (car (indexed-entries-in file))))
-
 (defun indexed-root-heading-to (entry)
   "Root heading in tree that contains ENTRY."
   (car (indexed-olpath entry)))
 
-(defun indexed-heading-above (link)
-  "Heading of entry where LINK is.
-Does not require LINK to have an origin ID."
-  (let ((entry (indexed-entry-near-lnum-in-file (indexed-file link)
-                                                (indexed-lnum link))))
-    (unless (= 0 (indexed-heading-lvl entry))
-      (indexed-title entry))))
+(defun indexed-tags (entry)
+  "ENTRY tags, with inheritance."
+  (delete-dups (append (indexed-tags-local entry)
+                       (indexed-tags-inherited entry))))
 
-(defun indexed-id-nodes ()
-  "All org-ID nodes.
-An org-ID node is an entry with an ID."
-  (hash-table-values indexed--id<>entry))
-
-(defun indexed-entries ()
-  "All entries."
-  (apply #'append (hash-table-values indexed--file<>entries)))
-
-(defun indexed-links ()
-  "All links."
-  (hash-table-values indexed--dest<>links))
-
-(defun indexed-org-files ()
-  "All Org files that have been indexed."
-  (hash-table-keys indexed--file<>data))
-
-;; new
-
-(defun indexed-id-by-title (title)
-  (gethash title indexed--title<>id))
-
-(defun indexed-id-node-by-title (title)
-  (gethash (gethash title indexed--title<>id)
-           indexed--id<>entry))
+(defun indexed-toptitle (file)
+  "File #+title or topmost heading in FILE."
+  (indexed-title (car (indexed-entries-in file))))
 
 
 ;;; Core logic
@@ -360,7 +372,7 @@ If not running, start it."
   (setq indexed--collisions nil)
   (seq-let (_missing-files file-data entries links problems) parse-results
     (dolist (fdata file-data)
-      (puthash (indexed-file fdata) fdata indexed--file<>data)
+      (puthash (indexed-file-name fdata) fdata indexed--file<>data)
       (run-hook-with-args 'indexed-record-file-functions fdata))
     (dolist (entry entries)
       (indexed--record-entry entry)
@@ -378,8 +390,7 @@ If not running, start it."
 
 (defun indexed--record-entry (entry)
   (let ((id   (indexed-id entry))
-        (file (indexed-file entry))
-        (lnum (indexed-lnum entry))
+        (file (indexed-file-name entry))
         (title (indexed-title entry)))
     (push entry (gethash file indexed--file<>entries))
     (when id
@@ -392,6 +403,7 @@ If not running, start it."
         (message "Same ID found twice: %s" id))
       (puthash id entry indexed--id<>entry)
       (puthash title id indexed--title<>id))))
+
 
 ;;; Subroutines
 
@@ -541,7 +553,7 @@ Make it target only LINK-TYPES instead of all the cars of
 (defun indexed--goto-id (id)
   "Go to ID."
   (let ((entry (indexed-entry-by-id id)))
-    (find-file (indexed-file entry))
+    (find-file (indexed-file-name entry))
     (goto-char (indexed-pos entry))))
 
 (defun indexed-problems ()
@@ -550,7 +562,7 @@ Make it target only LINK-TYPES instead of all the cars of
   (if indexed--problems
       (indexed--pop-to-tabulated-list
        :buffer "*indexing problems*"
-       :format [("Time" 9 t) ("Scan choked near position" 27 t) ("Issue" 0 t)]
+       :format [("Time" 6 t) ("Scan choked near position" 27 t) ("Issue" 0 t)]
        :reverter #'indexed-problems
        :entries
        (cl-loop
@@ -563,7 +575,7 @@ Make it target only LINK-TYPES instead of all the cars of
                                  (cons file pos))
                       (format "%s" signal)))))
     (message "Congratulations, no problems scanning %d entries in %d files!"
-             (length (indexed-entries))
+             (length (indexed-org-entries))
              (hash-table-count indexed--file<>data))))
 
 (defun indexed-title-collisions ()
@@ -572,7 +584,7 @@ Make it target only LINK-TYPES instead of all the cars of
   (if indexed--collisions
       (indexed--pop-to-tabulated-list
        :buffer "*title collisions*"
-       :format [("Time" 5 t) ("Shared name" 30 t) ("ID" 37 t) ("Other ID" 0 t)]
+       :format [("Time" 6 t) ("Shared name" 30 t) ("ID" 37 t) ("Other ID" 0 t)]
        :reverter #'indexed-title-collisions
        :entries (cl-loop
                  for row in indexed--collisions
@@ -624,15 +636,15 @@ Make it target only LINK-TYPES instead of all the cars of
    :reverter #'indexed-explore
    :entries
    (cl-loop
-    for entry in (indexed-entries)
+    for entry in (indexed-org-entries)
     collect
     (list (sxhash entry)
-          (vector (file-name-nondirectory (indexed-file entry))
+          (vector (file-name-nondirectory (indexed-file-name entry))
                   (buttonize (string-join (append (indexed-olpath entry)
                                                   (list (indexed-title entry)))
                                           " > ")
                              #'indexed--goto-file-pos
-                             (cons (indexed-file entry)
+                             (cons (indexed-file-name entry)
                                    (indexed-pos entry)))
                   )))))
 

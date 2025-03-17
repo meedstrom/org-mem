@@ -70,7 +70,7 @@
       (remhash id indexed-roam--id<>refs))
     (remhash ref indexed-roam--ref<>id))
   (dolist (alias (indexed-roam-aliases entry))
-    (remhash title indexed--title<>id)))
+    (remhash alias indexed--title<>id)))
 
 (defun indexed-roam--wipe-lisp-tables (_)
   (clrhash indexed-roam--ref<>id)
@@ -320,8 +320,8 @@ With SPECIFIC-FILES, only return data that involves those files."
         (print-length nil)
         (seen-files (make-hash-table :test 'equal)))
     (cl-loop
-     for entry in (indexed-id-nodes)
-     as file = (indexed-file entry)
+     for entry in (indexed-org-id-nodes)
+     as file = (indexed-file-name entry)
      when (or (not specific-files) (member file specific-files))
      do
      (unless (gethash file seen-files)
@@ -338,7 +338,7 @@ With SPECIFIC-FILES, only return data that involves those files."
                 (push (list ..id tag) tag-rows))
        ;; See `org-roam-db-insert-file-node' and `org-roam-db-insert-node-data'
        (push (list ..id
-                   (indexed-file entry)
+                   (indexed-file-name entry)
                    (indexed-heading-lvl entry)
                    (indexed-pos entry)
                    (indexed-todo entry)
@@ -385,10 +385,9 @@ With SPECIFIC-FILES, only return data that involves those files."
 
 (defun indexed-roam--mk-file-row (file)
   "Return info about FILE."
-  (let* ((data (indexed-file-data file))
-         (lisp-mtime (prin1-to-string (seconds-to-time (indexed-mtime data)))))
+  (let ((lisp-mtime (prin1-to-string (seconds-to-time (indexed-mtime file)))))
     (list file
-          (indexed-title data)
+          (indexed-file-title file)
           ""         ; HACK: Hashing is slow, skip
           lisp-mtime ; HACK: org-roam doesn't use atime anyway
           lisp-mtime)))

@@ -117,11 +117,11 @@ the subheading potentially has an ID of its own."
           (when (and (equal link-type "id"))
             (let ((chop (string-search "::" path)))
               (when chop (setq path (substring path 0 chop)))))
-          (push (vector t
-                        link-pos
+          (push (record 'indexed-org-link
+                        (string-replace "%20" " " path)
                         file
                         id-here
-                        (string-replace "%20" " " path)
+                        link-pos
                         link-type)
                 indexed-org-parser--found-links))))
 
@@ -141,12 +141,12 @@ the subheading potentially has an ID of its own."
                     (looking-at-p "[\t\s]*# "))
                   ;; On a # comment, skip citation
                   (goto-char closing-bracket)
-                (push (vector t
-                              link-pos
-                              file
-                              id-here
+                (push (record 'indexed-org-link
                               ;; Replace & with @
                               (concat "@" (substring (match-string 0) 1))
+                              file
+                              id-here
+                              link-pos
                               nil)
                       indexed-org-parser--found-links)))
           (error "No closing bracket to [cite:")))))
@@ -300,22 +300,20 @@ Also set some variables, including global variables."
               (setq END (point-max)))
             (goto-char HERE)
             (indexed-org-parser--collect-links-until END FILE-ID FILE)
-            (push (vector 1
-                          1
+            (push (record 'indexed-org-entry
+                          nil
                           FILE
-                          FILE-ID
-                          (or FILE-TITLE (file-name-nondirectory FILE))
-                          t
-                          t
-                          t
-                          nil
                           0
+                          FILE-ID
+                          1
                           nil
-                          FILE-TAGS
-                          nil
+                          1
                           nil
                           PROPS
                           nil
+                          nil
+                          FILE-TAGS
+                          (or FILE-TITLE (file-name-nondirectory FILE))
                           nil)
                   found-entries)
             (goto-char (point-max))
@@ -433,28 +431,25 @@ Also set some variables, including global variables."
                        finally do
                        (push (list LEVEL TITLE ID HERITABLE-TAGS)
                              CRUMBS))
-              (let ((entry
-                     (vector LNUM
-                             HEADING-POS
-                             FILE
-                             ID
-                             TITLE
-                             t
-                             t
-                             t
-                             (nreverse (mapcar #'cadr (cdr CRUMBS)))
-                             LEVEL
-                             (delete-dups
-                              (apply #'append
-                                     FILE-TAGS
-                                     (mapcar #'cadddr (cdr CRUMBS))))
-                             TAGS
-                             DEADLINE
-                             PRIORITY
-                             PROPS
-                             SCHED
-                             TODO-STATE)))
-                (push entry found-entries))
+              (push (record 'indexed-org-entry
+                            nil
+                            FILE
+                            LEVEL
+                            ID
+                            LNUM
+                            (nreverse (mapcar #'cadr (cdr CRUMBS)))
+                            HEADING-POS
+                            PRIORITY
+                            PROPS
+                            SCHED
+                            (delete-dups
+                             (apply #'append
+                                    FILE-TAGS
+                                    (mapcar #'cadddr (cdr CRUMBS))))
+                            TAGS
+                            TITLE
+                            TODO-STATE)
+                    found-entries)
 
               ;; Heading analyzed, now collect links in entry body!
 
@@ -488,16 +483,21 @@ Also set some variables, including global variables."
             (widen))
 
           (setq file-data
-                (vector LNUM (point) FILE FILE-ID FILE-TITLE t t
+                (record 'indexed-file-data
+                        FILE
+                        FILE-TITLE
+                        LNUM
                         ;; Use integer mtime for `eq' operations
                         (ceiling (float-time
-                                   (file-attribute-modification-time
-                                    (file-attributes FILE)))))))
+                                  (file-attribute-modification-time
+                                   (file-attributes FILE))))
+                        (point)
+                        FILE-ID)))
       
       ;; Don't crash when there is an error signal, just report it.
       ;; Could allow for plural problems here, but one per file is plenty
       (( t error )
-       (setq problem (list (format-time-string "%T") FILE (point) err))))
+       (setq problem (list (format-time-string "%H:%M") FILE (point) err))))
 
     (list (if missing-file (list missing-file))
           (if file-data (list file-data))

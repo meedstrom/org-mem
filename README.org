@@ -137,6 +137,8 @@ Small distinguisher: The zeroth-level entry can never have a TODO state, priorit
 
 ** Appendix I: API
 
+NOTE: Namespace *still under flux!*
+
 There are three types of objects: /file-data/, /entry/ and /link/.  Many functions can operate on more than one type.
 
 Polymorphic functions
@@ -193,9 +195,9 @@ Functions operating on ENTRY only
 
 Functions without argument (good for iterating over the entire cache)
 
-- indexed-entries
-- indexed-id-nodes
-- indexed-links
+- indexed-org-entries
+- indexed-org-id-nodes
+- indexed-org-links
 - indexed-org-files
 
 Hooks

@@ -34,12 +34,13 @@
 (require 'seq)
 (require 'llama)
 (require 'indexed)
+(declare-function tramp-tramp-file-p "tramp")
 
 (define-minor-mode indexed-x-update-on-save-mode
   ""
   :global t
   :group 'indexed
-  (if org-node-cache-mode
+  (if indexed-x-update-on-save-mode
       (progn
         (add-hook 'after-save-hook      #'indexed-x--handle-save)
         ;; (advice-add 'rename-file :after #'indexed-x--handle-rename)
@@ -55,11 +56,12 @@
 
 (defun indexed-x--handle-save ()
   "Arrange to re-scan nodes and links in current buffer."
-  (let ((% buffer-file-truename))
-    (when (and (string-suffix-p ".org" %)
-               (not (backup-file-name-p %))
-               (not (indexed-x--tramp-file-p %)))
-      (indexed-x--scan-targeted %))))
+  (when indexed-mode
+    (let ((% buffer-file-truename))
+      (when (and (string-suffix-p ".org" %)
+                 (not (backup-file-name-p %))
+                 (not (indexed-x--tramp-file-p %)))
+        (indexed-x--scan-targeted %)))))
 
 ;; NOTE: When setting `delete-by-moving-to-trash' is t, `delete-file' calls
 ;;       `move-file-to-trash' which calls `rename-file'.  Good to know.
@@ -82,15 +84,16 @@
 ;;        make a "forget-file-functions" hook?
 (defun indexed-x--handle-delete (file &optional _trash)
   "Arrange to forget nodes and links in FILE."
-  (when (string-suffix-p ".org" file)
-    (unless (indexed-x--tramp-file-p file)
-      (setq file (indexed--abbrev-file-names file))
-      ;; Used to just hand the file to `indexed-x--scan-targeted' which will
-      ;; have the same effect if the file is gone, but sometimes it is not
-      ;; gone, thanks to `delete-by-moving-to-trash'.
-      (indexed-x--forget-files (list file))
-      (indexed-x--forget-links-from
-       (mapcar #'indexed-id (indexed-entries-in file))))))
+  (when indexed-mode
+    (when (string-suffix-p ".org" file)
+      (unless (indexed-x--tramp-file-p file)
+        (setq file (indexed--abbrev-file-names file))
+        ;; Used to just hand the file to `indexed-x--scan-targeted' which will
+        ;; have the same effect if the file is gone, but sometimes it is not
+        ;; gone, thanks to `delete-by-moving-to-trash'.
+        (indexed-x--forget-files (list file))
+        (indexed-x--forget-links-from
+         (mapcar #'indexed-id (indexed-entries-in file)))))))
 
 (defun indexed-x--scan-targeted (files)
   "Arrange to scan FILES."
@@ -108,28 +111,27 @@
   "Use RESULTS to update tables.
 Argument JOB is the el-job object."
   (run-hook-with-args 'indexed-x-pre-update-functions results)
-  (seq-let (missing-files file.mtime entries path.type links problems) results
-    (let ((found-files (mapcar #'car file.mtime)))
-      (indexed-x--forget-files missing-files)
-      (indexed-x--forget-links-from (mapcar #'indexed-id entries))
-      (dolist (fdata file-data)
-        (puthash (indexed-file fdata) fdata indexed--file<>data)
-        (run-hook-with-args 'indexed-record-file-functions fdata))
-      (dolist (entry entries)
-        (indexed--record-entry entry)
-        (run-hook-with-args 'indexed-record-entry-functions entry))
-      (dolist (link links)
-        (push link (gethash (indexed-origin link) indexed--origin<>links))
-        (push link (gethash (indexed-dest link)   indexed--dest<>links))
-        (run-hook-with-args 'indexed-record-link-functions link))
-      (dolist (prob problems)
-        (push prob indexed--problems))
-      (run-hook-with-args 'indexed-x-post-update-functions results)
-      (when problems
-        (message "Scan had problems, see M-x org-node-list-scan-problems"))
-      ;; (run-hook-with-args 'org-node-rescan-functions
-                          ;; (append missing-files found-files))
-      )))
+  (seq-let (missing-files file-data entries links problems) results
+    (indexed-x--forget-files missing-files)
+    (indexed-x--forget-links-from (mapcar #'indexed-id entries))
+    (dolist (fdata file-data)
+      (puthash (indexed-file-name fdata) fdata indexed--file<>data)
+      (run-hook-with-args 'indexed-record-file-functions fdata))
+    (dolist (entry entries)
+      (indexed--record-entry entry)
+      (run-hook-with-args 'indexed-record-entry-functions entry))
+    (dolist (link links)
+      (push link (gethash (indexed-origin link) indexed--origin<>links))
+      (push link (gethash (indexed-dest link)   indexed--dest<>links))
+      (run-hook-with-args 'indexed-record-link-functions link))
+    (dolist (prob problems)
+      (push prob indexed--problems))
+    (run-hook-with-args 'indexed-x-post-update-functions results)
+    (when problems
+      (message "Scan had problems, see M-x org-node-list-scan-problems"))
+    ;; (run-hook-with-args 'org-node-rescan-functions
+    ;; (append missing-files found-files))
+    ))
 
 (defvar indexed-x-forget-file-functions nil)
 (defvar indexed-x-forget-entry-functions nil)
@@ -140,14 +142,14 @@ For a thorough cleanup, you should also run
 `indexed-x--forget-links-from'."
   (when (setq files (ensure-list files))
     (cl-loop
-     for entry in (indexed-entries)
-     when (member (indexed-file entry) files)
+     for entry in (indexed-org-entries)
+     when (member (indexed-file-name entry) files)
      do
      (remhash (indexed-id entry) indexed--id<>entry)
      (remhash (indexed-title entry) indexed--title<>id)
      (run-hook-with-args 'indexed-x-forget-entry-functions entry))
     (dolist (file files)
-      (remhash file--file<>data)
+      (remhash file indexed--file<>data)
       (run-hook-with-args 'indexed-x-forget-file-functions file))))
 
 (defvar indexed-x-last-removed-links nil)
