@@ -60,7 +60,8 @@
       ;; Include aliases in the collision-checks
       (when-let* ((other-id (gethash alias indexed--title<>id)))
         (unless (string= id other-id)
-          (push (list alias id other-id) indexed--collisions)))
+          (push (list (format-time-string "%H:%M") alias id other-id)
+                indexed--collisions)))
       (puthash alias id indexed--title<>id))))
 
 (defun indexed-roam--forget-aliases-refs (entry)

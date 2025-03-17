@@ -35,7 +35,7 @@
 ;;; Code:
 
 ;; TODO: A special-mode buffer for exploring all indexed objects,
-;;       same thought as `sqlite-mode-open-file'.
+;;       same thought as `indexed-roam-explore'.
 
 ;; TODO: Awareness of CUSTOM_ID, not just ID
 
@@ -47,11 +47,6 @@
 (require 'seq)
 (require 'indexed-org-parser)
 (require 'el-job)
-
-(define-obsolete-variable-alias
-  'indexed--pre-reset-hook 'indexed-pre-reset-functions "2025-03-17")
-(define-obsolete-variable-alias
-  'indexed--post-reset-functions 'indexed-post-reset-functions "2025-03-17")
 
 (defgroup indexed nil "Cache metadata on all Org files."
   :group 'text)
@@ -100,7 +95,7 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 (defvar indexed--dest<>links (make-hash-table :test 'equal))
 (defvar indexed--title<>id (make-hash-table :test 'equal))
 (defvar indexed--file<>data (make-hash-table :test 'equal))
-(defvar indexed--file<>lnum.entry (make-hash-table :test 'equal)) ;; https://github.com/BurntSushi/ripgrep/discussions/3013
+(defvar indexed--file<>entries (make-hash-table :test 'equal))
 
 ;; Hypothetical data types:
 
@@ -193,9 +188,8 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
 
 (defun indexed-entries-in (files)
   "All entries in FILES."
-  (setq files (ensure-list files))
-  (cl-loop for file in files
-           append (cdr (gethash file indexed--file<>lnum.entry))))
+  (cl-loop for file in (ensure-list files)
+           append (gethash file indexed--file<>entries))
 
 (defun indexed-id-nodes-in (files)
   "All ID-nodes in FILES."
@@ -224,16 +218,15 @@ See also `indexed-roam-reflinks-to' and `indexed-links-from'."
   "The entry at line-number LNUM in FILE."
   (cl-loop
    with last
-   for (entry-lnum . entry) in (gethash file indexed--file<>lnum.entry)
-   if (<= lnum entry-lnum) return (or last entry)
+   for entry in (gethash file indexed--file<>entries)
+   if (<= lnum (indexed-lnum entry)) return (or last entry)
    else do (setq last entry)))
 
-;; TODO: Refactor the hash table to just file<>entries.
 (defun indexed-entry-near-pos-in-file (pos file)
   "The entry at char-position POS in FILE."
   (cl-loop
    with last
-   for (_ . entry) in (gethash file indexed--file<>lnum.entry)
+   for entry in (gethash file indexed--file<>entries)
    if (<= pos (indexed-pos entry)) return (or last entry)
    else do (setq last entry)))
 
@@ -271,9 +264,6 @@ Does not require LINK to have an origin ID."
     (unless (= 0 (indexed-heading-lvl entry))
       (indexed-title entry))))
 
-;; It is a common need to iterate over all entries. This is easier than doing
-;; (cl-loop for entry being each hash-value of indexed--id<>entry ...)
-;; every time.
 (defun indexed-id-nodes ()
   "All org-ID nodes.
 An org-ID node is an entry with an ID."
@@ -281,10 +271,7 @@ An org-ID node is an entry with an ID."
 
 (defun indexed-entries ()
   "All entries."
-  (cl-loop
-   for lnum.entry being each hash-value of indexed--file<>lnum.entry
-   append (cl-loop for (_lnum . entry) in lnum.entry
-                   collect entry)))
+  (apply #'append (hash-table-values indexed--file<>entries)))
 
 (defun indexed-links ()
   "All links."
@@ -368,7 +355,7 @@ If not running, start it."
   (clrhash indexed--origin<>links)
   (clrhash indexed--dest<>links)
   (clrhash indexed--title<>id)
-  (clrhash indexed--file<>lnum.entry)
+  (clrhash indexed--file<>entries)
   (clrhash indexed--id<>file)
   (setq indexed--collisions nil)
   (seq-let (_missing-files file-data entries links problems) parse-results
@@ -394,11 +381,12 @@ If not running, start it."
         (file (indexed-file entry))
         (lnum (indexed-lnum entry))
         (title (indexed-title entry)))
-    (push (cons lnum entry) (gethash file indexed--file<>lnum.entry))
+    (push entry (gethash file indexed--file<>entries))
     (when id
       (let ((other-id (gethash title indexed--title<>id)))
         (when (and other-id (not (string= id other-id)))
-          (push (list title id other-id) indexed--collisions)))
+          (push (list (format-time-string "%H:%M") title id other-id)
+                indexed--collisions)))
       (when (gethash id indexed--id<>entry)
         ;; Major user error!
         (message "Same ID found twice: %s" id))
@@ -588,10 +576,10 @@ Make it target only LINK-TYPES instead of all the cars of
        :reverter #'indexed-title-collisions
        :entries (cl-loop
                  for row in indexed--collisions
-                 collect (seq-let (name id1 id2) row
+                 collect (seq-let ( time name id1 id2 ) row
                            (list
                             (sxhash row)
-                            (vector (format-time-string "%H:%M")
+                            (vector time
                                     name
                                     (buttonize id1 #'indexed--goto-id id1)
                                     (buttonize id2 #'indexed--goto-id id2))))))
@@ -626,6 +614,27 @@ Make it target only LINK-TYPES instead of all the cars of
                                     (indexed--goto-id ,origin-id)
                                     (goto-char ,(indexed-pos link)))
                                  dest))))))))
+
+(defun indexed-explore ()
+  "List links that lead to no known ID."
+  (interactive)
+  (indexed--pop-to-tabulated-list
+   :buffer "*all Org entries*"
+   :format [("File" 30 t) ("Heading" 0 t)]
+   :reverter #'indexed-explore
+   :entries
+   (cl-loop
+    for entry in (indexed-entries)
+    collect
+    (list (sxhash entry)
+          (vector (file-name-nondirectory (indexed-file entry))
+                  (buttonize (string-join (append (indexed-olpath entry)
+                                                  (list (indexed-title entry)))
+                                          " > ")
+                             #'indexed--goto-file-pos
+                             (cons (indexed-file entry)
+                                   (indexed-pos entry)))
+                  )))))
 
 ;; so i dont have to remember the boilerplate nor update in many places
 (cl-defun indexed--pop-to-tabulated-list (&key buffer format entries reverter)
