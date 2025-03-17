@@ -595,6 +595,11 @@ Make it target only LINK-TYPES instead of all the cars of
 	    (or (regexp "[^[:punct:][:space:]\n]")
                 ?- ?/ ,parenthesis))))))
 
+(define-obsolete-function-alias 'indexed-id-nodes 'indexed-org-id-nodes "2025-03-17")
+(define-obsolete-function-alias 'indexed-entries 'indexed-org-entries "2025-03-17")
+(define-obsolete-function-alias 'indexed-files 'indexed-org-files "2025-03-17")
+(define-obsolete-function-alias 'indexed-links 'indexed-org-links "2025-03-17")
+
 (provide 'indexed)
 
 ;;; indexed.el ends here
