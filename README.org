@@ -30,11 +30,11 @@ Why two?  It's free.  When the data has been gathered anyway, there is no reason
 
 And hash table is nicer for simple lookups, SQL for complex lookups.
 
-For the elisp, see [[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-i-api][Appendix I]]. For the SQL, see below.
+For the elisp, see [[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-i-api][Appendix I]].
 
 ** A SQLite database, for free
 
-You can create your own database, but you probably won't need to.  Included is a near-drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
+You can create your own database ([[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-ii-make-your-own-database][Appendix II]]), but you probably won't need to.  Included is a near-drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
 
 As a plugin dev, perhaps the main thing you needed from org-roam was its SQL database.  If so, you can now make your plugins useful to a wider crowd!
 
@@ -137,7 +137,7 @@ Small distinguisher: The zeroth-level entry can never have a TODO state, priorit
 
 ** Appendix I: API
 
-NOTE: Namespace *still under flux!*
+NOTE: Namespace *still under flux!*  This *may be out of date!*
 
 There are three types of objects: /file-data/, /entry/ and /link/.  Many functions can operate on more than one type.
 

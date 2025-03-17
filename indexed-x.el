@@ -36,19 +36,6 @@
 (require 'indexed)
 (declare-function tramp-tramp-file-p "tramp")
 
-(define-minor-mode indexed-x-update-on-save-mode
-  ""
-  :global t
-  :group 'indexed
-  (if indexed-x-update-on-save-mode
-      (progn
-        (add-hook 'after-save-hook      #'indexed-x--handle-save)
-        ;; (advice-add 'rename-file :after #'indexed-x--handle-rename)
-        (advice-add 'delete-file :after #'indexed-x--handle-delete))
-    (remove-hook 'after-save-hook       #'indexed-x--handle-save)
-    ;; (advice-remove 'rename-file         #'indexed-x--handle-rename)
-    (advice-remove 'delete-file         #'indexed-x--handle-delete)))
-
 (defun indexed-x--tramp-file-p (file)
   "Pass FILE to `tramp-tramp-file-p' if Tramp is loaded."
   (when (featurep 'tramp)
@@ -94,6 +81,22 @@
         (indexed-x--forget-files (list file))
         (indexed-x--forget-links-from
          (mapcar #'indexed-id (indexed-entries-in file)))))))
+
+(defun indexed-x-record-entry (&rest args)
+  "See `indexed-org-entry--make-obj' for ARGS."
+  (let ((link (apply #'indexed-org-link--make-obj args)))
+    (cl-destructuring-bind (&key dest origin) args
+      
+      (push link (gethash dest indexed--dest<>links))  
+      (push link (gethash origin indexed--origin<>links)))))
+
+(defun indexed-x-record-link (&rest args)
+  "See `indexed-org-link--make-obj' for ARGS."
+  (let ((link (apply #'indexed-org-link--make-obj args)))
+    (cl-destructuring-bind (&key dest origin) args
+      
+      (push link (gethash dest indexed--dest<>links))  
+      (push link (gethash origin indexed--origin<>links)))))
 
 (defun indexed-x--scan-targeted (files)
   "Arrange to scan FILES."

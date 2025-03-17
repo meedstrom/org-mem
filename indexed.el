@@ -49,11 +49,17 @@
 ;; (defun indexed-olpath (entry)
 ;;   (mapcar #'caddr (indexed-crumbs entry)))
 
+;; TODO: Reconsider whether `indexed-org-entry-properties' should be a plist
+;;       or alist.  Probably change to alist.
+
 (require 'cl-lib)
 (require 'subr-x)
 (require 'seq)
 (require 'indexed-org-parser)
 (require 'el-job)
+(declare-function indexed-x--handle-save "indexed-x")
+(declare-function indexed-x--handle-rename "indexed-x")
+(declare-function indexed-x--handle-delete "indexed-x")
 
 (defgroup indexed nil "Cache metadata on all Org files."
   :group 'text)
@@ -79,9 +85,6 @@ Users of org-ref would extend this to ~70 types."
     ".sync-conflict-")
   "Path substrings of files that should not be indexed.
 
-If you have accidentally let org-id add a directory of backup files, try
-\\[org-node-forget-dir].
-
 It is not necessary to exclude backups or autosaves that end in ~ or #
 or .bak, since the workhorse `indexed--relist-org-files' only considers
 files that end in precisely \".org\" anyway.
@@ -96,13 +99,13 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 
 ;;; Lisp API
 
-(defvar indexed--id<>entry (make-hash-table :test 'equal))
-(defvar indexed--id<>file (make-hash-table :test 'equal)) ;; Literally `org-id-locations'.
-(defvar indexed--origin<>links (make-hash-table :test 'equal))
-(defvar indexed--dest<>links (make-hash-table :test 'equal))
-(defvar indexed--title<>id (make-hash-table :test 'equal))
-(defvar indexed--file<>data (make-hash-table :test 'equal))
+(defvar indexed--title<>id     (make-hash-table :test 'equal))
+(defvar indexed--id<>entry     (make-hash-table :test 'equal))
+(defvar indexed--id<>file      (make-hash-table :test 'equal)) ; Literally `org-id-locations'.
+(defvar indexed--file<>data    (make-hash-table :test 'equal))
 (defvar indexed--file<>entries (make-hash-table :test 'equal))
+(defvar indexed--dest<>links   (make-hash-table :test 'equal))
+(defvar indexed--origin<>links (make-hash-table :test 'equal))
 
 (cl-defstruct (indexed-file-data (:constructor nil) (:copier nil))
   (file-name  () :read-only t :type string)
@@ -112,14 +115,16 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
   (ptmax      () :read-only t :type integer)
   (toplvl-id  () :read-only t :type string))
 
-(cl-defstruct (indexed-org-link (:constructor nil) (:copier nil))
+(cl-defstruct (indexed-org-link (:constructor indexed-org-link--make-obj)
+                                (:copier nil))
   (dest      () :read-only t :type string)
   (file-name () :read-only t :type string)
   (nearby-id () :read-only t :type string)
   (pos       () :read-only t :type integer)
   (type      () :read-only t :type string))
 
-(cl-defstruct (indexed-org-entry (:constructor nil) (:copier nil))
+(cl-defstruct (indexed-org-entry (:constructor indexed-org-entry--make-obj)
+                                 (:copier nil))
   (deadline       () :read-only t :type string)
   (file-name      () :read-only t :type string)
   (heading-lvl    () :read-only t :type integer)
@@ -135,13 +140,13 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
   (title          () :read-only t :type string)
   (todo-state     () :read-only t :type string))
 
-(cl-defgeneric indexed-pos (thing)
-  "Get char position of THING."
+(cl-defgeneric indexed-pos (entry/link)
+  "Get char position of ENTRY/LINK."
   (:method ((x indexed-org-entry)) (indexed-org-entry-pos x))
   (:method ((x indexed-org-link)) (indexed-org-link-pos x)))
 
 (cl-defgeneric indexed-file-name (thing)
-  "Name of file name where THING is."
+  "Name of file where THING is, maybe THING itself."
   (:method ((x indexed-org-link)) (indexed-org-link-file-name x))
   (:method ((x indexed-org-entry)) (indexed-org-entry-file-name x))
   (:method ((x indexed-file-data)) (indexed-file-data-file-name x)))
@@ -169,7 +174,7 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
   (gethash id indexed--id<>entry))
 
 (defun indexed-entry-near-lnum-in-file (lnum file)
-  "The entry at line-number LNUM in FILE."
+  "The entry around line-number LNUM in FILE."
   (cl-loop
    with last
    for entry in (gethash file indexed--file<>entries)
@@ -177,7 +182,7 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
    else do (setq last entry)))
 
 (defun indexed-entry-near-pos-in-file (pos file)
-  "The entry at char-position POS in FILE."
+  "The entry around char-position POS in FILE."
   (cl-loop
    with last
    for entry in (gethash file indexed--file<>entries)
@@ -338,6 +343,35 @@ If not running, start it."
              (indexed--scan-full))
     (cancel-timer indexed--timer)))
 
+(define-minor-mode indexed-update-on-save-mode
+  ""
+  :global t
+  :group 'indexed
+  (if indexed-update-on-save-mode
+      (progn
+        (require 'indexed-x)
+        (add-hook 'after-save-hook      #'indexed-x--handle-save)
+        ;; (advice-add 'rename-file :after #'indexed-x--handle-rename)
+        (advice-add 'delete-file :after #'indexed-x--handle-delete))
+    (remove-hook 'after-save-hook       #'indexed-x--handle-save)
+    ;; (advice-remove 'rename-file         #'indexed-x--handle-rename)
+    (advice-remove 'delete-file         #'indexed-x--handle-delete)))
+
+;; (defun indexed--manual-message (&rest _)
+;;   (remove-hook 'indexed-post-reset-functions #'indexed--manual-message)
+;;   (format "indexed: Analyzed %d entries (%d with ID) in %d files in %.2fs"
+;;            (length (indexed-org-entries))
+;;            (length (indexed-org-id-nodes))
+;;            (length (indexed-org-files))
+;;            (float-time (time-since indexed--time-at-begin-full-scan))))
+
+(defvar indexed--next-message nil)
+(defun indexed-reset ()
+  (interactive)
+  (setq indexed--next-message t)
+  ;; (add-hook 'indexed-post-reset-functions #'indexed--manual-message -5)
+  (indexed--scan-full))
+
 (defvar indexed--time-at-begin-full-scan nil)
 (defun indexed--scan-full ()
   "Arrange a full scan."
@@ -362,13 +396,13 @@ If not running, start it."
 (defun indexed--finalize-full (parse-results _job)
   "Handle PARSE-RESULTS from `indexed--scan-full'."
   (run-hooks 'indexed-pre-reset-functions)
+  (clrhash indexed--title<>id)
   (clrhash indexed--id<>entry)
+  (clrhash indexed--id<>file)
   (clrhash indexed--file<>data)
+  (clrhash indexed--file<>entries)
   (clrhash indexed--origin<>links)
   (clrhash indexed--dest<>links)
-  (clrhash indexed--title<>id)
-  (clrhash indexed--file<>entries)
-  (clrhash indexed--id<>file)
   (setq indexed--collisions nil)
   (seq-let (_missing-files file-data entries links problems) parse-results
     (dolist (fdata file-data)
@@ -378,17 +412,33 @@ If not running, start it."
       (indexed--record-entry entry)
       (run-hook-with-args 'indexed-record-entry-functions entry))
     (dolist (link links)
-      (push link (gethash (indexed-origin link) indexed--origin<>links))
-      (push link (gethash (indexed-dest link)   indexed--dest<>links))
+      (indexed--record-link link)
       (run-hook-with-args 'indexed-record-link-functions link))
-    (setq indexed--time-elapsed (float-time (time-since indexed--time-at-begin-full-scan)))
+    (setq indexed--time-elapsed
+          (float-time (time-since indexed--time-at-begin-full-scan)))
+    (when indexed--next-message
+      (setq indexed--next-message
+            (format
+             "indexed: Analyzed %d entries (%d with ID) in %d files in %.2fs"
+             (length (indexed-org-entries))
+             (length (indexed-org-id-nodes))
+             (length (indexed-org-files))
+             (float-time (time-since indexed--time-at-begin-full-scan)))))
     (run-hook-with-args 'indexed-post-reset-functions parse-results)
+    (message "%s" indexed--next-message)
+    (setq indexed--next-message nil)
     (when (and indexed--collisions indexed-warn-title-collisions)
-      (message "Some ID nodes share title, see M-x indexed-title-collisions"))
+      (message "Some IDs share title, see M-x indexed-list-title-collisions"))
     (when (setq indexed--problems problems)
-      (message "Indexing had problems, see M-x indexed-problems"))))
+      (message "Indexing had problems, see M-x indexed-list-problems"))))
+
+(defun indexed--record-link (link)
+  "Add info related to LINK to various tables."
+  (push link (gethash (indexed-origin link) indexed--origin<>links))
+  (push link (gethash (indexed-dest link)   indexed--dest<>links)))
 
 (defun indexed--record-entry (entry)
+  "Add info related to ENTRY to various tables."
   (let ((id   (indexed-id entry))
         (file (indexed-file-name entry))
         (title (indexed-title entry)))
@@ -399,7 +449,8 @@ If not running, start it."
           (push (list (format-time-string "%H:%M") title id other-id)
                 indexed--collisions)))
       (when (gethash id indexed--id<>entry)
-        ;; Major user error!
+        ;; major user error!
+        ;; should we just signal error and shut down everything?
         (message "Same ID found twice: %s" id))
       (puthash id entry indexed--id<>entry)
       (puthash title id indexed--title<>id))))
@@ -540,136 +591,6 @@ Make it target only LINK-TYPES instead of all the cars of
 		    ,parenthesis))
 	    (or (regexp "[^[:punct:][:space:]\n]")
                 ?- ?/ ,parenthesis))))))
-
-
-;;; Commands
-;; TODO: Consider if/how this stuff ought to be moved out of core
-
-(defun indexed--goto-file-pos (file.pos)
-  "Go to FILE at POS."
-  (find-file (car file.pos))
-  (goto-char (cdr file.pos)))
-
-(defun indexed--goto-id (id)
-  "Go to ID."
-  (let ((entry (indexed-entry-by-id id)))
-    (find-file (indexed-file-name entry))
-    (goto-char (indexed-pos entry))))
-
-(defun indexed-problems ()
-  "List problems encountered while parsing."
-  (interactive)
-  (if indexed--problems
-      (indexed--pop-to-tabulated-list
-       :buffer "*indexing problems*"
-       :format [("Time" 6 t) ("Scan choked near position" 27 t) ("Issue" 0 t)]
-       :reverter #'indexed-problems
-       :entries
-       (cl-loop
-        for ( time file pos signal ) in indexed--problems collect
-        (list (sxhash (cons file pos))
-              (vector time
-                      (buttonize (format "%s:%d" (file-name-nondirectory file)
-                                         pos)
-                                 #'indexed--goto-file-pos
-                                 (cons file pos))
-                      (format "%s" signal)))))
-    (message "Congratulations, no problems scanning %d entries in %d files!"
-             (length (indexed-org-entries))
-             (hash-table-count indexed--file<>data))))
-
-(defun indexed-title-collisions ()
-  "Pop up a buffer listing title collisions between org-ID nodes."
-  (interactive)
-  (if indexed--collisions
-      (indexed--pop-to-tabulated-list
-       :buffer "*title collisions*"
-       :format [("Time" 6 t) ("Shared name" 30 t) ("ID" 37 t) ("Other ID" 0 t)]
-       :reverter #'indexed-title-collisions
-       :entries (cl-loop
-                 for row in indexed--collisions
-                 collect (seq-let ( time name id1 id2 ) row
-                           (list
-                            (sxhash row)
-                            (vector time
-                                    name
-                                    (buttonize id1 #'indexed--goto-id id1)
-                                    (buttonize id2 #'indexed--goto-id id2))))))
-    (message "Congratulations, no title collisions! (among %d ID-nodes)"
-             (hash-table-count indexed--title<>id))))
-
-(defun indexed-dead-id-links ()
-  "List links that lead to no known ID."
-  (interactive)
-  (let ((dead-links
-         (cl-loop for dest being each hash-key of indexed--dest<>links
-                  using (hash-values links)
-                  unless (gethash dest indexed--id<>entry)
-                  append (cl-loop for link in links
-                                  when (equal "id" (indexed-type link))
-                                  collect (cons dest link)))))
-    (message "%d dead links found" (length dead-links))
-    (when dead-links
-      (indexed--pop-to-tabulated-list
-       :buffer "*dead links*"
-       :format [("Location" 40 t) ("Unknown ID reference" 40 t)]
-       :reverter #'indexed-dead-id-links
-       :entries
-       (cl-loop
-        for (dest . link) in dead-links
-        as origin-id = (indexed-origin link)
-        as entry = (gethash origin-id indexed--id<>entry)
-        collect
-        (list (sxhash link)
-              (vector (buttonize (indexed-title entry)
-                                 `(lambda (_)
-                                    (indexed--goto-id ,origin-id)
-                                    (goto-char ,(indexed-pos link)))
-                                 dest))))))))
-
-(defun indexed-explore ()
-  "List links that lead to no known ID."
-  (interactive)
-  (indexed--pop-to-tabulated-list
-   :buffer "*all Org entries*"
-   :format [("File" 30 t) ("Heading" 0 t)]
-   :reverter #'indexed-explore
-   :entries
-   (cl-loop
-    for entry in (indexed-org-entries)
-    collect
-    (list (sxhash entry)
-          (vector (file-name-nondirectory (indexed-file-name entry))
-                  (buttonize (string-join (append (indexed-olpath entry)
-                                                  (list (indexed-title entry)))
-                                          " > ")
-                             #'indexed--goto-file-pos
-                             (cons (indexed-file-name entry)
-                                   (indexed-pos entry)))
-                  )))))
-
-;; so i dont have to remember the boilerplate nor update in many places
-(cl-defun indexed--pop-to-tabulated-list (&key buffer format entries reverter)
-  "Create, populate and display a `tabulated-list-mode' buffer.
-
-BUFFER is a buffer or buffer name where the list should be created.
-FORMAT is the value to which `tabulated-list-format' should be set.
-ENTRIES is the value to which `tabulated-list-entries' should be set.
-
-Optional argument REVERTER is a function to add buffer-locally to
-`tabulated-list-revert-hook'."
-  (unless (and buffer format)
-    (user-error
-     "indexed--pop-to-tabulated-list: Mandatory arguments are buffer, format, entries"))
-  (when (null entries)
-    (message "No entries to tabulate"))
-  (pop-to-buffer (get-buffer-create buffer))
-  (tabulated-list-mode)
-  (setq tabulated-list-format format)
-  (tabulated-list-init-header)
-  (setq tabulated-list-entries entries)
-  (when reverter (add-hook 'tabulated-list-revert-hook reverter nil t))
-  (tabulated-list-print t))
 
 (provide 'indexed)
 

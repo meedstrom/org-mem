@@ -142,7 +142,7 @@ What this means?  See indexed-test.el."
 (defvar indexed-roam--connection nil
   "A SQLite handle.")
 
-(defun indexed-roam--mk-db (_)
+(defun indexed-roam--mk-db (&rest _)
   "Close current `indexed-roam--connection' and populate a new one."
   (ignore-errors (sqlite-close indexed-roam--connection))
   (indexed-roam))
@@ -157,13 +157,15 @@ What this means?  See indexed-test.el."
         (add-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases)
         (add-hook 'indexed-x-forget-entry-functions #'indexed-roam--forget-aliases-refs)
         (add-hook 'indexed-post-reset-functions    #'indexed-roam--record-refs -95)
-        (add-hook 'indexed-x-post-update-functions #'indexed-roam--record-refs)
+        (add-hook 'indexed-x-post-update-functions #'indexed-roam--record-refs -95)
+        (add-hook 'indexed-x-post-update-functions #'indexed-roam--update-db)
         (add-hook 'indexed-post-reset-functions #'indexed-roam--mk-db)
         (indexed--scan-full))
     (remove-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases)
     (remove-hook 'indexed-x-forget-entry-functions #'indexed-roam--forget-aliases-refs)
     (remove-hook 'indexed-post-reset-functions    #'indexed-roam--record-refs)
     (remove-hook 'indexed-x-post-update-functions #'indexed-roam--record-refs)
+    (remove-hook 'indexed-x-post-update-functions #'indexed-roam--update-db)
     (remove-hook 'indexed-post-reset-functions #'indexed-roam--mk-db)))
 
 ;;;###autoload
@@ -187,14 +189,15 @@ Shape it according to org-roam schemata and pre-populate it with data.
 Normally, this creates a diskless database.  With optional file path
 LOC, write the database as a file to LOC."
   (let ((T (current-time))
-        (name (or loc "diskless DB"))
+        (name (or loc "SQLite DB"))
         (db (sqlite-open loc)))
-    (message "indexed-roam: Re-creating %s..." name)
     (indexed-roam--configure db)
     (indexed-roam--populate db (indexed-roam--mk-rows))
-    (message "indexed-roam: Re-creating %s... done \(%.2fs\)"
-             name
-             (float-time (time-since T)))
+    (when indexed--next-message
+      (setq indexed--next-message
+            (concat indexed--next-message
+                    (format " + %.2fs to build %s"
+                            (float-time (time-since T)) name))))
     db))
 
 (defun indexed-roam--configure (db)
@@ -408,9 +411,9 @@ Assume PLIST is a flat plist, with symbol keys and string values."
 
 ;;; Optional
 
-(defun indexed-roam--index-files (files)
+(defun indexed-roam--update-db (indexing-results)
   "Update current DB about nodes and links involving FILES.
-Suitable on `org-node-rescan-functions'."
+Suitable on `indexed-x-post-update-functions'."
   ;; NOTE: There's a likely performance bug in Emacs sqlite.c.
   ;;       I have a yuge file, which takes 0.01 seconds to delete on the
   ;;       sqlite3 command line... but 0.53 seconds with `sqlite-execute'.
@@ -418,8 +421,9 @@ Suitable on `org-node-rescan-functions'."
   ;;       Aside from tracking down the bug, could we workaround by getting rid
   ;;       of all the CASCADE rules and pre-determine what needs to be deleted?
   ;;       It's not The Way to use a RDBMS, but it's a simple enough puzzle.
-  (let ((db (indexed-roam))
-        (rows (indexed-roam--mk-rows files)))
+  (let* ((db (indexed-roam))
+         (files (mapcar #'indexed-file-name (nth 1 indexing-results)))
+         (rows (indexed-roam--mk-rows files)))
     (dolist (file files)
       (sqlite-execute db "DELETE FROM files WHERE file LIKE ?" (list file)))
     (indexed-roam--populate db rows)))
@@ -469,10 +473,6 @@ Must load library \"org-roam\"."
                 (string-replace ", " ",\n\t"
                                 (emacsql-format exp table schema))
                 ";\""))))
-
-
-;;; Mode
-
 
 (provide 'indexed-roam)
 
