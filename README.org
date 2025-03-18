@@ -1,9 +1,7 @@
 * Indexed
 An efficient cache of metadata about all your Org files.
 
-Builds very fast.
-
-Numbers from my =M-x indexed-reset=:
+Builds fast.  My =M-x indexed-reset=:
 
 #+begin_example
 indexed: Analyzed 160616 lines in 10734 entries (3397 with ID)
@@ -196,11 +194,9 @@ Hooks
 
 *** Extension: indexed-x.el
 
-Loaded by =indexed-update-on-save-mode=, which:
+Loaded by =indexed-update-on-save-mode=, which sets up on-save/on-rename/on-delete hooks to keep the cache updated in real time.
 
-sets up on-save/on-rename/on-delete hooks to keep the cache updated in real time.
-
-Provides new hooks:
+That mode runs new hooks:
 
 - indexed-x-pre-update-functions
 - indexed-x-post-update-functions
@@ -208,16 +204,18 @@ Provides new hooks:
 - indexed-x-forget-entry-functions
 - indexed-x-forget-link-functions
 
-and also uses some already-mentioned hooks:
+and also some already-mentioned hooks:
 
 - indexed-record-file-functions
 - indexed-record-entry-functions
 - indexed-record-link-functions
 
-You may also want to trigger the following functions after inserting entries or links, if they need to become indexed instantly even before a file is saved:
+You may also want to call the following functions after inserting entries or links, if they need to become indexed instantly even before a file is saved.
 
 - indexed-x-ensure-entry-at-point-known
 - indexed-x-ensure-link-at-point-known
+
+Examples of when those are useful is when you write a command like =org-node-extract-subtree=, or subroutine like =org-node-backlink--add-in-target=.
 
 *** Extension: indexed-roam.el
 
@@ -238,7 +236,6 @@ Steps:
 
 3. Done!
 
-# In a private branch, I'm preparing functionality to keep indexing in real time without doing a full reset so often.
 ** Appendix III: User stuff
 
 Modes
