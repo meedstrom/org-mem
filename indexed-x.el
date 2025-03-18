@@ -37,6 +37,8 @@
 (require 'indexed-org-parser)
 (defvar org-use-tag-inheritance)
 (defvar org-trust-scanner-tags)
+(defvar org-id-track-globally)
+(defvar org-id-locations)
 (declare-function org-current-level "org")
 (declare-function org-element-context "org-element")
 (declare-function org-element-property "org-element")
@@ -104,12 +106,10 @@
                    :inputs (ensure-list files)
                    :callback #'indexed-x--finalize-targeted)))
 
-(defvar indexed-x-pre-update-functions nil)
-(defvar indexed-x-post-update-functions nil)
 (defun indexed-x--finalize-targeted (results _job)
   "Use RESULTS to update tables.
 Argument JOB is the el-job object."
-  (run-hook-with-args 'indexed-x-pre-update-functions results)
+  (run-hook-with-args 'indexed-pre-incremental-update-functions results)
   (seq-let (missing-files file-data entries links problems) results
     (indexed-x--forget-files missing-files)
     (indexed-x--forget-links-from (mapcar #'indexed-id entries))
@@ -124,12 +124,10 @@ Argument JOB is the el-job object."
       (run-hook-with-args 'indexed-record-link-functions link))
     (dolist (prob problems)
       (push prob indexed--problems))
-    (run-hook-with-args 'indexed-x-post-update-functions results)
+    (run-hook-with-args 'indexed-post-incremental-update-functions results)
     (when problems
       (message "Scan had problems, see M-x org-node-list-scan-problems"))))
 
-(defvar indexed-x-forget-file-functions nil)
-(defvar indexed-x-forget-entry-functions nil)
 (defun indexed-x--forget-files (files)
   "Remove from cache, info about entries in FILES.
 
@@ -142,12 +140,11 @@ For a thorough cleanup, you should also run
      do
      (remhash (indexed-id entry) indexed--id<>entry)
      (remhash (indexed-title entry) indexed--title<>id)
-     (run-hook-with-args 'indexed-x-forget-entry-functions entry))
+     (run-hook-with-args 'indexed-forget-entry-functions entry))
     (dolist (file files)
       (remhash file indexed--file<>data)
-      (run-hook-with-args 'indexed-x-forget-file-functions file))))
+      (run-hook-with-args 'indexed-forget-file-functions file))))
 
-(defvar indexed-x-forget-link-functions nil)
 (defvar indexed-x-last-removed-links nil)
 ;; XXX maybe rename origin to nearby-id
 (defun indexed-x--forget-links-from (dead-ids)
@@ -172,7 +169,7 @@ Put the forgotten links into `indexed-x-last-removed-links'."
                           else collect link)
                  indexed--dest<>links))
     (dolist (link indexed-x-last-removed-links)
-      (run-hook-with-args 'indexed-x-forget-link-functions link))))
+      (run-hook-with-args 'indexed-forget-link-functions link))))
 
 
 ;;; Helper API for weird situations
@@ -196,9 +193,10 @@ to pick it up."
                      nil)
              indexed--file<>data)
     ;; XXX HACK untested
-    (when-let* ((boundp 'el-job--all-jobs)
-                (job-for-later (gethash 'indexed-x el-job--all-jobs)))
-      (push buffer-file-truename (el-job-queued-inputs job-for-later)))))
+    ;; (when-let* ((boundp 'el-job--all-jobs)
+    ;;             (job-for-later (gethash 'indexed-x el-job--all-jobs)))
+    ;;   (push buffer-file-truename (el-job-queued-inputs job-for-later)))
+    ))
 
 (defun indexed-x-ensure-link-at-point-known (&rest _)
   (require 'org)
@@ -276,8 +274,8 @@ changed."
   (require 'org)
   (let ((all-tags (if org-use-tag-inheritance
                       ;; NOTE: Above option can have complex rules.
-                      ;; This will handle them correctly, but it's moot as
-                      ;; `indexed-org-parser--parse-file' will not.
+                      ;; This handles them correctly, but it's moot as
+                      ;; `indexed-org-parser--parse-file' does not.
                       (org-get-tags)
                     (let ((org-use-tag-inheritance t)
                           (org-trust-scanner-tags nil))
@@ -285,6 +283,16 @@ changed."
     (cl-loop for tag in all-tags
              when (get-text-property 0 'inherited tag)
              collect (substring-no-properties tag))))
+
+;;;###autoload
+(defun indexed-x-snitch-to-org-id (entry)
+  "Tell `org-id-locations' about ENTRY.
+Suitable on `indexed-record-entry-functions'."
+  (require 'org-id)
+  (when (and org-id-track-globally
+             (hash-table-p org-id-locations)
+             (indexed-id entry))
+    (puthash (indexed-id entry) (indexed-file-name entry) org-id-locations)))
 
 (provide 'indexed-x)
 

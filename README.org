@@ -63,7 +63,7 @@ or if you like mysterious aliases,
 
 For now, you can't use the =[:select ...]= s-exp language from EmacSQL.  Someone would need to patch or repackage [[https://github.com/magit/emacsql/blob/main/emacsql-compiler.el][emacsql-compiler.el]] so it can format statements without quoting.
 
-Use command =M-x indexed-list-roam-db-contents= to see what's in your database!
+Use command =M-x indexed-list-db-contents= to see what's in your database!
 
 *** Diskless
 There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
@@ -185,12 +185,13 @@ Functions without argument (which you can use to iterate over all objects)
 - indexed-org-entries
 - indexed-org-id-nodes
 - indexed-org-links
+- indexed-org-links-and-citations
 - indexed-org-files
 
 Hooks
 
-- indexed-pre-reset-functions
-- indexed-post-reset-functions
+- indexed-pre-full-reset-functions
+- indexed-post-full-reset-functions
 - indexed-record-file-functions
 - indexed-record-entry-functions
 - indexed-record-link-functions
@@ -201,11 +202,11 @@ Loaded by =indexed-update-on-save-mode=, which sets up on-save/on-rename/on-dele
 
 That mode runs new hooks:
 
-- indexed-x-pre-update-functions
-- indexed-x-post-update-functions
-- indexed-x-forget-file-functions
-- indexed-x-forget-entry-functions
-- indexed-x-forget-link-functions
+- indexed-pre-incremental-update-functions
+- indexed-post-incremental-update-functions
+- indexed-forget-file-functions
+- indexed-forget-entry-functions
+- indexed-forget-link-functions
 
 and also some already-mentioned hooks:
 
@@ -235,7 +236,7 @@ Steps:
 
      Alas, this file got a bit hard to read after squeezing for performance, but it can be done simpler. [TODO: write a simple reference impl]
 
-2. Hook your own DB-creator onto =indexed-post-reset-functions=, or just on a repeating timer or some suitable hook.
+2. Hook your own DB-creator onto =indexed-post-full-reset-functions=, or just on a repeating timer or some suitable hook.
 
 3. Done!
 
@@ -264,5 +265,5 @@ Commands
 - indexed-list-title-collisions
 - indexed-list-problems
 - indexed-list-entries
-- indexed-list-roam-db-contents
+- indexed-list-db-contents
 - indexed-reset

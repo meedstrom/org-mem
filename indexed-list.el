@@ -66,14 +66,14 @@
 (defun indexed-list-title-collisions ()
   "Pop up a buffer listing title collisions between org-ID nodes."
   (interactive)
-  (if indexed--collisions
+  (if indexed--title-collisions
       (indexed-list--pop-to-tabulated-buffer
        :buffer "*title collisions*"
        :format [("Time" 6 t) ("Shared name" 30 t) ("ID" 37 t) ("Other ID" 0 t)]
        :reverter #'indexed-list-title-collisions
        :entries
        (cl-loop
-        for row in indexed--collisions
+        for row in indexed--title-collisions
         collect (seq-let ( time name id1 id2 ) row
                   (list
                    (sxhash row)
@@ -137,7 +137,7 @@
                                  dest))))))))
 
 ;; TODO: Maybe generalize: track a list of open DBs and explore any of them
-(defun indexed-list-roam-db-contents (&optional db)
+(defun indexed-list-db-contents (&optional db)
   "Explore contents of currently used SQLite DB.
 
 With optional argument DB, explore that database connection

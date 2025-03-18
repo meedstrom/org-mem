@@ -61,7 +61,7 @@
       (when-let* ((other-id (gethash alias indexed--title<>id)))
         (unless (string= id other-id)
           (push (list (format-time-string "%H:%M") alias id other-id)
-                indexed--collisions)))
+                indexed--title-collisions)))
       (puthash alias id indexed--title<>id))))
 
 (defun indexed-roam--forget-aliases-refs (entry)
@@ -80,8 +80,8 @@
   "Loop over all PARSE-RESULTS and record the ROAM_REFS.
 This allows the accessor `indexed-roam-refs' to work.
 
-Designed for both `indexed-post-reset-functions' and
-`indexed-x-post-update-functions'."
+Designed for both `indexed-post-full-reset-functions' and
+`indexed-post-incremental-update-functions'."
   (save-current-buffer
     ;; PERF: Reuse one temp buffer.
     (set-buffer (setq indexed-roam--work-buf
@@ -155,18 +155,18 @@ What this means?  See indexed-test.el."
   (if indexed-roam-mode
       (progn
         (add-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases -5)
-        (add-hook 'indexed-x-forget-entry-functions #'indexed-roam--forget-aliases-refs)
-        (add-hook 'indexed-post-reset-functions    #'indexed-roam--record-refs -95)
-        (add-hook 'indexed-x-post-update-functions #'indexed-roam--record-refs -95)
-        (add-hook 'indexed-x-post-update-functions #'indexed-roam--update-db)
-        (add-hook 'indexed-post-reset-functions #'indexed-roam--mk-db)
+        (add-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-refs)
+        (add-hook 'indexed-post-full-reset-functions    #'indexed-roam--record-refs -95)
+        (add-hook 'indexed-post-incremental-update-functions #'indexed-roam--record-refs -95)
+        (add-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
+        (add-hook 'indexed-post-full-reset-functions #'indexed-roam--mk-db)
         (indexed--scan-full))
     (remove-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases)
-    (remove-hook 'indexed-x-forget-entry-functions #'indexed-roam--forget-aliases-refs)
-    (remove-hook 'indexed-post-reset-functions    #'indexed-roam--record-refs)
-    (remove-hook 'indexed-x-post-update-functions #'indexed-roam--record-refs)
-    (remove-hook 'indexed-x-post-update-functions #'indexed-roam--update-db)
-    (remove-hook 'indexed-post-reset-functions #'indexed-roam--mk-db)))
+    (remove-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-refs)
+    (remove-hook 'indexed-post-full-reset-functions    #'indexed-roam--record-refs)
+    (remove-hook 'indexed-post-incremental-update-functions #'indexed-roam--record-refs)
+    (remove-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
+    (remove-hook 'indexed-post-full-reset-functions #'indexed-roam--mk-db)))
 
 
 ;;; Database
@@ -418,7 +418,7 @@ Assume PLIST is a flat plist, with symbol keys and string values."
 
 (defun indexed-roam--update-db (parse-results)
   "Update current DB about nodes and links involving FILES.
-Suitable on `indexed-x-post-update-functions'."
+Suitable on `indexed-post-incremental-update-functions'."
   ;; NOTE: There's a likely performance bug in Emacs sqlite.c.
   ;;       I have a yuge file, which takes 0.01 seconds to delete on the
   ;;       sqlite3 command line... but 0.53 seconds with `sqlite-execute'.

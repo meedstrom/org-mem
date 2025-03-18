@@ -35,14 +35,16 @@
 ;;; Code:
 
 ;; TODO: A special-mode buffer for exploring all indexed objects,
-;;       same thought as `indexed-list-roam-db-contents'.
+;;       same thought as `indexed-list-db-contents'.
 
 ;; TODO: Awareness of CUSTOM_ID, not just ID
 
 ;; TODO: Collect links even if there is no nearby-id (aka "origin"),
 ;;       bc file + pos can still locate it.
 
-;;       Then let `indexed-links-from' print 'em all.
+;; TODO: Collect internal Org [[links]] without type: prefix?  Would have to
+;;       distinguish them from citations, which currently masquerade as link
+;;       objects with TYPE nil.
 
 ;; TODO: Replace olpath in the struct with a list CRUMBS with more info,
 ;;       then calc olpath like
@@ -60,9 +62,18 @@
 (require 'seq)
 (require 'indexed-org-parser)
 (require 'el-job)
+
 (declare-function indexed-x--handle-save "indexed-x")
 (declare-function indexed-x--handle-rename "indexed-x")
 (declare-function indexed-x--handle-delete "indexed-x")
+
+(define-obsolete-variable-alias 'indexed-pre-reset-functions 'indexed-pre-full-reset-functions "2025-03-18")
+(define-obsolete-variable-alias 'indexed-post-reset-functions 'indexed-post-full-reset-functions "2025-03-18")
+(define-obsolete-variable-alias 'indexed-x-pre-update-functions 'indexed-pre-incremental-update-functions "2025-03-18")
+(define-obsolete-variable-alias 'indexed-x-post-update-functions 'indexed-post-incremental-update-functions "2025-03-18")
+(define-obsolete-variable-alias 'indexed-x-forget-file-functions 'indexed-forget-file-functions "2025-03-18")
+(define-obsolete-variable-alias 'indexed-x-forget-entry-functions 'indexed-forget-entry-functions "2025-03-18")
+(define-obsolete-variable-alias 'indexed-x-forget-link-functions 'indexed-forget-link-functions "2025-03-18")
 
 (defgroup indexed nil "Cache metadata on all Org files."
   :group 'text)
@@ -286,6 +297,16 @@ An org-ID node is an entry with an ID."
 
 (defun indexed-org-links ()
   "All links."
+  (cl-loop for links being each hash-value of indexed--dest<>links
+           nconc (cl-loop for link in links
+                          unless (null (indexed-org-link-type link))
+                          collect link)))
+
+(defun indexed-org-links-and-citations ()
+  "All links and citations.
+Citations are `indexed-org-link' objects where TYPE is nil and
+the string DEST begins with \"@\".
+(2025-03-18: This may change in the future!)"
   (hash-table-values indexed--dest<>links))
 
 (defun indexed-property (prop entry)
@@ -313,17 +334,44 @@ An org-ID node is an entry with an ID."
 
 ;;; Core logic
 
+(defvar indexed-pre-full-reset-functions nil
+  "Hook passed the list of parse-results, before a reset.")
+
+(defvar indexed-post-full-reset-functions nil
+  "Hook passed the list of parse-results, after a reset.")
+
+(defvar indexed-record-file-functions nil
+  "Hook passed one `indexed-file-data' object after recording it.")
+
+(defvar indexed-record-entry-functions nil
+  "Hook passed one `indexed-org-entry' object after recording it.")
+
+(defvar indexed-record-link-functions nil
+  "Hook passed one `indexed-org-link' object after recording it.")
+
+;; ONLY USED BY `indexed-update-on-save-mode':
+
+(defvar indexed-pre-incremental-update-functions nil
+  "Hook passed the list of parse-results, before an incremental update.")
+
+(defvar indexed-post-incremental-update-functions nil
+  "Hook passed the list of parse-results, after an incremental update.")
+
+(defvar indexed-forget-file-functions nil
+    "Hook passed one `indexed-file-data' object after forgetting it.")
+
+(defvar indexed-forget-entry-functions nil
+    "Hook passed one `indexed-org-entry' object after forgetting it.")
+
+(defvar indexed-forget-link-functions nil
+    "Hook passed one `indexed-org-link' object after forgetting it.")
+
+
 (defvar indexed--timer (timer-create))
 (defvar indexed--problems nil)
-(defvar indexed--collisions nil)
+(defvar indexed--title-collisions nil)
 (defvar indexed--id-collisions nil)
 (defvar indexed--time-elapsed 1.0)
-
-(defvar indexed-pre-reset-functions nil)
-(defvar indexed-post-reset-functions nil)
-(defvar indexed-record-file-functions nil)
-(defvar indexed-record-entry-functions nil)
-(defvar indexed-record-link-functions nil)
 
 (defun indexed--activate-timer (&rest _)
   "Adjust `indexed--timer' based on duration of last indexing.
@@ -343,10 +391,10 @@ If not running, start it."
   :global t
   (if indexed-mode
       (progn
-        (add-hook 'indexed-post-reset-functions #'indexed--activate-timer)
+        (add-hook 'indexed-post-full-reset-functions #'indexed--activate-timer)
         (indexed--activate-timer)
         (indexed--scan-full))
-    (remove-hook 'indexed-post-reset-functions #'indexed--activate-timer)
+    (remove-hook 'indexed-post-full-reset-functions #'indexed--activate-timer)
     (cancel-timer indexed--timer)))
 
 (define-minor-mode indexed-update-on-save-mode
@@ -368,10 +416,6 @@ If not running, start it."
   (when interactive
     (setq indexed--next-message t))
   (indexed--scan-full))
-
-(defun indexed--scan-full-synchronously (timeout)
-  (indexed--scan-full)
-  (el-job-await 'indexed timeout "indexing entries..."))
 
 (defvar indexed--time-at-begin-full-scan nil)
 (defun indexed--scan-full ()
@@ -396,7 +440,7 @@ If not running, start it."
 
 (defun indexed--finalize-full (parse-results _job)
   "Handle PARSE-RESULTS from `indexed--scan-full'."
-  (run-hook-with-args 'indexed-pre-reset-functions parse-results)
+  (run-hook-with-args 'indexed-pre-full-reset-functions parse-results)
   (clrhash indexed--title<>id)
   (clrhash indexed--id<>entry)
   (clrhash indexed--id<>file)
@@ -404,7 +448,7 @@ If not running, start it."
   (clrhash indexed--file<>entries)
   (clrhash indexed--origin<>links)
   (clrhash indexed--dest<>links)
-  (setq indexed--collisions nil)
+  (setq indexed--title-collisions nil)
   (seq-let (_missing-files file-data entries links problems) parse-results
     (dolist (fdata file-data)
       (puthash (indexed-file-name fdata) fdata indexed--file<>data)
@@ -427,12 +471,12 @@ If not running, start it."
              (length (indexed-org-id-nodes))
              (length (indexed-org-files))
              (float-time (time-since indexed--time-at-begin-full-scan)))))
-    (run-hook-with-args 'indexed-post-reset-functions parse-results)
+    (run-hook-with-args 'indexed-post-full-reset-functions parse-results)
     (message "%s" indexed--next-message)
     (setq indexed--next-message nil)
     (when indexed--id-collisions
       (message "Saw same ID twice, see M-x indexed-list-id-collisions"))
-    (when (and indexed--collisions indexed-warn-title-collisions)
+    (when (and indexed--title-collisions indexed-warn-title-collisions)
       (message "Some IDs share title, see M-x indexed-list-title-collisions"))
     (when (setq indexed--problems problems)
       (message "Indexing had problems, see M-x indexed-list-problems"))))
@@ -452,7 +496,7 @@ If not running, start it."
       (let ((other-id (gethash title indexed--title<>id)))
         (when (and other-id (not (string= id other-id)))
           (push (list (format-time-string "%H:%M") title id other-id)
-                indexed--collisions)))
+                indexed--title-collisions)))
       (when-let* ((other-entry (gethash id indexed--id<>entry)))
         ;; user error, or bug
         (push (list (format-time-string "%H:%M")
@@ -460,6 +504,7 @@ If not running, start it."
                     (indexed-title entry)
                     (indexed-title other-entry))
               indexed--id-collisions))
+      (puthash id file indexed--id<>file)
       (puthash id entry indexed--id<>entry)
       (puthash title id indexed--title<>id))))
 
@@ -602,13 +647,14 @@ Make it target only LINK-TYPES instead of all the cars of
 	    (or (regexp "[^[:punct:][:space:]\n]")
                 ?- ?/ ,parenthesis))))))
 
-(define-obsolete-function-alias 'indexed-id-nodes 'indexed-org-id-nodes "2025-03-17")
-(define-obsolete-function-alias 'indexed-entries 'indexed-org-entries "2025-03-17")
-(define-obsolete-function-alias 'indexed-files 'indexed-org-files "2025-03-17")
-(define-obsolete-function-alias 'indexed-links 'indexed-org-links "2025-03-17")
-(define-obsolete-function-alias 'indexed-roam-explore 'indexed-list-roam-db-contents "2025-03-17")
-(define-obsolete-function-alias 'indexed-todo 'indexed-org-entry-todo-state "2025-03-18")
-(define-obsolete-function-alias 'indexed-file 'indexed-file-name "2025-03-18")
+(define-obsolete-function-alias 'indexed-roam-explore 'indexed-list-db-contents "2025-03-18")
+(define-obsolete-function-alias 'indexed-list-roam-db-contents 'indexed-list-db-contents "2025-03-18")
+(define-obsolete-function-alias 'indexed-id-nodes #'indexed-org-id-nodes "2025-03-18")
+(define-obsolete-function-alias 'indexed-entries #'indexed-org-entries "2025-03-18")
+(define-obsolete-function-alias 'indexed-files #'indexed-org-files "2025-03-18")
+(define-obsolete-function-alias 'indexed-links #'indexed-org-links "2025-03-18")
+(define-obsolete-function-alias 'indexed-todo #'indexed-todo-state "2025-03-18")
+(define-obsolete-function-alias 'indexed-file #'indexed-file-name "2025-03-18")
 
 (provide 'indexed)
 
