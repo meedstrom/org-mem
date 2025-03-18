@@ -462,10 +462,6 @@ Must load library \"org-roam\"."
                                 (emacsql-format exp table schema))
                 ";\""))))
 
-(declare-function org-roam-node-create "org-roam-node")
-(declare-function org-roam-reflink-create "org-roam-mode")
-(declare-function org-roam-backlink-create "org-roam-mode")
-
 
 ;;; Bonus utilities
 
@@ -479,17 +475,21 @@ Must load library \"org-roam\"."
 ;; (advice-add 'org-roam-backlinks-get :override #'indexed-roam-mk-backlinks)
 ;; (advice-add 'org-roam-reflinks-get  :override #'indexed-roam-mk-reflinks)
 
+(declare-function org-roam-node-create "org-roam-node")
+(declare-function org-roam-node-id "org-roam-node")
+(declare-function org-roam-reflink-create "org-roam-mode")
+(declare-function org-roam-backlink-create "org-roam-mode")
 
 (defun indexed-roam-mk-node (entry)
   "Make an org-roam-node object, from indexed object ENTRY."
   (require 'org-roam-node)
   (org-roam-node-create
-   :file (indexed-file entry)
+   :file (indexed-file-name entry)
    :id (indexed-id entry)
    :scheduled (when-let* ((scheduled (indexed-scheduled entry)))
-                (concat (substring ..scheduled 1 11) "T12:00:00"))
+                (concat (substring scheduled 1 11) "T12:00:00"))
    :deadline (when-let* ((deadline (indexed-deadline entry)))
-               (concat (substring ..deadline 1 11) "T12:00:00"))
+               (concat (substring deadline 1 11) "T12:00:00"))
    :level (indexed-heading-lvl entry)
    :title (indexed-title entry)
    :file-title (indexed-file-title entry)
