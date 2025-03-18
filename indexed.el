@@ -482,6 +482,8 @@ Note though that org-id would not necessarily have truenames."
               nconc (indexed--dir-files-recursive
                      dir ".org" indexed-org-dirs-exclude)))))
 
+;; TODO: Make it possible to list only the files in ~/.emacs.d/ but exclude
+;;       all ~/.emacs.d/*/ subdirs.
 ;; (progn (ignore-errors (native-compile #'indexed--dir-files-recursive)) (benchmark-run 100 (indexed--dir-files-recursive org-roam-directory "org" '("logseq/"))))
 (defun indexed--dir-files-recursive (dir suffix excludes)
   "Faster, purpose-made variant of `directory-files-recursively'.
@@ -606,6 +608,7 @@ Make it target only LINK-TYPES instead of all the cars of
 (define-obsolete-function-alias 'indexed-links 'indexed-org-links "2025-03-17")
 (define-obsolete-function-alias 'indexed-roam-explore 'indexed-list-roam-db-contents "2025-03-17")
 (define-obsolete-function-alias 'indexed-todo 'indexed-org-entry-todo-state "2025-03-18")
+(define-obsolete-function-alias 'indexed-file 'indexed-file-name "2025-03-18")
 
 (provide 'indexed)
 

@@ -414,7 +414,7 @@ Assume PLIST is a flat plist, with symbol keys and string values."
           ")"))
 
 
-;;; Optional
+;;; Update-on-save
 
 (defun indexed-roam--update-db (parse-results)
   "Update current DB about nodes and links involving FILES.
@@ -465,6 +465,11 @@ Must load library \"org-roam\"."
 
 ;;; Bonus utilities
 
+;; Not sure if we're extending past our domain-of-responsibility here, but
+;; people do ask "how can I use [...] with org-roam?".  So until org-roam
+;; upstream makes it unnecessary, we can ship some helpers here.
+
+
 ;; If saving buffers is slow with org-roam.  Stop updating org-roam.db on save,
 ;; and use this shim to let your *org-roam* buffer be up to date anyway.
 
@@ -511,6 +516,7 @@ Can be used in one of two ways:
 - Directly passing an output of `indexed-roam-mk-node' as
   TARGET-ROAM-NODE."
   (require 'org-roam-mode)
+  (require 'org-roam-node)
   (let* ((target-id (org-roam-node-id target-roam-node))
          (links (gethash target-id indexed--dest<>links)))
     (cl-loop
@@ -532,6 +538,7 @@ Can be used in one of two ways:
 - Directly passing an output of `indexed-roam-mk-node' as
   TARGET-ROAM-NODE."
   (require 'org-roam-mode)
+  (require 'org-roam-node)
   (let* ((target-id (org-roam-node-id target-roam-node))
          (entry (gethash target-id indexed--id<>entry)))
     (when entry
