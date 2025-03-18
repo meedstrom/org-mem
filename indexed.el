@@ -35,7 +35,7 @@
 ;;; Code:
 
 ;; TODO: A special-mode buffer for exploring all indexed objects,
-;;       same thought as `indexed-roam-explore'.
+;;       same thought as `indexed-list-roam-db-contents'.
 
 ;; TODO: Awareness of CUSTOM_ID, not just ID
 
@@ -167,7 +167,7 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 (defalias 'indexed-scheduled      #'indexed-org-entry-scheduled)
 (defalias 'indexed-tags-inherited #'indexed-org-entry-tags-inherited)
 (defalias 'indexed-tags-local     #'indexed-org-entry-tags-local)
-(defalias 'indexed-todo           #'indexed-org-entry-todo-state) ;;XXX
+(defalias 'indexed-todo-state     #'indexed-org-entry-todo-state)
 (defalias 'indexed-dest           #'indexed-org-link-dest)
 (defalias 'indexed-origin         #'indexed-org-link-nearby-id) ;;XXX
 (defalias 'indexed-type           #'indexed-org-link-type)
@@ -363,10 +363,15 @@ If not running, start it."
     (advice-remove 'delete-file         #'indexed-x--handle-delete)))
 
 (defvar indexed--next-message nil)
-(defun indexed-reset ()
-  (interactive)
-  (setq indexed--next-message t)
+(defun indexed-reset (&optional interactive)
+  (interactive "p")
+  (when interactive
+    (setq indexed--next-message t))
   (indexed--scan-full))
+
+(defun indexed--scan-full-synchronously (timeout)
+  (indexed--scan-full)
+  (el-job-await 'indexed timeout "indexing entries..."))
 
 (defvar indexed--time-at-begin-full-scan nil)
 (defun indexed--scan-full ()
@@ -391,7 +396,7 @@ If not running, start it."
 
 (defun indexed--finalize-full (parse-results _job)
   "Handle PARSE-RESULTS from `indexed--scan-full'."
-  (run-hooks 'indexed-pre-reset-functions)
+  (run-hook-with-args 'indexed-pre-reset-functions parse-results)
   (clrhash indexed--title<>id)
   (clrhash indexed--id<>entry)
   (clrhash indexed--id<>file)
@@ -599,6 +604,8 @@ Make it target only LINK-TYPES instead of all the cars of
 (define-obsolete-function-alias 'indexed-entries 'indexed-org-entries "2025-03-17")
 (define-obsolete-function-alias 'indexed-files 'indexed-org-files "2025-03-17")
 (define-obsolete-function-alias 'indexed-links 'indexed-org-links "2025-03-17")
+(define-obsolete-function-alias 'indexed-roam-explore 'indexed-list-roam-db-contents "2025-03-17")
+(define-obsolete-function-alias 'indexed-todo 'indexed-org-entry-todo-state "2025-03-18")
 
 (provide 'indexed)
 

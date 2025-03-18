@@ -38,6 +38,8 @@
 (defvar org-use-tag-inheritance)
 (defvar org-trust-scanner-tags)
 (declare-function org-current-level "org")
+(declare-function org-element-context "org-element")
+(declare-function org-element-property "org-element")
 (declare-function org-entry-beginning-position "org")
 (declare-function org-entry-get-with-inheritance "org")
 (declare-function org-entry-properties "org")
@@ -145,6 +147,7 @@ For a thorough cleanup, you should also run
       (remhash file indexed--file<>data)
       (run-hook-with-args 'indexed-x-forget-file-functions file))))
 
+(defvar indexed-x-forget-link-functions nil)
 (defvar indexed-x-last-removed-links nil)
 ;; XXX maybe rename origin to nearby-id
 (defun indexed-x--forget-links-from (dead-ids)
@@ -167,7 +170,9 @@ Put the forgotten links into `indexed-x-last-removed-links'."
                           if (member (indexed-origin link) dead-ids)
                           do (push link indexed-x-last-removed-links)
                           else collect link)
-                 indexed--dest<>links))))
+                 indexed--dest<>links))
+    (dolist (link indexed-x-last-removed-links)
+      (run-hook-with-args 'indexed-x-forget-link-functions link))))
 
 
 ;;; Helper API for weird situations
@@ -194,6 +199,23 @@ to pick it up."
     (when-let* ((boundp 'el-job--all-jobs)
                 (job-for-later (gethash 'indexed-x el-job--all-jobs)))
       (push buffer-file-truename (el-job-queued-inputs job-for-later)))))
+
+(defun indexed-x-ensure-link-at-point-known (&rest _)
+  (require 'org)
+  (require 'org-element)
+  (when (and buffer-file-truename
+             (derived-mode-p 'org-mode))
+    (when-let* ((el (org-element-context))
+                (dest (org-element-property :path el))
+                (type (org-element-property :type el)))
+      (indexed-x-ensure-buffer-file-known)
+      (indexed--record-link
+       (indexed-org-link--make-obj
+        :nearby-id (org-entry-get-with-inheritance "ID")
+        :pos (point)
+        :type type
+        :dest dest
+        :file-name buffer-file-truename)))))
 
 (defun indexed-x-ensure-entry-at-point-known ()
   "Record the entry at point.

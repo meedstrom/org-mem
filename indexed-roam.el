@@ -154,7 +154,7 @@ What this means?  See indexed-test.el."
   :group 'indexed
   (if indexed-roam-mode
       (progn
-        (add-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases)
+        (add-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases -5)
         (add-hook 'indexed-x-forget-entry-functions #'indexed-roam--forget-aliases-refs)
         (add-hook 'indexed-post-reset-functions    #'indexed-roam--record-refs -95)
         (add-hook 'indexed-x-post-update-functions #'indexed-roam--record-refs -95)
@@ -432,23 +432,6 @@ Suitable on `indexed-x-post-update-functions'."
     (dolist (file files)
       (sqlite-execute db "DELETE FROM files WHERE file LIKE ?" (list file)))
     (indexed-roam--populate db rows)))
-
-;; TODO: Maybe generalize: track a list of open DBs and explore any of them
-(defun indexed-roam-explore (&optional db)
-  "Explore contents of currently used SQLite DB.
-
-With optional argument DB, explore that database connection
-instead of default `indexed-roam--connection'."
-  (interactive)
-  (cl-assert (sqlite-available-p))
-  (let ((db (or db (indexed-roam))))
-    (unless (ignore-errors (sqlite-pragma db "im_still_here"))
-      (error "indexed-roam-show-contents: Not a live DB connection: %s" db))
-    (pop-to-buffer
-     (get-buffer-create (format "*SQLite %.50s*" (prin1-to-string db))))
-    (sqlite-mode)
-    (setq-local sqlite--db db)
-    (sqlite-mode-list-tables)))
 
 
 ;;; Dev tools

@@ -16,11 +16,11 @@ Many Org plugins now do reinvent the wheel, when it comes to keeping track of so
 
 Example: org-roam's DB, org-node's hash tables, orgrr's hash tables, ..., and some just re-run grep all the time, which still leads to writing elisp to cross-reference the results with something useful.
 
-And let's not talk about the org-agenda (try putting 2000 files into =org-agenda-files=).  It needs to open each file in real-time to know anything about them, so it grinds to a halt.
+And let's not talk about the org-agenda... (Try putting 2000 files into =org-agenda-files=!)  It needs to open each file in real-time to know anything about them, so everyday commands grind to a halt.
 
 ** Quick overview
 
-Data will exist after you setup like this and wait a second or two.
+Data will exist after setup akin to this and you wait a second or two.
 
 #+begin_src elisp
 (setq indexed-org-dirs '("~/org" "~/Sync/notes"))
@@ -65,7 +65,7 @@ or if you like mysterious aliases,
 
 For now, you can't use the =[:select ...]= s-exp language from EmacSQL.  Someone would need to patch or repackage [[https://github.com/magit/emacsql/blob/main/emacsql-compiler.el][emacsql-compiler.el]] so it can format statements without quoting.
 
-Use command =M-x indexed-roam-explore= to see what's in your database!
+Use command =M-x indexed-list-roam-db-contents= to see what's in your database!
 
 *** Diskless
 There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
@@ -125,19 +125,17 @@ Small distinguisher: The zeroth-level entry can never have a TODO state, priorit
 
 ** Appendix I: API
 
-NOTE: Namespace *still under flux!*  This *may be out of date!*
+NOTE: Namespace *still under flux!*  This *may be out of date!*  Check [[https://github.com/meedstrom/indexed/blob/main/indexed.el][indexed.el]] source.
 
-There are three types of objects: /file-data/, /entry/ and /link/.  Many functions can operate on more than one type.
+There are three types of objects: /file-data/, /entry/ and /link/.  Some functions operate on more than one type.
 
 Polymorphic functions
-- indexed-file
+- indexed-pos
+- indexed-file-name
 - indexed-file-data
 - indexed-file-title
 - indexed-file-title-or-basename
-- indexed-id
-- indexed-title
-- indexed-lnum
-- indexed-pos
+- indexed-file-mtime
 
 Functions operating on raw file paths
 - indexed-entry-near-lnum-in-file
@@ -149,16 +147,16 @@ Functions operating on raw id
 - indexed-entry-by-id
 - indexed-links-from
 
-Functions operating on FILE-DATA only
+Functions operating on FILE-DATA
 - indexed-mtime
 
-Functions operating on LINK only
+Functions operating on LINK
 - indexed-dest
 - indexed-origin
 - indexed-type
 - indexed-heading-above
 
-Functions operating on ENTRY only
+Functions operating on ENTRY
 - indexed-deadline
 - indexed-heading-lvl
 - indexed-id-links-to
@@ -167,9 +165,9 @@ Functions operating on ENTRY only
 - indexed-olpath-with-self-with-title
 - indexed-olpath-with-title
 - indexed-priority
-- indexed-properties
-- indexed-property
-- indexed-property-assert
+- indexed-properties -- subject to change
+- indexed-property -- subject to change
+- indexed-property-assert -- subject to change
 - indexed-roam-aliases
 - indexed-roam-reflinks-to
 - indexed-roam-refs
@@ -178,10 +176,10 @@ Functions operating on ENTRY only
 - indexed-tags
 - indexed-tags-inherited
 - indexed-tags-local
-- indexed-todo
+- indexed-todo-state
 - indexed-toptitle
 
-Functions without argument (good for iterating over the entire cache)
+Functions without argument (which you can use to iterate over all objects)
 
 - indexed-org-entries
 - indexed-org-id-nodes
@@ -195,17 +193,35 @@ Hooks
 - indexed-record-file-functions
 - indexed-record-entry-functions
 - indexed-record-link-functions
+
+*** Extension: indexed-x.el
+
+Loaded by =indexed-update-on-save-mode=, which:
+
+sets up on-save/on-rename/on-delete hooks to keep the cache updated in real time.
+
+Provides new hooks:
+
 - indexed-x-pre-update-functions
 - indexed-x-post-update-functions
 - indexed-x-forget-file-functions
 - indexed-x-forget-entry-functions
+- indexed-x-forget-link-functions
 
-Config settings
+and also uses some already-mentioned hooks:
 
-- indexed-warn-title-collisions
-- indexed-seek-link-types
-- indexed-org-dirs
-- indexed-org-dirs-exclude
+- indexed-record-file-functions
+- indexed-record-entry-functions
+- indexed-record-link-functions
+
+You may also want to trigger the following functions after inserting entries or links, if they need to become indexed instantly even before a file is saved:
+
+- indexed-x-ensure-entry-at-point-known
+- indexed-x-ensure-link-at-point-known
+
+*** Extension: indexed-roam.el
+
+Enabled by =indexed-roam-mode=.  Explained elsewhere.
 
 ** Appendix II: Make your own database
 Steps:
@@ -223,3 +239,30 @@ Steps:
 3. Done!
 
 # In a private branch, I'm preparing functionality to keep indexing in real time without doing a full reset so often.
+** Appendix III: User stuff
+
+Modes
+
+- indexed-mode
+  - Very simple: calls =indexed-reset= occasionally.  Subject to removal.
+- indexed-update-on-save-mode
+  - Explained elsewhere.
+- indexed-roam-mode
+  - Explained elsewhere.
+
+Config settings
+
+- indexed-warn-title-collisions
+- indexed-seek-link-types -- subject to removal
+- indexed-org-dirs
+- indexed-org-dirs-exclude
+
+Commands
+
+- indexed-list-dead-id-links
+- indexed-list-id-collisions
+- indexed-list-title-collisions
+- indexed-list-problems
+- indexed-list-entries
+- indexed-list-roam-db-contents
+- indexed-reset
