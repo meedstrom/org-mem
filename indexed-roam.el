@@ -310,7 +310,7 @@ TABLE-SYM must only contain lists of exactly that many items."
       (indexed-roam--insert-en-masse db links 5))))
 
 (defun indexed-roam--mk-rows (&optional specific-files)
-  "Return info that org-roam can consume.
+  "Return rows of data suitable for inserting into `indexed-roam' DB.
 
 Specifically, return seven lists of rows, one for each SQL table
 defined by `indexed-roam--configure'.
@@ -461,6 +461,91 @@ Must load library \"org-roam\"."
                 (string-replace ", " ",\n\t"
                                 (emacsql-format exp table schema))
                 ";\""))))
+
+(declare-function org-roam-node-create "org-roam-node")
+(declare-function org-roam-reflink-create "org-roam-mode")
+(declare-function org-roam-backlink-create "org-roam-mode")
+
+
+;;; Bonus utilities
+
+;; If saving buffers is slow with org-roam.  Stop updating org-roam.db on save,
+;; and use this shim to let your *org-roam* buffer be up to date anyway.
+
+;; (setq org-roam-db-update-on-save nil) ;; if saving is slow
+;; (indexed-mode)
+;; (indexed-update-on-save-mode)
+;; (indexed-roam-mode)
+;; (advice-add 'org-roam-backlinks-get :override #'indexed-roam-mk-backlinks)
+;; (advice-add 'org-roam-reflinks-get  :override #'indexed-roam-mk-reflinks)
+
+
+(defun indexed-roam-mk-node (entry)
+  "Make an org-roam-node object, from indexed object ENTRY."
+  (require 'org-roam-node)
+  (org-roam-node-create
+   :file (indexed-file entry)
+   :id (indexed-id entry)
+   :scheduled (when-let* ((scheduled (indexed-scheduled entry)))
+                (concat (substring ..scheduled 1 11) "T12:00:00"))
+   :deadline (when-let* ((deadline (indexed-deadline entry)))
+               (concat (substring ..deadline 1 11) "T12:00:00"))
+   :level (indexed-heading-lvl entry)
+   :title (indexed-title entry)
+   :file-title (indexed-file-title entry)
+   :tags (indexed-tags entry)
+   :aliases (indexed-roam-aliases entry)
+   :todo (indexed-todo entry)
+   :refs (indexed-roam-refs entry)
+   :point (indexed-pos entry)
+   :priority (indexed-priority entry)
+   ;; Not quite the data type org-roam expects for now
+   ;; :properties (indexed-properties entry)
+   :olp (indexed-olpath entry)))
+
+(defun indexed-roam-mk-backlinks (target-roam-node &rest _)
+  "Make `org-roam-backlink' objects pointing to TARGET-ROAM-NODE.
+
+Can be used in one of two ways:
+- As override-advice for `org-roam-backlinks-get'.
+- Directly passing an output of `indexed-roam-mk-node' as
+  TARGET-ROAM-NODE."
+  (require 'org-roam-mode)
+  (let* ((target-id (org-roam-node-id target-roam-node))
+         (links (gethash target-id indexed--dest<>links)))
+    (cl-loop
+     for link in links
+     as src-id = (indexed-origin link)
+     as src-entry = (gethash src-id indexed--id<>entry)
+     when src-entry
+     collect (org-roam-backlink-create
+              :target-node target-roam-node
+              :source-node (indexed-roam-mk-node src-entry)
+              :point (indexed-pos link)))))
+
+;; REVIEW:  Are our refs exactly the same as org-roam's refs?
+(defun indexed-roam-mk-reflinks (target-roam-node &rest _)
+  "Make `org-roam-reflink' objects pointing to TARGET-ROAM-NODE.
+
+Can be used in one of two ways:
+- As override-advice for `org-roam-reflinks-get'.
+- Directly passing an output of `indexed-roam-mk-node' as
+  TARGET-ROAM-NODE."
+  (require 'org-roam-mode)
+  (let* ((target-id (org-roam-node-id target-roam-node))
+         (entry (gethash target-id indexed--id<>entry)))
+    (when entry
+      (cl-loop
+       for ref in (indexed-roam-refs entry)
+       append (cl-loop
+               for link in (gethash ref indexed--dest<>links)
+               as src-id = (indexed-origin link)
+               as src-entry = (gethash src-id indexed--id<>entry)
+               when src-entry
+               collect (org-roam-reflink-create
+                        :ref (indexed-dest link)
+                        :source-node (indexed-roam-mk-node src-entry)
+                        :point (indexed-pos link)))))))
 
 (provide 'indexed-roam)
 
