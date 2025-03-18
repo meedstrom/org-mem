@@ -5,7 +5,7 @@ Builds fast.  My =M-x indexed-reset=:
 
 #+begin_example
 indexed: Analyzed 160616 lines in 10734 entries (3397 with ID)
-         in 2394 files in 1.37s + 0.16s to build SQLite DB
+         in 2394 files in 1.37s (+ 0.16s to build SQLite DB)
 #+end_example
 
 This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
@@ -145,6 +145,9 @@ Functions operating on raw id
 - indexed-entry-by-id
 - indexed-links-from
 
+Functions operating on raw titles
+- indexed-id-node-by-title
+
 Functions operating on FILE-DATA
 - indexed-mtime
 
@@ -163,9 +166,9 @@ Functions operating on ENTRY
 - indexed-olpath-with-self-with-title
 - indexed-olpath-with-title
 - indexed-priority
-- indexed-properties -- subject to change
-- indexed-property -- subject to change
-- indexed-property-assert -- subject to change
+- indexed-properties --- subject to change
+- indexed-property --- subject to change
+- indexed-property-assert --- subject to change
 - indexed-roam-aliases
 - indexed-roam-reflinks-to
 - indexed-roam-refs
@@ -250,7 +253,7 @@ Modes
 Config settings
 
 - indexed-warn-title-collisions
-- indexed-seek-link-types -- subject to removal
+- indexed-seek-link-types --- subject to removal
 - indexed-org-dirs
 - indexed-org-dirs-exclude
 

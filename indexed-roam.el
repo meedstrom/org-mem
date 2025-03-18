@@ -76,8 +76,8 @@
   (clrhash indexed-roam--ref<>id)
   (clrhash indexed-roam--id<>refs))
 
-(defun indexed-roam--record-refs (indexing-results)
-  "Loop over all INDEXING-RESULTS and record the ROAM_REFS.
+(defun indexed-roam--record-refs (parse-results)
+  "Loop over all PARSE-RESULTS and record the ROAM_REFS.
 This allows the accessor `indexed-roam-refs' to work.
 
 Designed for both `indexed-post-reset-functions' and
@@ -86,7 +86,7 @@ Designed for both `indexed-post-reset-functions' and
     ;; PERF: Reuse one temp buffer.
     (set-buffer (setq indexed-roam--work-buf
                       (get-buffer-create " *indexed-roam*" t)))
-    (dolist (entry (nth 2 indexing-results))
+    (dolist (entry (nth 2 parse-results))
       (when-let* ((id (indexed-id entry))
                   (refs (indexed-roam--split-refs-field
                          (indexed-property :ROAM_REFS entry))))
@@ -416,7 +416,7 @@ Assume PLIST is a flat plist, with symbol keys and string values."
 
 ;;; Optional
 
-(defun indexed-roam--update-db (indexing-results)
+(defun indexed-roam--update-db (parse-results)
   "Update current DB about nodes and links involving FILES.
 Suitable on `indexed-x-post-update-functions'."
   ;; NOTE: There's a likely performance bug in Emacs sqlite.c.
@@ -427,10 +427,10 @@ Suitable on `indexed-x-post-update-functions'."
   ;;       of all the CASCADE rules and pre-determine what needs to be deleted?
   ;;       It's not The Way to use a RDBMS, but it's a simple enough puzzle.
   (let* ((db (indexed-roam))
-         (files (mapcar #'indexed-file-name (nth 1 indexing-results)))
+         (files (mapcar #'indexed-file-name (nth 1 parse-results)))
          (rows (indexed-roam--mk-rows files)))
     (dolist (file files)
-      (sqlite-execute db "DELETE FROM files WHERE file LIKE ?" (list file)))
+      (sqlite-execute db "DELETE FROM files WHERE file LIKE ?;" (list file)))
     (indexed-roam--populate db rows)))
 
 
