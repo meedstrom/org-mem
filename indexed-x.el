@@ -235,11 +235,7 @@ changed."
           (when id
             (goto-char (point-min))
             (re-search-forward (concat "^[\t\s]*:id: +" (regexp-quote id))))
-          (let ((props (cl-loop
-                        with props = (org-entry-properties)
-                        for cell in props
-                        do (setcar cell (intern (concat ":" (car cell))))
-                        finally return props))
+          (let ((props (org-entry-properties))
                 (heading (org-get-heading t t t t))
                 (ftitle (org-get-title)))
             (when heading
