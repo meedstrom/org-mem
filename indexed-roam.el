@@ -261,9 +261,15 @@ LOC, write the database as a file to LOC."
 	type NOT NULL,
 	properties,
 	FOREIGN KEY (source) REFERENCES nodes (id) ON DELETE CASCADE
+);"
+     "CREATE TABLE properties (
+	node_id text NOT NULL,
+	property text NOT NULL,
+	value text,
+	FOREIGN KEY (node_id) REFERENCES nodes (id) ON DELETE CASCADE
 );"))
 
-  ;; That's it for theoretical compatibility with org-roam db.
+  ;; First 7 tables above give us theoretical compatibility with org-roam db.
   ;; Now play with perf settings.
   ;; https://www.sqlite.org/pragma.html
   ;; https://www.sqlite.org/inmemorydb.html
@@ -271,6 +277,7 @@ LOC, write the database as a file to LOC."
   (sqlite-execute db "CREATE INDEX refs_node_id  ON refs    (node_id);")
   (sqlite-execute db "CREATE INDEX tags_node_id  ON tags    (node_id);")
   (sqlite-execute db "CREATE INDEX alias_node_id ON aliases (node_id);")
+  (sqlite-execute db "CREATE INDEX property_node_id ON properties (node_id);")
   (sqlite-execute db "PRAGMA cache_size = -40000;") ;; 40,960,000 bytes
 
   ;; Full disclosure, I have no idea what I'm doing
@@ -299,7 +306,7 @@ TABLE-SYM must only contain lists of exactly that many items."
 
 (defun indexed-roam--populate (db row-sets)
   "Populate DB with ROW-SETS, an output of `indexed-roam--mk-rows'."
-  (seq-let (files nodes aliases citations refs tags links) row-sets
+  (seq-let (files nodes aliases citations refs tags links properties) row-sets
     (with-sqlite-transaction db
       (indexed-roam--insert-en-masse db files 5)
       (indexed-roam--insert-en-masse db nodes 11)
@@ -307,7 +314,8 @@ TABLE-SYM must only contain lists of exactly that many items."
       (indexed-roam--insert-en-masse db citations 4)
       (indexed-roam--insert-en-masse db refs 3)
       (indexed-roam--insert-en-masse db tags 2)
-      (indexed-roam--insert-en-masse db links 5))))
+      (indexed-roam--insert-en-masse db links 5)
+      (indexed-roam--insert-en-masse db properties 3))))
 
 (defun indexed-roam--mk-rows (&optional specific-files)
   "Return rows of data suitable for inserting into `indexed-roam' DB.
@@ -323,6 +331,7 @@ With SPECIFIC-FILES, only return data that involves those files."
         ref-rows
         tag-rows
         link-rows
+        prop-rows
         (print-length nil)
         (seen-files (make-hash-table :test 'equal)))
     (cl-loop
@@ -333,40 +342,43 @@ With SPECIFIC-FILES, only return data that involves those files."
      (unless (gethash file seen-files)
        (puthash file t seen-files)
        (push (indexed-roam--mk-file-row file) file-rows))
-     (cl-symbol-macrolet ((..deadline     (indexed-deadline entry))
-                          (..id           (indexed-id entry))
-                          (..scheduled    (indexed-scheduled entry)))
+     (cl-symbol-macrolet ((deadline   (indexed-deadline entry))
+                          (id         (indexed-id entry))
+                          (scheduled  (indexed-scheduled entry))
+                          (properties (indexed-properties entry)))
        ;; See `org-roam-db-insert-aliases'
        (cl-loop for alias in (indexed-roam-aliases entry) do
-                (push (list ..id alias) alias-rows))
+                (push (list id alias) alias-rows))
        ;; See `org-roam-db-insert-tags'
        (cl-loop for tag in (indexed-tags entry) do
-                (push (list ..id tag) tag-rows))
+                (push (list id tag) tag-rows))
        ;; See `org-roam-db-insert-file-node' and `org-roam-db-insert-node-data'
-       (push (list ..id
+       (push (list id
                    (indexed-file-name entry)
                    (indexed-heading-lvl entry)
                    (indexed-pos entry)
-                   (indexed-todo entry)
+                   (indexed-todo-state entry)
                    (indexed-priority entry)
                    ;; HACK: efficient. `indexed-org-parser--parse-file' will
                    ;; warn the user on finding a SCHEDULED/DEADLINE not
                    ;; 11+ chars long, so this is safe.
-                   (and ..scheduled
-                        (concat (substring ..scheduled 1 11) "T12:00:00"))
-                   (and ..deadline
-                        (concat (substring ..deadline 1 11) "T12:00:00"))
+                   (and scheduled
+                        (concat (substring scheduled 1 11) "T12:00:00"))
+                   (and deadline
+                        (concat (substring deadline 1 11) "T12:00:00"))
                    (indexed-title entry)
-                   (indexed-roam--convert-plist (indexed-properties entry))
+                   (prin1-to-string properties) ;; DEPRECATED
                    (prin1-to-string (indexed-olpath entry)))
              node-rows)
        ;; See `org-roam-db-insert-refs'
        (cl-loop for ref in (indexed-roam-refs entry) do
                 (let ((type (gethash ref indexed-roam--ref<>type)))
-                  (push (list ..id
+                  (push (list id
                               ref
                               (or type "cite"))
-                        ref-rows))))
+                        ref-rows)))
+       (cl-loop for (prop . val) in properties
+                do (push (list id prop val) prop-rows)))
      (dolist (link (append (indexed-id-links-to entry)
                            (indexed-roam-reflinks-to entry)))
        (let ((origin-node (gethash (indexed-origin link) indexed--id<>entry)))
@@ -388,30 +400,27 @@ With SPECIFIC-FILES, only return data that involves those files."
                          (indexed-pos link)
                          nil)
                    citation-rows))))))
-    (list
-     file-rows node-rows alias-rows citation-rows ref-rows tag-rows link-rows)))
+    (list file-rows
+          node-rows
+          alias-rows
+          citation-rows
+          ref-rows
+          tag-rows
+          link-rows
+          prop-rows)))
 
+;; Numeric times are actually compatible with Lisp times:
+;;    (format-time-string "%F %T" (time-add (time-to-seconds) 100))
+;;    (format-time-string "%F %T" (time-add (current-time) 100))
+;; So we skip the overhead of `prin1-to-string' and just store integer mtime.
 (defun indexed-roam--mk-file-row (file)
   "Return info about FILE."
-  (let ((lisp-mtime (prin1-to-string (seconds-to-time (indexed-mtime file)))))
+  (let ((data (indexed-file-data file)))
     (list file
-          (indexed-file-title file)
-          ""         ; HACK: Hashing is slow, skip
-          lisp-mtime ; HACK: org-roam doesn't use atime anyway
-          lisp-mtime)))
-
-(defun indexed-roam--convert-plist (plist)
-  "Turn PLIST into a string.
-Assume PLIST is a flat plist, with symbol keys and string values."
-  (concat "("
-          (string-join
-           (cl-loop for (key value) on plist by #'cddr
-                    collect (concat "(\"" (substring (symbol-name key) 1)
-                                    "\" . "
-                                    (prin1-to-string value)
-                                    ")"))
-           " ")
-          ")"))
+          (indexed-file-title data)
+          ""                        ; HACK: Hashing is slow, skip
+          (indexed-file-mtime data) ; HACK: org-roam doesn't use atime anyway
+          (indexed-file-mtime data))))
 
 
 ;;; Update-on-save
