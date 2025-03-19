@@ -466,7 +466,7 @@ Must load library \"org-roam\"."
 ;; and use this shim to let your *org-roam* buffer be up to date anyway.
 
 ;; (setq org-roam-db-update-on-save nil) ;; if saving is slow
-;; (indexed-mode)
+;; (indexed-updater-mode)
 ;; (indexed-update-on-save-mode)
 ;; (indexed-roam-mode)
 ;; (advice-add 'org-roam-backlinks-get :override #'indexed-roam-mk-backlinks)

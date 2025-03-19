@@ -382,6 +382,9 @@ the string DEST begins with \"@\".
 (defvar indexed--id-collisions nil)
 (defvar indexed--time-elapsed 1.0)
 
+;; This mode keeps most logic in "indexed-x" because it's not necessary, you
+;; could just call `indexed-reset' every 30 seconds or something equally
+;; simplistic.
 ;;;###autoload
 (define-minor-mode indexed-updater-mode
   "Keep cache up to date."
@@ -389,14 +392,16 @@ the string DEST begins with \"@\".
   (if indexed-updater-mode
       (progn
         (require 'indexed-x)
-        (add-hook 'after-save-hook      #'indexed-x--handle-save)
+        (add-hook 'after-save-hook #'indexed-x--handle-save)
         ;; (advice-add 'rename-file :after #'indexed-x--handle-rename)
         (advice-add 'delete-file :after #'indexed-x--handle-delete)
+        (advice-add 'org-insert-link :after #'indexed-x-ensure-link-at-point-known)
         (indexed--activate-timer)
         (indexed--scan-full))
-    (remove-hook 'after-save-hook       #'indexed-x--handle-save)
-    ;; (advice-remove 'rename-file         #'indexed-x--handle-rename)
-    (advice-remove 'delete-file         #'indexed-x--handle-delete)
+    (remove-hook 'after-save-hook #'indexed-x--handle-save)
+    ;; (advice-remove 'rename-file #'indexed-x--handle-rename)
+    (advice-remove 'delete-file #'indexed-x--handle-delete)
+    (advice-remove 'org-insert-link #'indexed-x-ensure-link-at-point-known)
     (cancel-timer indexed--timer)))
 
 (defun indexed--activate-timer (&rest _)

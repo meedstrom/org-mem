@@ -188,6 +188,7 @@ Functions without argument (which you can use to iterate over all objects)
 - indexed-org-links-and-citations
 - indexed-org-files
 
+
 Hooks
 
 - indexed-pre-full-reset-functions
@@ -196,11 +197,7 @@ Hooks
 - indexed-record-entry-functions
 - indexed-record-link-functions
 
-*** Extension: indexed-x.el
-
-Loaded by =indexed-update-on-save-mode=, which sets up on-save/on-rename/on-delete hooks to keep the cache updated in real time.
-
-That mode runs new hooks:
+Hooks (used only when =indexed-updater-mode= is enabled, in addition to the above)
 
 - indexed-pre-incremental-update-functions
 - indexed-post-incremental-update-functions
@@ -208,13 +205,17 @@ That mode runs new hooks:
 - indexed-forget-entry-functions
 - indexed-forget-link-functions
 
-and also some already-mentioned hooks:
+*** Extension: indexed-x.el
 
-- indexed-record-file-functions
-- indexed-record-entry-functions
-- indexed-record-link-functions
+A separate file =indexed-x.el= is loaded when you enable =indexed-updater-mode=.
 
-You may also want to call the following functions after inserting entries or links, if they need to become indexed instantly even before a file is saved.
+It is separate because =indexed-updater-mode= is not strictly necessary -- it could be replaced by a simple timer that calls =indexed-reset= every 30 seconds, or whatever you deem suitable.
+
+The file also ships other tools.
+
+**** Programmer tool: Instantly index thing at point
+
+You may want to call the following functions after inserting entries or links in a custom way, if they need to become indexed instantly without waiting for user to save the buffer:
 
 - indexed-x-ensure-entry-at-point-known
 - indexed-x-ensure-link-at-point-known
@@ -244,12 +245,8 @@ Steps:
 
 Modes
 
-- indexed-mode
-  - Very simple: calls =indexed-reset= occasionally.  Subject to removal.
-- indexed-update-on-save-mode
-  - Explained elsewhere.
+- indexed-updater-mode
 - indexed-roam-mode
-  - Explained elsewhere.
 
 Config settings
 
@@ -267,3 +264,22 @@ Commands
 - indexed-list-entries
 - indexed-list-db-contents
 - indexed-reset
+
+
+** Tip: Fully inform org-id
+# XXX update the blob link
+
+Never sit through a slow =M-x org-id-update-id-locations= again!
+
+#+begin_src elisp
+(add-hook 'indexed-record-entry-functions #'indexed-x-snitch-to-org-id)
+#+end_src
+
+This tells org-id about all IDs that Indexed can find under =indexed-org-dirs=.
+
+That's very good, because if you had clicked an ID-link that org-id did not know about, it would react by running =org-id-update-id-locations=, making Emacs appear to hang for as long as a minute.
+
+Never had this problem?  If you came here from org-node or org-roam,  that's because they solve this problem for you.  I did not want to do it in this library for two reasons:
+
+1. packaging hygiene
+2. the org-id [[https://github.com/meedstrom/org-node/blob/a889ede01dbcf22668bfe718037619732169245f/org-node.el#L992-1037][Schrodinger's cat bug]]

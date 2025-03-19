@@ -176,7 +176,7 @@ Put the forgotten links into `indexed-x-last-removed-links'."
 
 (defun indexed-x-ensure-buffer-file-known ()
   "Ensure file data is in cache right now.
-Use this if you cannot wait for `indexed-update-on-save-mode'
+Use this if you cannot wait for `indexed-updater-mode'
 to pick it up."
   (require 'org)
   (when (and buffer-file-truename
@@ -217,7 +217,7 @@ to pick it up."
 
 (defun indexed-x-ensure-entry-at-point-known ()
   "Record the entry at point.
-Use this if you cannot wait for `indexed-update-on-save-mode'
+Use this if you cannot wait for `indexed-updater-mode'
 to pick it up.
 
 Unlike `indexed-x-ensure-buffer-file-known', this will re-record no
