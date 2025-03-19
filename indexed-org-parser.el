@@ -162,18 +162,17 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       (skip-chars-forward "\t\s")
       (unless (looking-at-p ":")
         (error "Possibly malformed property drawer"))
-      (setq pos-start (point))
       (forward-char)
+      (setq pos-start (point))
       (setq pos-eol (pos-eol))
       (or (search-forward ":" pos-eol t)
           (error "Possibly malformed property drawer"))
       (unless (= pos-eol (point))
-        ;; Let's just not collect monstrosities like this:
+        ;; Let's just not collect property lines like
         ;; :header-args:emacs-lisp+: :results silent :noweb yes :var end=9
         (when (looking-at-p " ")
-          (push (string-trim (buffer-substring (point) pos-eol))
-                result)
-          (push (intern (upcase (buffer-substring pos-start (1- (point)))))
+          (push (cons (upcase (buffer-substring pos-start (1- (point))))
+                      (string-trim (buffer-substring (point) pos-eol)))
                 result)))
       (forward-line 1))
     result))
@@ -286,7 +285,7 @@ Also set some variables, including global variables."
                                (string-trim-right
                                 (indexed-org-parser--org-link-display-format
                                  (buffer-substring (point) (pos-eol))))))
-            (setq FILE-ID (plist-get PROPS :ID))
+            (setq FILE-ID (cdr (assoc "ID" PROPS)))
             (goto-char HERE)
             ;; Don't count org-super-links backlinks as forward links
             ;; TODO: Rewrite more readably
@@ -409,7 +408,7 @@ Also set some variables, including global variables."
                                (pos-bol)
                              (error "Couldn't find :END: of drawer"))))
                       nil))
-              (setq ID (plist-get PROPS :ID))
+              (setq ID (cdr (assoc "ID" PROPS)))
               (setq HERITABLE-TAGS
                     (cl-loop for tag in TAGS
                              unless (member tag $nonheritable-tags)

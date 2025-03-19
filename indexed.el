@@ -260,6 +260,7 @@ If THING is a file name, return the object for that file name."
 
 (defun indexed-olpath-with-self (entry)
   "Outline path, including ENTRY\\='s own heading."
+  (declare (pure t) (side-effect-free t))
   (append (indexed-olpath entry)
           (list (indexed-title entry))))
 
@@ -267,6 +268,7 @@ If THING is a file name, return the object for that file name."
   (defun indexed-olpath-with-self-with-title (entry &optional filename-fallback)
     "Outline path, including file #+title, and ENTRY\\='s own heading.
 With FILENAME-FALLBACK, use file basename if there is no #+title."
+    (declare (pure t) (side-effect-free t))
     (append (indexed-olpath-with-title entry filename-fallback)
             (list (indexed-title entry)))))
 
@@ -309,21 +311,31 @@ the string DEST begins with \"@\".
 (2025-03-18: This may change in the future!)"
   (hash-table-values indexed--dest<>links))
 
+;; PROP used to be a keyword, so you could write (indexed-property :ID entry),
+;; but decided to make `indexed-properties' consistent with
+;; `org-entry-properties', so now it's (indexed-property "ID" entry).
 (defun indexed-property (prop entry)
   "Value of property PROP in ENTRY."
-  (plist-get (indexed-properties entry) prop))
+  ;; (declare (pure t) (side-effect-free t)) ;; uncomment after deprec
+  (if (stringp prop)
+      (cdr (assoc prop (indexed-properties entry)))
+    (message "Deprecation notice: call `indexed-property' with a string %s, not keyword"
+             prop)
+    (cdr (assoc (substring (symbol-name prop) 1) (indexed-properties entry)))))
 
 (defun indexed-property-assert (prop entry)
   "Value of property PROP in ENTRY, throw error if nil."
-  (or (plist-get (indexed-properties entry) prop)
+  (or (indexed-property prop entry)
       (error "No property %s in entry %s" prop entry)))
 
 (defun indexed-root-heading-to (entry)
   "Root heading in tree that contains ENTRY."
+  (declare (pure t) (side-effect-free t))
   (car (indexed-olpath entry)))
 
 (defun indexed-tags (entry)
   "ENTRY tags, with inheritance."
+  (declare (pure t) (side-effect-free t))
   (delete-dups (append (indexed-tags-local entry)
                        (indexed-tags-inherited entry))))
 

@@ -50,7 +50,7 @@
 
 (defun indexed-roam-aliases (entry)
   "Property ROAM_ALIASES in ENTRY, properly split."
-  (when-let* ((aliases (indexed-property :ROAM_ALIASES entry)))
+  (when-let* ((aliases (indexed-property "ROAM_ALIASES" entry)))
     (split-string-and-unquote aliases)))
 
 (defun indexed-roam--record-aliases (entry)
@@ -76,7 +76,7 @@
   (clrhash indexed-roam--ref<>id)
   (clrhash indexed-roam--id<>refs))
 
-(defun indexed-roam--record-refs (parse-results)
+(defun indexed-roam--record-all-refs (parse-results)
   "Loop over all PARSE-RESULTS and record the ROAM_REFS.
 This allows the accessor `indexed-roam-refs' to work.
 
@@ -89,7 +89,7 @@ Designed for both `indexed-post-full-reset-functions' and
     (dolist (entry (nth 2 parse-results))
       (when-let* ((id (indexed-id entry))
                   (refs (indexed-roam--split-refs-field
-                         (indexed-property :ROAM_REFS entry))))
+                         (indexed-property "ROAM_REFS" entry))))
         (puthash id refs indexed-roam--id<>refs)
         (dolist (ref refs)
           (puthash ref id indexed-roam--ref<>id))))))
@@ -154,18 +154,18 @@ What this means?  See indexed-test.el."
   :group 'indexed
   (if indexed-roam-mode
       (progn
-        (add-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases -5)
+        (add-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases -5)
         (add-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-refs)
-        (add-hook 'indexed-post-full-reset-functions    #'indexed-roam--record-refs -95)
-        (add-hook 'indexed-post-incremental-update-functions #'indexed-roam--record-refs -95)
+        (add-hook 'indexed-post-incremental-update-functions #'indexed-roam--record-all-refs -95)
         (add-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
+        (add-hook 'indexed-post-full-reset-functions #'indexed-roam--record-all-refs -95)
         (add-hook 'indexed-post-full-reset-functions #'indexed-roam--mk-db)
         (indexed--scan-full))
-    (remove-hook 'indexed-record-entry-functions   #'indexed-roam--record-aliases)
+    (remove-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases)
     (remove-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-refs)
-    (remove-hook 'indexed-post-full-reset-functions    #'indexed-roam--record-refs)
-    (remove-hook 'indexed-post-incremental-update-functions #'indexed-roam--record-refs)
+    (remove-hook 'indexed-post-incremental-update-functions #'indexed-roam--record-all-refs)
     (remove-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
+    (remove-hook 'indexed-post-full-reset-functions #'indexed-roam--record-all-refs)
     (remove-hook 'indexed-post-full-reset-functions #'indexed-roam--mk-db)))
 
 
@@ -504,17 +504,15 @@ Must load library \"org-roam\"."
    :refs (indexed-roam-refs entry)
    :point (indexed-pos entry)
    :priority (indexed-priority entry)
-   ;; Not quite the data type org-roam expects for now
-   ;; :properties (indexed-properties entry)
+   :properties (indexed-properties entry)
    :olp (indexed-olpath entry)))
 
 (defun indexed-roam-mk-backlinks (target-roam-node &rest _)
   "Make `org-roam-backlink' objects pointing to TARGET-ROAM-NODE.
 
-Can be used in one of two ways:
+Can be used in two ways:
 - As override-advice for `org-roam-backlinks-get'.
-- Directly passing an output of `indexed-roam-mk-node' as
-  TARGET-ROAM-NODE."
+- Directly, if TARGET-ROAM-NODE is an output of `indexed-roam-mk-node'."
   (require 'org-roam-mode)
   (require 'org-roam-node)
   (let* ((target-id (org-roam-node-id target-roam-node))
@@ -533,10 +531,9 @@ Can be used in one of two ways:
 (defun indexed-roam-mk-reflinks (target-roam-node &rest _)
   "Make `org-roam-reflink' objects pointing to TARGET-ROAM-NODE.
 
-Can be used in one of two ways:
+Can be used in two ways:
 - As override-advice for `org-roam-reflinks-get'.
-- Directly passing an output of `indexed-roam-mk-node' as
-  TARGET-ROAM-NODE."
+- Directly, if TARGET-ROAM-NODE is an output of `indexed-roam-mk-node'."
   (require 'org-roam-mode)
   (require 'org-roam-node)
   (let* ((target-id (org-roam-node-id target-roam-node))

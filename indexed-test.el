@@ -14,10 +14,6 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-;;; Commentary:
-
-;;; Code:
-
 (require 'ert)
 (require 'seq)
 (require 'find-func)
@@ -49,12 +45,12 @@
                         "//gnu.org/A Link With Spaces/index2.htm"
                         "//gnu.org")))
     (should (equal "https" (cdr (assoc "//gnu.org/A Link With Spaces/index.htm"
-                                       org-node-parser--paths-types))))
+                                       indexed-roam--ref<>type))))
     (should (equal "https" (cdr (assoc "//gnu.org"
-                                       org-node-parser--paths-types))))
+                                       indexed-roam--ref<>type))))
     (should (equal nil (cdr (assoc "@citekey"
-                                   org-node-parser--paths-types))))
+                                   indexed-roam--ref<>type))))
     (should (equal nil (cdr (assoc "citekey"
-                                   org-node-parser--paths-types))))))
+                                   indexed-roam--ref<>type))))))
 
 ;;; indexed-test.el ends here
