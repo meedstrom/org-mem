@@ -76,13 +76,16 @@ The values in =nodes.properties=, =nodes.olp= and =files.mtime= are stringified 
 
 #+begin_src elisp
 (let ((results
-       (sqlite-select
-        (indexed-roam)
-        "select properties from nodes where id = 'fde5cfe0-48e3-51ed-8c65-1ee702933925';")))
+       (sqlite-select (indexed-roam)
+                      "select properties from nodes where id = 'fde5cfe0-48e3-51ed-8c65-1ee702933925';")))
   (car (read-from-string (caar results)))))
 #+end_src
 
 Or use the elisp API instead: =(indexed-properties NODE)=.
+
+Hint: in the pipelines is a proper SQL solution: an eighth table called =properties=.  Stay tuned.
+
+Hint for the experienced lisper: =sqlite-select= has a cool behavior if you put ='set= as the RETURN-TYPE argument, might let you write the code a bit more elegant!
 
 ** Data only
 
@@ -90,15 +93,15 @@ A design choice: Indexed *only* delivers data.  It could easily ship convenience
 
 #+begin_src elisp
 (defun indexed-goto (entry)
-  (find-file (indexed-file entry))
+  (find-file (indexed-file-name entry))
   (goto-char (indexed-pos entry))
 #+end_src
 
 but in my experience, that will spiral into dozens of lines over time, to handle a variety of edge cases, and then it will no longer be universally applicable.  Maybe you prefer to handle edge cases different than I do.
 
-So, it is up to you to write your own "goto" function.
+So, it is up to you to write your own "goto" function and all else to do with user interaction.
 
-Plus, it'd sound weird -- a "goto" isn't a noun, can't be "indexed"!
+(Plus, "indexed-goto" would sound weird -- a "goto" isn't a noun that can be "indexed"! Trying to stick to a theme here :-D)
 
 ** RFC 1: Naming
 
