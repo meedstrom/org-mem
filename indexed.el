@@ -361,8 +361,6 @@ the string DEST begins with \"@\".
 (defvar indexed-record-link-functions nil
   "Hook passed one `indexed-org-link' object after recording it.")
 
-;; ONLY USED BY `indexed-update-on-save-mode':
-
 (defvar indexed-pre-incremental-update-functions nil
   "Hook passed the list of parse-results, before an incremental update.")
 
@@ -378,12 +376,28 @@ the string DEST begins with \"@\".
 (defvar indexed-forget-link-functions nil
     "Hook passed one `indexed-org-link' object after forgetting it.")
 
-
 (defvar indexed--timer (timer-create))
 (defvar indexed--problems nil)
 (defvar indexed--title-collisions nil)
 (defvar indexed--id-collisions nil)
 (defvar indexed--time-elapsed 1.0)
+
+;;;###autoload
+(define-minor-mode indexed-updater-mode
+  "Keep cache up to date."
+  :global t
+  (if indexed-updater-mode
+      (progn
+        (require 'indexed-x)
+        (add-hook 'after-save-hook      #'indexed-x--handle-save)
+        ;; (advice-add 'rename-file :after #'indexed-x--handle-rename)
+        (advice-add 'delete-file :after #'indexed-x--handle-delete)
+        (indexed--activate-timer)
+        (indexed--scan-full))
+    (remove-hook 'after-save-hook       #'indexed-x--handle-save)
+    ;; (advice-remove 'rename-file         #'indexed-x--handle-rename)
+    (advice-remove 'delete-file         #'indexed-x--handle-delete)
+    (cancel-timer indexed--timer)))
 
 (defun indexed--activate-timer (&rest _)
   "Adjust `indexed--timer' based on duration of last indexing.
@@ -397,33 +411,9 @@ If not running, start it."
       (setq indexed--timer
             (run-with-idle-timer new-delay t #'indexed--scan-full)))))
 
-;;;###autoload
-(define-minor-mode indexed-mode
-  "Re-index every now and then."
-  :global t
-  (if indexed-mode
-      (progn
-        (add-hook 'indexed-post-full-reset-functions #'indexed--activate-timer)
-        (indexed--activate-timer)
-        (indexed--scan-full))
-    (remove-hook 'indexed-post-full-reset-functions #'indexed--activate-timer)
-    (cancel-timer indexed--timer)))
-
-(define-minor-mode indexed-update-on-save-mode
-  "Update cache when Emacs saves or deletes a file."
-  :global t
-  (if indexed-update-on-save-mode
-      (progn
-        (require 'indexed-x)
-        (add-hook 'after-save-hook      #'indexed-x--handle-save)
-        ;; (advice-add 'rename-file :after #'indexed-x--handle-rename)
-        (advice-add 'delete-file :after #'indexed-x--handle-delete))
-    (remove-hook 'after-save-hook       #'indexed-x--handle-save)
-    ;; (advice-remove 'rename-file         #'indexed-x--handle-rename)
-    (advice-remove 'delete-file         #'indexed-x--handle-delete)))
-
 (defvar indexed--next-message nil)
 (defun indexed-reset (&optional interactive)
+  "Reset cache, and if INERACTIVE, print statistics."
   (interactive "p")
   (when interactive
     (setq indexed--next-message t))
@@ -667,6 +657,8 @@ Make it target only LINK-TYPES instead of all the cars of
 (define-obsolete-function-alias 'indexed-links #'indexed-org-links "2025-03-18")
 (define-obsolete-function-alias 'indexed-todo #'indexed-todo-state "2025-03-18")
 (define-obsolete-function-alias 'indexed-file #'indexed-file-name "2025-03-18")
+(define-obsolete-function-alias 'indexed-mode #'indexed-updater-mode "2025-03-19")
+(define-obsolete-function-alias 'indexed-update-on-save-mode #'indexed-updater-mode "2025-03-19")
 
 (provide 'indexed)
 

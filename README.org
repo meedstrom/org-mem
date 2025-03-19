@@ -22,7 +22,7 @@ Data will exist after setup akin to this and you wait a second or two.
 
 #+begin_src elisp
 (setq indexed-org-dirs '("~/org" "~/Sync/notes"))
-(indexed-mode)
+(indexed-updater-mode)
 (indexed-roam-mode) ;; optional
 #+end_src
 

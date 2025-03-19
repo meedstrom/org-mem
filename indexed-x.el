@@ -60,7 +60,7 @@
 
 (defun indexed-x--handle-save ()
   "Arrange to re-scan nodes and links in current buffer."
-  (when indexed-mode
+  (when indexed-updater-mode
     (let ((% buffer-file-truename))
       (when (and (string-suffix-p ".org" %)
                  (not (backup-file-name-p %))
@@ -85,7 +85,7 @@
 
 (defun indexed-x--handle-delete (file &optional _trash)
   "Arrange to forget nodes and links in FILE."
-  (when indexed-mode
+  (when indexed-updater-mode
     (when (string-suffix-p ".org" file)
       (unless (indexed-x--tramp-file-p file)
         (setq file (indexed--abbrev-file-names file))

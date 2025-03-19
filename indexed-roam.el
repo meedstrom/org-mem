@@ -53,7 +53,11 @@
   (when-let* ((aliases (indexed-property "ROAM_ALIASES" entry)))
     (split-string-and-unquote aliases)))
 
-(defun indexed-roam--record-aliases (entry)
+(defun indexed-roam--wipe-lisp-tables (_)
+  (clrhash indexed-roam--ref<>id)
+  (clrhash indexed-roam--id<>refs))
+
+(defun indexed-roam--record-aliases-refs (entry)
   "Add any ENTRY aliases to `indexed--title<>id'."
   (when-let* ((id (indexed-id entry)))
     (dolist (alias (indexed-roam-aliases entry))
@@ -62,7 +66,12 @@
         (unless (string= id other-id)
           (push (list (format-time-string "%H:%M") alias id other-id)
                 indexed--title-collisions)))
-      (puthash alias id indexed--title<>id))))
+      (puthash alias id indexed--title<>id))
+    (when-let* ((refs (indexed-roam--split-refs-field
+                       (indexed-property "ROAM_REFS" entry))))
+      (puthash id refs indexed-roam--id<>refs)
+      (dolist (ref refs)
+        (puthash ref id indexed-roam--ref<>id)))))
 
 (defun indexed-roam--forget-aliases-refs (entry)
   (dolist (ref (indexed-roam-refs entry))
@@ -72,69 +81,47 @@
   (dolist (alias (indexed-roam-aliases entry))
     (remhash alias indexed--title<>id)))
 
-(defun indexed-roam--wipe-lisp-tables (_)
-  (clrhash indexed-roam--ref<>id)
-  (clrhash indexed-roam--id<>refs))
-
-(defun indexed-roam--record-all-refs (parse-results)
-  "Loop over all PARSE-RESULTS and record the ROAM_REFS.
-This allows the accessor `indexed-roam-refs' to work.
-
-Designed for both `indexed-post-full-reset-functions' and
-`indexed-post-incremental-update-functions'."
-  (save-current-buffer
-    ;; PERF: Reuse one temp buffer.
-    (set-buffer (setq indexed-roam--work-buf
-                      (get-buffer-create " *indexed-roam*" t)))
-    (dolist (entry (nth 2 parse-results))
-      (when-let* ((id (indexed-id entry))
-                  (refs (indexed-roam--split-refs-field
-                         (indexed-property "ROAM_REFS" entry))))
-        (puthash id refs indexed-roam--id<>refs)
-        (dolist (ref refs)
-          (puthash ref id indexed-roam--ref<>id))))))
-
 (defun indexed-roam--split-refs-field (roam-refs)
   "Split a ROAM-REFS field correctly.
 What this means?  See indexed-test.el."
   (when roam-refs
-    (cl-assert (eq (current-buffer) indexed-roam--work-buf))
-    (erase-buffer)
-    (insert roam-refs)
-    (goto-char 1)
-    (let (links beg end colon-pos)
-      ;; Extract all [[bracketed links]]
-      (while (search-forward "[[" nil t)
-        (setq beg (match-beginning 0))
-        (if (setq end (search-forward "]]" nil t))
-            (progn
-              (goto-char beg)
-              (push (buffer-substring (+ 2 beg) (1- (search-forward "]")))
-                    links)
-              (delete-region beg end))
-          (error "Missing close-bracket in ROAM_REFS property %s" roam-refs)))
-      ;; Return merged list
-      (cl-loop
-       for link? in (append links (split-string-and-unquote (buffer-string)))
-       ;; @citekey or &citekey
-       if (string-match (rx (or bol (any ";:"))
-                            (group (any "@&")
-                                   (+ (not (any " ;]")))))
-                        link?)
-       ;; Replace & with @
-       collect (let ((path (substring (match-string 1 link?) 1)))
-                 (puthash path nil indexed-roam--ref<>type)
-                 (concat "@" path))
-       ;; Some sort of uri://path
-       else when (setq colon-pos (string-search ":" link?))
-       collect (let ((path (string-replace
-                            "%20" " "
-                            (substring link? (1+ colon-pos)))))
-                 ;; Remember the uri: prefix for pretty completions
-                 (puthash path (substring link? 0 colon-pos)
-                          indexed-roam--ref<>type)
-                 ;; .. but the actual ref is just the //path
-                 path)))))
+    (with-current-buffer (get-buffer-create " *indexed-throwaway*" t)
+      (erase-buffer)
+      (insert roam-refs)
+      (goto-char 1)
+      (let (links beg end colon-pos)
+        ;; Extract all [[bracketed links]]
+        (while (search-forward "[[" nil t)
+          (setq beg (match-beginning 0))
+          (if (setq end (search-forward "]]" nil t))
+              (progn
+                (goto-char beg)
+                (push (buffer-substring (+ 2 beg) (1- (search-forward "]")))
+                      links)
+                (delete-region beg end))
+            (error "Missing close-bracket in ROAM_REFS property %s" roam-refs)))
+        ;; Return merged list
+        (cl-loop
+         for link? in (append links (split-string-and-unquote (buffer-string)))
+         ;; @citekey or &citekey
+         if (string-match (rx (or bol (any ";:"))
+                              (group (any "@&")
+                                     (+ (not (any " ;]")))))
+                          link?)
+         ;; Replace & with @
+         collect (let ((path (substring (match-string 1 link?) 1)))
+                   (puthash path nil indexed-roam--ref<>type)
+                   (concat "@" path))
+         ;; Some sort of uri://path
+         else when (setq colon-pos (string-search ":" link?))
+         collect (let ((path (string-replace
+                              "%20" " "
+                              (substring link? (1+ colon-pos)))))
+                   ;; Remember the uri: prefix for pretty completions
+                   (puthash path (substring link? 0 colon-pos)
+                            indexed-roam--ref<>type)
+                   ;; .. but the actual ref is just the //path
+                   path))))))
 
 
 ;;; Mode
@@ -149,23 +136,19 @@ What this means?  See indexed-test.el."
 
 ;;;###autoload
 (define-minor-mode indexed-roam-mode
-  "Index extra things that org-roam and org-node need to know."
+  "Add awareness of ROAM_ALIASES and ROAM_REFS and make the `indexed-roam' DB."
   :global t
   :group 'indexed
   (if indexed-roam-mode
       (progn
-        (add-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases -5)
+        (add-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases-refs -5)
         (add-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-refs)
-        (add-hook 'indexed-post-incremental-update-functions #'indexed-roam--record-all-refs -95)
         (add-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
-        (add-hook 'indexed-post-full-reset-functions #'indexed-roam--record-all-refs -95)
         (add-hook 'indexed-post-full-reset-functions #'indexed-roam--mk-db)
         (indexed--scan-full))
-    (remove-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases)
+    (remove-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases-refs)
     (remove-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-refs)
-    (remove-hook 'indexed-post-incremental-update-functions #'indexed-roam--record-all-refs)
     (remove-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
-    (remove-hook 'indexed-post-full-reset-functions #'indexed-roam--record-all-refs)
     (remove-hook 'indexed-post-full-reset-functions #'indexed-roam--mk-db)))
 
 
