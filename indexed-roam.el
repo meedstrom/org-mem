@@ -31,6 +31,19 @@
 (require 'sqlite)
 (require 'sqlite-mode)
 
+;;;###autoload
+(defcustom indexed-roam-db-location nil
+  "If non-nil, a file name to write the DB to.
+Overwrites any file previously there."
+  :type 'boolean
+  :group 'indexed
+  :set (lambda (sym val)
+         (if (symbol-value sym)
+             (prog1 (set-default sym val)
+               (indexed-roam--mk-db))
+           (set-default sym val)))
+  :package-version '(indexed . "0.2.0"))
+
 
 ;;; Aliases and refs support
 
@@ -128,15 +141,6 @@ What this means?  See indexed-test.el."
 
 ;;; Mode
 
-(defcustom indexed-roam-db-location nil
-  "If non-nil, a file name to write the DB to.
-Overwrites any file previously there."
-  :type 'boolean
-  :group 'indexed
-  :set (lambda (sym val)
-         (prog1 (set-default sym val)
-           (indexed-roam--mk-db))))
-
 (defvar indexed-roam--connection nil
   "A SQLite handle.")
 
@@ -188,8 +192,7 @@ Normally, this creates a diskless database.  With optional file path
 LOC, write the database as a file to LOC."
   (let ((T (current-time))
         (name (or loc "SQLite DB"))
-        (db (progn (when (file-exists-p loc)
-                     (delete-file loc))
+        (db (progn (and loc (file-exists-p loc) (delete-file loc))
                    (sqlite-open loc))))
     (indexed-roam--configure db)
     (indexed-roam--populate-usably-for-emacsql db (indexed-roam--mk-rows))

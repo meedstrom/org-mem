@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-node
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.2.0
+;; Package-Version: 0.2.2
 ;; Package-Requires: ((emacs "29.1") (llama "0.5.0") (el-job "2.2.0"))
 
 ;;; Commentary:
@@ -61,6 +61,8 @@
 (require 'indexed-org-parser)
 (require 'el-job)
 
+(defvar org-id-locations)
+(declare-function org-id-alist-to-hash "org-id")
 (declare-function indexed-x-ensure-link-at-point-known "indexed-x")
 (declare-function indexed-x--handle-save "indexed-x")
 (declare-function indexed-x--handle-rename "indexed-x")
@@ -566,7 +568,7 @@ Note though that org-id would not necessarily have truenames."
                           dir ".org" indexed-org-dirs-exclude)))
      do (puthash file t indexed--files-to-index))
     (when (and indexed-check-org-id-locations
-               (boundp 'org-id-locations))
+               (featurep 'org-id))
       (if (or (hash-table-p org-id-locations)
               (ignore-errors
                 (setq org-id-locations (org-id-alist-to-hash org-id-locations))))
