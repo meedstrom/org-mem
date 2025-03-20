@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-node
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.1.0
+;; Package-Version: 0.2.0
 ;; Package-Requires: ((emacs "29.1") (llama "0.5.0") (el-job "2.2.0"))
 
 ;;; Commentary:
@@ -36,6 +36,7 @@
 
 ;; TODO: A special-mode buffer for exploring all indexed objects,
 ;;       same thought as `indexed-list-db-contents'.
+;;       Or make a DB anyway, even without the roam module.
 
 ;; TODO: Awareness of CUSTOM_ID, not just ID
 
@@ -63,6 +64,7 @@
 (require 'indexed-org-parser)
 (require 'el-job)
 
+(declare-function indexed-x-ensure-link-at-point-known "indexed-x")
 (declare-function indexed-x--handle-save "indexed-x")
 (declare-function indexed-x--handle-rename "indexed-x")
 (declare-function indexed-x--handle-delete "indexed-x")
@@ -80,35 +82,51 @@
 
 (defcustom indexed-warn-title-collisions t
   "Whether to print message when two org-ID nodes have the same title."
-  :type 'boolean)
+  :type 'boolean
+  :package-version '(indexed . "0.2.0"))
 
 (defcustom indexed-seek-link-types
   '("http" "https" "id")
   "Performance knob.
-Users of org-ref would extend this to ~70 types."
-  :type '(repeat string))
+Users of org-ref would extend this to ~70 types, which may double
+or triple the time it takes to run `indexed-reset'."
+  :type '(repeat string)
+  :package-version '(indexed . "0.2.0"))
 
 (defcustom indexed-org-dirs '("~/org/")
-  "List of directories to index."
-  :type '(repeat directory))
+  "List of directories to index.
+Each directory is checked recursively \(looking in subdirectories,
+sub-subdirectories etc) for files that end in \".org\".
+
+Exceptions:
+
+- Subdirectories starting with underscore or dot, such as \".emacs.d/\".
+  To check these, add them explicitly.
+- Subdirectories that are symlinks.
+- Anything matching `indexed-org-dirs-exclude'."
+  :type '(repeat directory)
+  :package-version '(indexed . "0.2.0"))
 
 (defcustom indexed-org-dirs-exclude
   '("/logseq/bak/"
     "/logseq/version-files/"
     "/node_modules/"
-    ".sync-conflict-")
+    ".sync-conflict-"
+    ".#"
+    "/backup")
   "Path substrings of files that should not be indexed.
 
-It is not necessary to exclude backups or autosaves that end in ~ or #
-or .bak, since the workhorse `indexed--relist-org-files' only considers
-files that end in precisely \".org\" anyway.
+It is not necessary to add rules here covering autosaves that end in ~
+or # or .bak, since the workhorse `indexed--relist-org-files' only
+considers files that end in precisely \".org\" anyway.
 
 You can eke out a performance boost by excluding directories with a
 humongous amount of files, such as the infamous \"node_modules\", even
 if they contain no Org files.  However, directories that start with a
-period or underscore are always ignored, so no need to specify
-e.g. \"~/.local/\" or \".git/\" for that reason."
-  :type '(repeat string))
+period or underscore are always ignored, so no need to add rules for
+e.g. \"~/.local/\", \".git/\" or \"_site\" for that reason."
+  :type '(repeat string)
+  :package-version '(indexed . "0.2.0"))
 
 
 ;;; Lisp API
@@ -121,7 +139,8 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 (defvar indexed--dest<>links   (make-hash-table :test 'equal))
 (defvar indexed--origin<>links (make-hash-table :test 'equal))
 
-(cl-defstruct (indexed-file-data (:constructor nil) (:copier nil))
+(cl-defstruct (indexed-file-data (:constructor nil)
+                                 (:copier nil))
   (file-name  () :read-only t :type string)
   (file-title () :read-only t :type string)
   (max-lines  () :read-only t :type integer)
@@ -139,6 +158,7 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 
 (cl-defstruct (indexed-org-entry (:constructor indexed-org-entry--make-obj)
                                  (:copier nil))
+  (closed         () :read-only t :type string)
   (deadline       () :read-only t :type string)
   (file-name      () :read-only t :type string)
   (heading-lvl    () :read-only t :type integer)
@@ -155,12 +175,12 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
   (todo-state     () :read-only t :type string))
 
 (cl-defgeneric indexed-pos (entry/link)
-  "Get char position of ENTRY/LINK."
+  "Char position of ENTRY/LINK."
   (:method ((x indexed-org-entry)) (indexed-org-entry-pos x))
   (:method ((x indexed-org-link)) (indexed-org-link-pos x)))
 
 (cl-defgeneric indexed-file-name (thing)
-  "Name of file where THING is, maybe THING itself."
+  "Name of file where THING is, or of file that identifies THING."
   (:method ((x indexed-org-link)) (indexed-org-link-file-name x))
   (:method ((x indexed-org-entry)) (indexed-org-entry-file-name x))
   (:method ((x indexed-file-data)) (indexed-file-data-file-name x)))
@@ -181,6 +201,7 @@ e.g. \"~/.local/\" or \".git/\" for that reason."
 (defalias 'indexed-todo-state     #'indexed-org-entry-todo-state)
 (defalias 'indexed-dest           #'indexed-org-link-dest)
 (defalias 'indexed-origin         #'indexed-org-link-nearby-id) ;;XXX
+(defalias 'indexed-nearby-id      #'indexed-org-link-nearby-id) ;;XXX see readme
 (defalias 'indexed-type           #'indexed-org-link-type)
 
 (defun indexed-entry-by-id (id)
@@ -217,6 +238,8 @@ If THING is a file name, return the object for that file name."
 (defalias 'indexed-mtime
   (defun indexed-file-mtime (thing)
     (indexed-file-data-mtime (indexed-file-data thing))))
+
+;; (indexed-file-title #s(indexed-org-entry :closed nil :deadline nil :file-name "/home/kept/org/daily/2022-03-01.org" :heading-lvl 1 :id nil :lnum 9 :olpath nil :pos 142 :priority nil :properties nil :scheduled nil :tags-inherited ("private" "daily") :tags-local nil :title "12:06 TODOs" :todo-state nil))
 
 (defun indexed-file-title (thing)
   "From file where THING is, return value of #+title."
@@ -456,7 +479,9 @@ If not running, start it."
   (clrhash indexed--origin<>links)
   (clrhash indexed--dest<>links)
   (setq indexed--title-collisions nil)
-  (seq-let (_missing-files file-data entries links problems) parse-results
+  (seq-let (missing-files file-data entries links problems) parse-results
+    (dolist (goner missing-files)
+      (remhash goner indexed--files-to-index))
     (dolist (fdata file-data)
       (puthash (indexed-file-name fdata) fdata indexed--file<>data)
       (run-hook-with-args 'indexed-record-file-functions fdata))
@@ -518,8 +543,14 @@ If not running, start it."
 
 ;;; Subroutines
 
+(defcustom indexed-check-org-id-locations t
+  "Whether to also index all files in `org-id-locations'."
+  :type 'boolean
+  :package-version (indexed . "0.2.0"))
+
 ;; (benchmark-call #'indexed--relist-org-files)  => 0.026 s
 ;; (benchmark-call #'org-roam-list-files)        => 4.141 s
+(defvar indexed--files-to-index (make-hash-table :test 'equal))
 (defun indexed--relist-org-files ()
   "Query filesystem for Org files under `indexed-org-dirs'.
 
@@ -529,10 +560,22 @@ in `org-id-locations' and `buffer-file-truename'.
 Note though that org-id would not necessarily have truenames."
   (cl-assert indexed-org-dirs)
   (let ((file-name-handler-alist nil))
-    (indexed--abbrev-file-names
-     (cl-loop for dir in (delete-dups (mapcar #'file-truename indexed-org-dirs))
-              nconc (indexed--dir-files-recursive
-                     dir ".org" indexed-org-dirs-exclude)))))
+    (cl-loop
+     for file in (indexed--abbrev-file-names
+                  (cl-loop
+                   for dir in (delete-dups
+                               (mapcar #'file-truename indexed-org-dirs))
+                   nconc (indexed--dir-files-recursive
+                          dir ".org" indexed-org-dirs-exclude)))
+     do (puthash file t indexed--files-to-index))
+    (when indexed-check-org-id-locations
+      (unless (hash-table-p org-id-locations)
+        (if (ignore-errors
+              (setq org-id-locations (org-id-alist-to-hash org-id-locations)))
+            (cl-loop for file being each hash-value of org-id-locations
+                     do (puthash file t indexed--files-to-index))
+          (message "indexed: Could not check org-id-locations"))))
+    (hash-table-keys indexed--files-to-index)))
 
 ;; TODO: Make it possible to list only the files in ~/.emacs.d/ but exclude
 ;;       all ~/.emacs.d/*/ subdirs.
@@ -569,10 +612,11 @@ Does not modify the match data."
             (push (file-name-concat dir file) result)))))
     result))
 
+;; See also `consult--fast-abbreviate-file-name'.  This is faster (2024-04-16).
 (defvar indexed--userhome nil)
 (defun indexed--abbrev-file-names (paths)
   "Abbreviate all file paths in PATHS.
-Much faster than `abbreviate-file-name', especially if you would have to
+Much faster than `abbreviate-file-name', noticeably if you would have to
 call it on many file paths at once.
 
 May in some corner-cases give different results.  For instance, it
@@ -612,7 +656,7 @@ already contains an abbreviated truename."
      (cons '$merged-re (concat org-link-bracket-re "\\|" reduced-plain-re))
      (cons '$inlinetask-min-level (bound-and-true-p org-inlinetask-min-level))
      (cons '$nonheritable-tags (bound-and-true-p org-tags-exclude-from-inheritance))
-     (cons '$global-todo-re
+     (cons '$default-todo-re
            (let ((default (default-value 'org-todo-keywords)))
              (indexed-org-parser--make-todo-regexp
               (string-join (if (stringp (car default))
@@ -630,7 +674,7 @@ already contains an abbreviated truename."
                   "BACKLINKS"
                   "LOGBOOK"))))))
 
-;; TODO PR
+;; TODO: PR?
 ;; Copied from part of `org-link-make-regexps'
 (defun indexed--mk-plain-re (link-types)
   "Build a moral equivalent to `org-link-plain-re'.

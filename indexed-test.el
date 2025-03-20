@@ -27,7 +27,7 @@
   (let ((result
          (with-current-buffer (setq indexed-roam--work-buf
                                     (get-buffer-create " *indexed-roam*" t))
-           (indexed-roam--split-refs-field
+           (indexed-roam-split-refs-field
             (concat " \"[cite:@citekey abcd ; @citekey2 cdefgh;@citekey3]\""
                     " \"[[citep:&citekey4 abcd ; &citekey5 cdefgh;&citekey6]]\""
                     " \"[[https://gnu.org/A Link With Spaces/index2.htm]]\""

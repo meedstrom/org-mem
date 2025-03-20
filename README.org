@@ -39,11 +39,11 @@ For the elisp, see [[https://github.com/meedstrom/indexed?tab=readme-ov-file#app
 
 ** A SQLite database, for free
 
-You can create your own database ([[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-ii-make-your-own-database][Appendix II]]), but you probably won't need to.  Included is a near-drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
+You can create your own database ([[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-ii-make-your-own-database][Appendix II]]), but you probably won't need to.  Included is a drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
 
 As a plugin dev, perhaps the main thing you needed from org-roam was its SQL database.  If so, you can now make your plugins useful to a wider crowd!
 
-Due to identical table schemata, you can often convert from e.g.
+Due to identical table schemata, you can convert from e.g.
 
 #+begin_src elisp
 (org-roam-db-query [:select tag :from tags :where (= id $s1)] id)
@@ -61,31 +61,40 @@ or if you like mysterious aliases,
 (indexed-roam "select tag from tags where id = ?;" id)
 #+end_src
 
-For now, you can't use the =[:select ...]= s-exp language from EmacSQL.  Someone would need to patch or repackage [[https://github.com/magit/emacsql/blob/main/emacsql-compiler.el][emacsql-compiler.el]] so it can format statements without quoting.
+UPDATE [2025-03-20]: you can now use =org-roam-db-query=!
 
-Use command =M-x indexed-list-db-contents= to see what's in your database!
+#+begin_src elisp
+;; Delete and replace org-roam.db
+(org-roam-db-autosync-mode 0)
+(setq indexed-roam-db-location org-roam-db-location)
+(indexed-reset)
+
+;; it works!
+(org-roam-db-query [:select * :from files])
+#+end_src
+
+The above is only relevant if you do use org-roam.  I'd advise developers to drop the dependency and require only EmacSQL, since this is the same:
+
+#+begin_src elisp
+;; Setup
+(setq indexed-roam-db-location "/tmp/indexed-roam.db")
+(indexed-reset)
+(setq my-orgdb (emacsql-sqlite-open indexed-roam-db-location))
+
+;; it works!
+(emacsql my-orgdb [:select * :from files])
+#+end_src
 
 *** Diskless
 There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
 
 There is little point modifying it.  Use =SELECT= queries only.
 
-*** Lists are strings
+*** Explore DB contents
 
-The values in =nodes.properties=, =nodes.olp= and =files.mtime= are stringified lists.  Same as in EmacSQL, but EmacSQL is smart and reads back from string for you.  Alas, this database just works with the built-in =sqlite-select=.  Do it manually:
+Command =M-x indexed-list-db-contents= lets you explore what's inside the database!
 
-#+begin_src elisp
-(let ((results
-       (sqlite-select (indexed-roam)
-                      "select properties from nodes where id = 'fde5cfe0-48e3-51ed-8c65-1ee702933925';")))
-  (car (read-from-string (caar results)))))
-#+end_src
-
-Or use the elisp API instead: =(indexed-properties NODE)=.
-
-Hint: in the pipelines is a proper SQL solution: an eighth table called =properties=.  Stay tuned.
-
-Hint for the experienced lisper: =sqlite-select= has a cool behavior if you put ='set= as the RETURN-TYPE argument, might let you write the code a bit more elegant!
+Compare with he corresponding elisp objects: get [[https://github.com/mmontone/emacs-inspector][Inspector]] and eval =(inspector-inspect (indexed-org-entries))=.
 
 ** Data only
 
@@ -100,8 +109,6 @@ A design choice: Indexed *only* delivers data.  It could easily ship convenience
 but in my experience, that will spiral into dozens of lines over time, to handle a variety of edge cases, and then it will no longer be universally applicable.  Maybe you prefer to handle edge cases different than I do.
 
 So, it is up to you to write your own "goto" function and all else to do with user interaction.
-
-(Plus, "indexed-goto" would sound weird -- a "goto" isn't a noun that can be "indexed"! Trying to stick to a theme here :-D)
 
 ** RFC 1: Naming
 
@@ -124,11 +131,13 @@ The content before first heading, is now also recorded as an "entry".  This is n
 
 Small distinguisher: The zeroth-level entry can never have a TODO state, priority, SCHEDULED/DEADLINE, but implementation-wise, that just means several fields are nil.
 
+It would be good to have a simple term, because it comes up a lot when you write Org code: so often necessary to special-case behavior conditioned on whether or not =(org-before-first-heading-p)=.
+
 ** Appendix I: API
 
 NOTE: Namespace *still under flux!*  This *may be out of date!*  Check [[https://github.com/meedstrom/indexed/blob/main/indexed.el][indexed.el]] source.
 
-There are three types of objects: /file-data/, /entry/ and /link/.  Some functions operate on more than one type.
+There are three types of objects: /file-data/, /org-entry/ and /org-link/.  Some functions operate on more than one type.
 
 Polymorphic functions
 - indexed-pos
@@ -154,11 +163,16 @@ Functions operating on raw titles
 Functions operating on FILE-DATA
 - indexed-mtime
 
-Functions operating on LINK
+Functions operating on ORG-LINK
 - indexed-dest
-- indexed-origin
 - indexed-type
 - indexed-heading-above
+- indexed-id-nearby
+  - (old alias: =indexed-origin= -- I'm partial to naming it =indexed-id-nearby=. What do you think?
+
+    Org-node has used the name "origin" for a year and it works.  Org-roam uses "source".  But both presume an ID-centric design to everything, and make less sense when you allow for the absence of IDs.  It seems that "origin" could refer to /either/ an ID /or/ a file-and-position /or/ some other means of locating the link.
+
+    Also, perhaps =indexed-id-nearby= could become polymorphic.)
 
 Functions operating on ENTRY
 - indexed-deadline
@@ -186,11 +200,10 @@ Functions operating on ENTRY
 Functions without argument (which you can use to iterate over all objects)
 
 - indexed-org-entries
-- indexed-org-id-nodes
-- indexed-org-links
+- indexed-org-id-nodes (subset of above)
 - indexed-org-links-and-citations
+- indexed-org-links (subset of above)
 - indexed-org-files
-
 
 Hooks
 
@@ -200,7 +213,7 @@ Hooks
 - indexed-record-entry-functions
 - indexed-record-link-functions
 
-Hooks (used only when =indexed-updater-mode= is enabled, in addition to the above)
+Hooks used when =indexed-updater-mode= is enabled
 
 - indexed-pre-incremental-update-functions
 - indexed-post-incremental-update-functions
@@ -214,7 +227,7 @@ A separate file =indexed-x.el= is loaded when you enable =indexed-updater-mode=.
 
 It is separate because =indexed-updater-mode= is not strictly necessary -- it could be replaced by a simple timer that calls =indexed-reset= every 30 seconds, or whatever you deem suitable.
 
-The file also ships other tools.
+It ships a variety of tools.
 
 **** Programmer tool: Instantly index thing at point
 

@@ -67,7 +67,7 @@
           (push (list (format-time-string "%H:%M") alias id other-id)
                 indexed--title-collisions)))
       (puthash alias id indexed--title<>id))
-    (when-let* ((refs (indexed-roam--split-refs-field
+    (when-let* ((refs (indexed-roam-split-refs-field
                        (indexed-property "ROAM_REFS" entry))))
       (puthash id refs indexed-roam--id<>refs)
       (dolist (ref refs)
@@ -81,7 +81,9 @@
   (dolist (alias (indexed-roam-aliases entry))
     (remhash alias indexed--title<>id)))
 
-(defun indexed-roam--split-refs-field (roam-refs)
+;; Autoload due to `indexed-orgdb-prop-splitters'.
+;;;###autoload
+(defun indexed-roam-split-refs-field (roam-refs)
   "Split a ROAM-REFS field correctly.
 What this means?  See indexed-test.el."
   (when roam-refs
@@ -126,6 +128,21 @@ What this means?  See indexed-test.el."
 
 ;;; Mode
 
+(setq my-db-connection (emacsql-sqlite-open org-roam-db-location))
+(emacsql my-db-connection [:select * :from files])
+
+(setq indexed-roam-db-location org-roam-db-location)
+(org-roam-db-query [:select * :from files])
+
+(defcustom indexed-roam-db-location nil
+  "If non-nil, a file name to write the DB to.
+Overwrites any file previously there."
+  :type 'boolean
+  :group 'indexed
+  :set (lambda (sym val)
+         (prog1 (set-default sym val)
+           (indexed-roam--mk-db))))
+
 (defvar indexed-roam--connection nil
   "A SQLite handle.")
 
@@ -163,7 +180,8 @@ If arguments SQL and ARGS provided, pass to `sqlite-select'."
   (unless indexed-roam-mode
     (error "Enable `indexed-roam-mode' to use `indexed-roam'"))
   (or (ignore-errors (sqlite-pragma indexed-roam--connection "im_still_here"))
-      (setq indexed-roam--connection (indexed-roam--open-new-db)))
+      (setq indexed-roam--connection (indexed-roam--open-new-db
+                                      indexed-roam-db-location)))
   (if sql
       (sqlite-select indexed-roam--connection sql args)
     indexed-roam--connection))
@@ -176,13 +194,15 @@ Normally, this creates a diskless database.  With optional file path
 LOC, write the database as a file to LOC."
   (let ((T (current-time))
         (name (or loc "SQLite DB"))
-        (db (sqlite-open loc)))
+        (db (progn (when (file-exists-p loc)
+                     (delete-file loc))
+                   (sqlite-open loc))))
     (indexed-roam--configure db)
-    (indexed-roam--populate db (indexed-roam--mk-rows))
+    (indexed-roam--populate-usably-for-emacsql db (indexed-roam--mk-rows))
     (when indexed--next-message
       (setq indexed--next-message
             (concat indexed--next-message
-                    (format " (+ %.2fs to build %s)"
+                    (format " (+ %.2fs writing %s)"
                             (float-time (time-since T)) name))))
     db))
 
@@ -244,12 +264,6 @@ LOC, write the database as a file to LOC."
 	type NOT NULL,
 	properties,
 	FOREIGN KEY (source) REFERENCES nodes (id) ON DELETE CASCADE
-);"
-     "CREATE TABLE properties (
-	node_id text NOT NULL,
-	property text NOT NULL,
-	value text,
-	FOREIGN KEY (node_id) REFERENCES nodes (id) ON DELETE CASCADE
 );"))
 
   ;; First 7 tables above give us theoretical compatibility with org-roam db.
@@ -260,7 +274,6 @@ LOC, write the database as a file to LOC."
   (sqlite-execute db "CREATE INDEX refs_node_id  ON refs    (node_id);")
   (sqlite-execute db "CREATE INDEX tags_node_id  ON tags    (node_id);")
   (sqlite-execute db "CREATE INDEX alias_node_id ON aliases (node_id);")
-  (sqlite-execute db "CREATE INDEX property_node_id ON properties (node_id);")
   (sqlite-execute db "PRAGMA cache_size = -40000;") ;; 40,960,000 bytes
 
   ;; Full disclosure, I have no idea what I'm doing
@@ -269,36 +282,77 @@ LOC, write the database as a file to LOC."
   (sqlite-execute db "PRAGMA synchronous = off;")
   db)
 
-;; This whole macro smells, but performs better than serial inserts
-(defmacro indexed-roam--insert-en-masse (db table-sym n-cols)
-  "Insert into DB the values of list named TABLE-SYM.
-Insert into a table inside DB of the same name.
-
-N-COLS must be the expected number of columns, and the list named
-TABLE-SYM must only contain lists of exactly that many items."
-  (let ((template-row (concat "(" (string-join (make-list n-cols "?")
-                                               ", ")
-                              ")")))
-    `(if ,table-sym
-         (sqlite-execute
-          ,db
-          (concat ,(format "INSERT INTO %S VALUES " table-sym)
-                  (string-join (make-list (length ,table-sym) ,template-row)
-                               ", "))
-          (apply #'nconc ,table-sym)))))
-
-(defun indexed-roam--populate (db row-sets)
-  "Populate DB with ROW-SETS, an output of `indexed-roam--mk-rows'."
-  (seq-let (files nodes aliases citations refs tags links properties) row-sets
+(defun indexed-roam--populate-usably-for-emacsql (db row-sets)
+  (seq-let (files nodes aliases citations refs tags links) row-sets
     (with-sqlite-transaction db
-      (indexed-roam--insert-en-masse db files 5)
-      (indexed-roam--insert-en-masse db nodes 11)
-      (indexed-roam--insert-en-masse db aliases 2)
-      (indexed-roam--insert-en-masse db citations 4)
-      (indexed-roam--insert-en-masse db refs 3)
-      (indexed-roam--insert-en-masse db tags 2)
-      (indexed-roam--insert-en-masse db links 5)
-      (indexed-roam--insert-en-masse db properties 3))))
+      (when files
+        (sqlite-execute
+         db (concat
+             "INSERT INTO files VALUES "
+             (indexed-roam--mk-singular-value-quoted-like-emacsql files))))
+      (when nodes
+        (sqlite-execute
+         db (concat
+             "INSERT INTO nodes VALUES "
+             (indexed-roam--mk-singular-value-quoted-like-emacsql nodes))))
+      (when aliases
+        (sqlite-execute
+         db (concat
+             "INSERT INTO aliases VALUES "
+             (indexed-roam--mk-singular-value-quoted-like-emacsql aliases))))
+      (when citations
+        (sqlite-execute
+         db (concat
+             "INSERT INTO citations VALUES "
+             (indexed-roam--mk-singular-value-quoted-like-emacsql citations))))
+      (when refs
+        (sqlite-execute
+         db (concat
+             "INSERT INTO refs VALUES "
+             (indexed-roam--mk-singular-value-quoted-like-emacsql refs))))
+      (when tags
+        (sqlite-execute
+         db (concat
+             "INSERT INTO tags VALUES "
+             (indexed-roam--mk-singular-value-quoted-like-emacsql tags))))
+      (when links
+        (sqlite-execute
+         db (concat
+             "INSERT INTO links VALUES "
+             (indexed-roam--mk-singular-value-quoted-like-emacsql links)))))))
+
+(defun indexed-roam--mk-singular-value-quoted-like-emacsql (rows)
+  "Turn ROWS into literal \(not prepared) value for a SQL INSERT.
+In each row, print atoms that are strings or lists, readably."
+  (with-temp-buffer
+    (let ((print-level nil)
+          (print-length nil)
+          (print-escape-newlines t)
+          (print-escape-control-characters t)
+          row beg)
+      (while (setq row (pop rows))
+        (insert "(")
+        (cl-loop for value in row do
+                 (cond ((null value)
+                        (insert "NULL"))
+                       ((numberp value)
+                        (insert (number-to-string value)))
+                       ((progn
+                          (insert "'")
+                          (setq beg (point))
+                          (prin1 value (current-buffer))
+                          (goto-char beg)
+                          (while (search-forward "'" nil t)
+                            (insert "'"))
+                          (goto-char (point-max))
+                          (insert "'"))))
+                 (insert ", "))
+        (unless (= 2 (point)) ;; In case above loop was a no-op
+          (delete-char -2))
+        (insert "), "))
+      (unless (bobp) ; In case ROWS was empty
+        (delete-char -2)))
+    (buffer-string)))
 
 (defun indexed-roam--mk-rows (&optional specific-files)
   "Return rows of data suitable for inserting into `indexed-roam' DB.
@@ -342,16 +396,11 @@ With SPECIFIC-FILES, only return data that involves those files."
                    (indexed-pos entry)
                    (indexed-todo-state entry)
                    (indexed-priority entry)
-                   ;; HACK: efficient. `indexed-org-parser--parse-file' will
-                   ;; warn the user on finding a SCHEDULED/DEADLINE not
-                   ;; 11+ chars long, so this is safe.
-                   (and scheduled
-                        (concat (substring scheduled 1 11) "T12:00:00"))
-                   (and deadline
-                        (concat (substring deadline 1 11) "T12:00:00"))
+                   (indexed-scheduled entry)
+                   (indexed-deadline entry)
                    (indexed-title entry)
-                   (prin1-to-string properties) ;; DEPRECATED
-                   (prin1-to-string (indexed-olpath entry)))
+                   (indexed-properties entry)
+                   (indexed-olpath entry))
              node-rows)
        ;; See `org-roam-db-insert-refs'
        (cl-loop for ref in (indexed-roam-refs entry) do
@@ -392,10 +441,10 @@ With SPECIFIC-FILES, only return data that involves those files."
           link-rows
           prop-rows)))
 
-;; Numeric times are actually compatible with Lisp times:
+;; Numeric times are can be mixed with Lisp times:
 ;;    (format-time-string "%F %T" (time-add (time-to-seconds) 100))
 ;;    (format-time-string "%F %T" (time-add (current-time) 100))
-;; So we skip the overhead of `prin1-to-string' and just store integer mtime.
+;; So, we skip the overhead of `prin1-to-string' and just store integer mtime.
 (defun indexed-roam--mk-file-row (file)
   "Return info about FILE."
   (let ((data (indexed-file-data file)))
@@ -423,15 +472,14 @@ Suitable on `indexed-post-incremental-update-functions'."
          (rows (indexed-roam--mk-rows files)))
     (dolist (file files)
       (sqlite-execute db "DELETE FROM files WHERE file LIKE ?;" (list file)))
-    (indexed-roam--populate db rows)))
+    (indexed-roam--populate-usably-for-emacsql db rows)))
 
 
 ;;; Dev tools
 
 (defvar emacsql-type-map)
 (defun indexed-roam--insert-schemata-atpt ()
-  "Dev tool for printing `org-roam-db--table-schemata' as raw SQL.
-Must load library \"org-roam\"."
+  "Print `org-roam-db--table-schemata' as raw SQL at point."
   (interactive)
   (require 'org-roam)
   (require 'emacsql)
@@ -457,17 +505,12 @@ Must load library \"org-roam\"."
 
 ;;; Bonus utilities
 
-;; Not sure if we're extending past our domain-of-responsibility here, but
-;; people do ask "how can I use [...] with org-roam?".  So until org-roam
-;; upstream makes it unnecessary, we can ship some helpers here.
-
-
 ;; If saving buffers is slow with org-roam.  Stop updating org-roam.db on save,
 ;; and use this shim to let your *org-roam* buffer be up to date anyway.
+;; Setup:
 
 ;; (setq org-roam-db-update-on-save nil) ;; if saving is slow
 ;; (indexed-updater-mode)
-;; (indexed-update-on-save-mode)
 ;; (indexed-roam-mode)
 ;; (advice-add 'org-roam-backlinks-get :override #'indexed-roam-mk-backlinks)
 ;; (advice-add 'org-roam-reflinks-get  :override #'indexed-roam-mk-reflinks)
@@ -480,6 +523,9 @@ Must load library \"org-roam\"."
 (defun indexed-roam-mk-node (entry)
   "Make an org-roam-node object, from indexed object ENTRY."
   (require 'org-roam-node)
+  (unless (indexed-id entry)
+    (error "indexed-roam-mk-node: An ID-less entry cannot make an org-roam-node: %s"
+           entry))
   (org-roam-node-create
    :file (indexed-file-name entry)
    :id (indexed-id entry)

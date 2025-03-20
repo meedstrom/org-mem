@@ -151,6 +151,7 @@ instead of default `indexed-roam--connection'."
     (pop-to-buffer
      (get-buffer-create (format "*SQLite %.50s*" (prin1-to-string db))))
     (sqlite-mode)
+    (when (stringp db) (setq-local default-directory (file-name-directory db)))
     (setq-local sqlite--db db)
     (sqlite-mode-list-tables)))
 

@@ -20,10 +20,10 @@
 ;; Optional mechanisms to update the tables in just-in-time fashion,
 ;; reducing our need to do `indexed--full-scan' so often.
 
-;; Technically, a full reset is never needed *IF* we use these hooks
+;; Technically, repeating a full scan is never needed *IF* we use these hooks
 ;; correctly.  However, that is hard and humans are fallible.
 
-;; If a full reset is sufficiently performant, you can just do it more often,
+;; If a full scan is sufficiently performant, you can just do it more often,
 ;; instead of using these hooks at all.  It is also a simple way to detect
 ;; filesystem changes made by other Emacsen or the command line.
 
@@ -54,7 +54,7 @@
 (declare-function tramp-tramp-file-p "tramp")
 
 (defun indexed-x--tramp-file-p (file)
-  "Pass FILE to `tramp-tramp-file-p' if Tramp is loaded."
+  "Pass FILE to `tramp-tramp-file-p' if available, else return nil."
   (when (featurep 'tramp)
     (tramp-tramp-file-p file)))
 
@@ -128,25 +128,26 @@ Argument JOB is the el-job object."
     (when problems
       (message "Scan had problems, see M-x org-node-list-scan-problems"))))
 
-(defun indexed-x--forget-files (files)
-  "Remove from cache, info about entries in FILES.
+(defun indexed-x--forget-files (goners)
+  "Remove from cache, most info about entries in file list GONERS.
 
 For a thorough cleanup, you should also run
 `indexed-x--forget-links-from'."
-  (when (setq files (ensure-list files))
+  (when (setq goners (ensure-list goners))
     (cl-loop
      for entry in (indexed-org-entries)
-     when (member (indexed-file-name entry) files)
+     when (member (indexed-file-name entry) goners)
      do
      (remhash (indexed-id entry) indexed--id<>entry)
      (remhash (indexed-title entry) indexed--title<>id)
      (run-hook-with-args 'indexed-forget-entry-functions entry))
-    (dolist (file files)
-      (remhash file indexed--file<>data)
-      (run-hook-with-args 'indexed-forget-file-functions file))))
+    (dolist (goner goners)
+      (remhash goner indexed--file<>data)
+      (remhash goner indexed--files-to-index)
+      (run-hook-with-args 'indexed-forget-file-functions goner))))
 
+;; TODO: Explain why this is separate from above.
 (defvar indexed-x-last-removed-links nil)
-;; XXX maybe rename origin to nearby-id
 (defun indexed-x--forget-links-from (dead-ids)
   "Forget links with :origin matching any of DEAD-IDS.
 Put the forgotten links into `indexed-x-last-removed-links'."
@@ -250,8 +251,8 @@ changed."
               :title (or heading ftitle)
               :file-name buffer-file-truename
               :pos (if heading (org-entry-beginning-position) 1)
-              ;; NOTE: Don't use `org-reduced-level' since indexed-org-parser.el
-              ;;       also does not correct for that
+              ;; NOTE: Don't use `org-reduced-level' since
+              ;;       indexed-org-parser.el also does not.
               :heading-lvl (or (org-current-level) 0)
               :olpath (org-get-outline-path)
               :lnum (if heading (line-number-at-pos
@@ -282,8 +283,7 @@ changed."
 
 ;;;###autoload
 (defun indexed-x-snitch-to-org-id (entry)
-  "Tell `org-id-locations' about ENTRY.
-Suitable on `indexed-record-entry-functions'."
+  "Tell `org-id-locations' about ENTRY."
   (require 'org-id)
   (when (and org-id-track-globally
              (hash-table-p org-id-locations)

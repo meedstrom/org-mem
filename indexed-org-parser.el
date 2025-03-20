@@ -36,7 +36,7 @@
 (defvar $plain-re)
 (defvar $bracket-re)
 (defvar $merged-re)
-(defvar $global-todo-re)
+(defvar $default-todo-re)
 (defvar $nonheritable-tags)
 (defvar $inlinetask-min-level)
 (defvar $structures-to-ignore) ; TODO: implement
@@ -69,6 +69,32 @@ brackets."
    $bracket-re
    (lambda (m) (or (match-string 2 m) (match-string 1 m)))
    s nil t))
+
+;; REVIEW: I wonder what's the most handy way to search on dates/times with
+;;         SQL?  Do people separate date and time into different columns?  Or
+;;         store as integers and use some SQL function to operate on them?
+(defconst indexed-org-parser--org-ts-regexp0
+  "\\(\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)\\( +[^]+0-9>\r\n -]+\\)?\\( +\\([0-9]\\{1,2\\}\\):\\([0-9]\\{2\\}\\)\\)?\\)")
+(defun indexed-org-parser--stamp-to-iso8601 (s)
+  "Parse first Org timestamp in string S and return ISO8601 string."
+  (let ((time
+         ;; Code from `org-parse-time-string', which claims to be fast.
+         ;; I wonder how it compares to `iso8601-parse'.
+         (if (not (string-match indexed-org-parser--org-ts-regexp0 s))
+             (error "Not an Org time string: %s" s)
+           (list 0
+	         (cond ((match-beginning 8)
+                        (string-to-number (match-string 8 s)))
+	               (t 0))
+	         (cond ((match-beginning 7)
+                        (string-to-number (match-string 7 s)))
+	               (t 0))
+	         (string-to-number (match-string 4 s))
+	         (string-to-number (match-string 3 s))
+	         (string-to-number (match-string 2 s))
+	         nil -1 nil))))
+    (when time
+      (format-time-string "%FT%Tz" (encode-time time)))))
 
 (defvar indexed-org-parser--heading-re (rx bol (repeat 1 14 "*") " "))
 (defun indexed-org-parser--next-heading ()
@@ -210,7 +236,7 @@ Also set some variables, including global variables."
         TITLE FILE-TITLE LNUM
         TODO-STATE TODO-RE FILE-TODO-SETTINGS
         TAGS FILE-TAGS HERITABLE-TAGS
-        SCHED DEADLINE PRIORITY LEVEL PROPS)
+        SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS)
     (condition-case err
         (catch 'file-done
           (when (not (file-readable-p FILE))
@@ -237,7 +263,7 @@ Also set some variables, including global variables."
               (progn
                 (setq FILE-ID nil)
                 (setq FILE-TITLE nil)
-                (setq TODO-RE $global-todo-re))
+                (setq TODO-RE $default-todo-re))
             ;; Narrow until first heading
             (when (indexed-org-parser--next-heading)
               (narrow-to-region 1 (point))
@@ -279,7 +305,7 @@ Also set some variables, including global variables."
                                   file-todo-option-re FAR t)))
                         (indexed-org-parser--make-todo-regexp
                          (string-join FILE-TODO-SETTINGS " ")))
-                    $global-todo-re))
+                    $default-todo-re))
             (goto-char HERE)
             (setq FILE-TITLE (when (re-search-forward "^#\\+title: +" FAR t)
                                (string-trim-right
@@ -300,6 +326,7 @@ Also set some variables, including global variables."
             (goto-char HERE)
             (indexed-org-parser--collect-links-until END FILE-ID FILE)
             (push (record 'indexed-org-entry
+                          nil
                           nil
                           FILE
                           0
@@ -368,6 +395,8 @@ Also set some variables, including global variables."
                 (setq TITLE (string-trim-right
                              (indexed-org-parser--org-link-display-format
                               (buffer-substring HERE (pos-eol))))))
+              ;; REVIEW: This is possibly overkill, and could be
+              ;;         written in a way easier to follow.
               ;; Gotta go forward 1 line, see if it is a planning-line, and
               ;; if it is, then go forward 1 more line, and if that is a
               ;; :PROPERTIES: line, then we're safe to collect properties
@@ -376,23 +405,32 @@ Also set some variables, including global variables."
               (setq FAR (pos-eol))
               (setq SCHED
                     (if (re-search-forward "[\t\s]*SCHEDULED: +" FAR t)
-                        (prog1 (buffer-substring
-                                (point)
-                                (+ 1 (point) (skip-chars-forward "^]>\n")))
+                        (prog1
+                            (indexed-org-parser--stamp-to-iso8601
+                             (buffer-substring
+                              (point)
+                              (+ (point) (skip-chars-forward "^]>\n"))))
                           (goto-char HERE))
                       nil))
-              (and SCHED (length< SCHED 11) (error "Malformed SCHEDULED"))
               (setq DEADLINE
                     (if (re-search-forward "[\t\s]*DEADLINE: +" FAR t)
-                        (prog1 (buffer-substring
-                                (point)
-                                (+ 1 (point) (skip-chars-forward "^]>\n")))
+                        (prog1
+                            (indexed-org-parser--stamp-to-iso8601
+                             (buffer-substring
+                              (point)
+                              (+ (point) (skip-chars-forward "^]>\n"))))
                           (goto-char HERE))
                       nil))
-              (and DEADLINE (length< DEADLINE 11) (error "Malformed DEADLINE"))
-              (when (or SCHED
-                        DEADLINE
-                        (re-search-forward "[\t\s]*CLOSED: +" FAR t))
+              (setq CLOSED
+                    (if (re-search-forward "[\t\s]*CLOSED: +" FAR t)
+                        (prog1
+                            (indexed-org-parser--stamp-to-iso8601
+                             (buffer-substring
+                              (point)
+                              (+ (point) (skip-chars-forward "^]>\n"))))
+                          (goto-char HERE))
+                      nil))
+              (when (or SCHED DEADLINE CLOSED)
                 ;; Alright, so there was a planning-line, meaning any
                 ;; :PROPERTIES: are not on this line but the next.
                 (forward-line 1)
@@ -431,6 +469,7 @@ Also set some variables, including global variables."
                        (push (list LEVEL TITLE ID HERITABLE-TAGS)
                              CRUMBS))
               (push (record 'indexed-org-entry
+                            CLOSED
                             nil
                             FILE
                             LEVEL
