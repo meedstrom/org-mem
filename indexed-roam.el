@@ -128,12 +128,6 @@ What this means?  See indexed-test.el."
 
 ;;; Mode
 
-(setq my-db-connection (emacsql-sqlite-open org-roam-db-location))
-(emacsql my-db-connection [:select * :from files])
-
-(setq indexed-roam-db-location org-roam-db-location)
-(org-roam-db-query [:select * :from files])
-
 (defcustom indexed-roam-db-location nil
   "If non-nil, a file name to write the DB to.
 Overwrites any file previously there."
