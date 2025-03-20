@@ -401,6 +401,7 @@ the string DEST begins with \"@\".
 (defvar indexed--title-collisions nil)
 (defvar indexed--id-collisions nil)
 (defvar indexed--time-elapsed 1.0)
+(defvar indexed--files-to-index (make-hash-table :test 'equal))
 
 ;; This mode keeps most logic in "indexed-x" because it's not necessary, you
 ;; could just call `indexed-reset' every 30 seconds or something equally
@@ -543,11 +544,10 @@ If not running, start it."
 (defcustom indexed-check-org-id-locations t
   "Whether to also index all files in `org-id-locations'."
   :type 'boolean
-  :package-version (indexed . "0.2.0"))
+  :package-version '(indexed . "0.2.0"))
 
-;; (benchmark-call #'indexed--relist-org-files)  => 0.026 s
+;; (benchmark-call #'indexed--relist-org-files)  => 0.006 s
 ;; (benchmark-call #'org-roam-list-files)        => 4.141 s
-(defvar indexed--files-to-index (make-hash-table :test 'equal))
 (defun indexed--relist-org-files ()
   "Query filesystem for Org files under `indexed-org-dirs'.
 
@@ -565,13 +565,14 @@ Note though that org-id would not necessarily have truenames."
                    nconc (indexed--dir-files-recursive
                           dir ".org" indexed-org-dirs-exclude)))
      do (puthash file t indexed--files-to-index))
-    (when indexed-check-org-id-locations
-      (unless (hash-table-p org-id-locations)
-        (if (ignore-errors
-              (setq org-id-locations (org-id-alist-to-hash org-id-locations)))
-            (cl-loop for file being each hash-value of org-id-locations
-                     do (puthash file t indexed--files-to-index))
-          (message "indexed: Could not check org-id-locations"))))
+    (when (and indexed-check-org-id-locations
+               (boundp 'org-id-locations))
+      (if (or (hash-table-p org-id-locations)
+              (ignore-errors
+                (setq org-id-locations (org-id-alist-to-hash org-id-locations))))
+          (cl-loop for file being each hash-value of org-id-locations
+                   do (puthash file t indexed--files-to-index))
+        (message "indexed: Could not check org-id-locations")))
     (hash-table-keys indexed--files-to-index)))
 
 ;; TODO: Make it possible to list only the files in ~/.emacs.d/ but exclude
