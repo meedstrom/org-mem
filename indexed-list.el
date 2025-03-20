@@ -156,6 +156,7 @@ instead of default `indexed-roam--connection'."
     (sqlite-mode-list-tables)))
 
 ;; TODO: Could be way more detailed.
+;; `inspector-inspect-last-sexp' does it so well.
 ;;;###autoload
 (defun indexed-list-entries ()
   "List all Org entries."

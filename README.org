@@ -61,7 +61,16 @@ or if you like mysterious aliases,
 (indexed-roam "select tag from tags where id = ?;" id)
 #+end_src
 
-UPDATE [2025-03-20]: you can now use =org-roam-db-query=!
+*** Diskless
+There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
+
+There is little point modifying it.  Use =SELECT= queries only.
+
+*** EmacSQL  (UPDATE 2025-03-20)
+
+You can now use the EmacSQL s-exp language instead of raw SQL!
+
+Even =org-roam-db-query= can work as if nothing's out of the ordinary:
 
 #+begin_src elisp
 ;; Delete and replace org-roam.db
@@ -69,11 +78,11 @@ UPDATE [2025-03-20]: you can now use =org-roam-db-query=!
 (setq indexed-roam-db-location org-roam-db-location)
 (indexed-reset)
 
-;; it works!
+;; It works!
 (org-roam-db-query [:select * :from files])
 #+end_src
 
-The above is only relevant if you do use org-roam.  I'd advise developers to drop the dependency and require only EmacSQL, since this is the same:
+The above is only relevant if you do use org-roam.  I suggest that developers drop the dependency and require only EmacSQL, since this is the same:
 
 #+begin_src elisp
 ;; Setup
@@ -81,14 +90,11 @@ The above is only relevant if you do use org-roam.  I'd advise developers to dro
 (indexed-reset)
 (setq my-orgdb (emacsql-sqlite-open indexed-roam-db-location))
 
-;; it works!
+;; It works!
 (emacsql my-orgdb [:select * :from files])
 #+end_src
 
-*** Diskless
-There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
-
-There is little point modifying it.  Use =SELECT= queries only.
+Of course you shouldn't set =indexed-roam-db-location= on your users' behalf, but you can throw some error if it's nil, and tell them to set it.
 
 *** Explore DB contents
 
