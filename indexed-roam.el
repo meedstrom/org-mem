@@ -151,7 +151,7 @@ What this means?  See indexed-test.el."
 
 ;;;###autoload
 (define-minor-mode indexed-roam-mode
-  "Add awareness of ROAM_ALIASES and ROAM_REFS and make the `indexed-roam' DB."
+  "Add awareness of ROAM_REFS and make the `indexed-roam' DB."
   :global t
   :group 'indexed
   (if indexed-roam-mode
@@ -263,7 +263,7 @@ LOC, write the database as a file to LOC."
 	FOREIGN KEY (source) REFERENCES nodes (id) ON DELETE CASCADE
 );"))
 
-  ;; First 7 tables above give us theoretical compatibility with org-roam db.
+  ;; That's it for compat with org-roam db.
   ;; Now play with perf settings.
   ;; https://www.sqlite.org/pragma.html
   ;; https://www.sqlite.org/inmemorydb.html
@@ -274,7 +274,7 @@ LOC, write the database as a file to LOC."
   (sqlite-execute db "PRAGMA cache_size = -40000;") ;; 40,960,000 bytes
 
   ;; Full disclosure, I have no idea what I'm doing
-  (sqlite-execute db "PRAGMA mmap_size = 40960000;")
+  (sqlite-execute db "PRAGMA mmap_size = 81920000;")
   (sqlite-execute db "PRAGMA temp_store = memory;")
   (sqlite-execute db "PRAGMA synchronous = off;")
   db)
@@ -439,7 +439,7 @@ With SPECIFIC-FILES, only return data that involves those files."
 ;; unlike org-roam, which stores lists.
 
 (defun indexed-roam--mk-file-row (file)
-  "Return info about FILE."
+  "Return a row representing FILE for the files-table."
   (let ((data (indexed-file-data file)))
     ;; See `org-roam-db-insert-file'
     (list file
@@ -522,14 +522,13 @@ Suitable on `indexed-post-incremental-update-functions'."
            entry))
   (org-roam-node-create
    :file (indexed-file-name entry)
+   :file-mtime (indexed-file-mtime entry)
+   :file-title (indexed-file-title entry)
    :id (indexed-id entry)
-   :scheduled (when-let* ((scheduled (indexed-scheduled entry)))
-                (concat (substring scheduled 1 11) "T12:00:00"))
-   :deadline (when-let* ((deadline (indexed-deadline entry)))
-               (concat (substring deadline 1 11) "T12:00:00"))
+   :scheduled (indexed-scheduled entry)
+   :deadline (indexed-deadline entry)
    :level (indexed-heading-lvl entry)
    :title (indexed-title entry)
-   :file-title (indexed-file-title entry)
    :tags (indexed-tags entry)
    :aliases (indexed-roam-aliases entry)
    :todo (indexed-todo entry)

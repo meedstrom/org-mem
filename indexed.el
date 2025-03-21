@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-node
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.2.2
+;; Package-Version: 0.3.0
 ;; Package-Requires: ((emacs "29.1") (llama "0.5.0") (el-job "2.2.0"))
 
 ;;; Commentary:
@@ -195,8 +195,8 @@ e.g. \"~/.local/\", \".git/\" or \"_site\" for that reason."
 (defalias 'indexed-tags-local     #'indexed-org-entry-tags-local)
 (defalias 'indexed-todo-state     #'indexed-org-entry-todo-state)
 (defalias 'indexed-dest           #'indexed-org-link-dest)
-(defalias 'indexed-origin         #'indexed-org-link-nearby-id) ;;XXX
-(defalias 'indexed-nearby-id      #'indexed-org-link-nearby-id) ;;XXX see readme
+(defalias 'indexed-origin         #'indexed-org-link-nearby-id) ;;XXX see readme
+(defalias 'indexed-nearby-id      #'indexed-org-link-nearby-id)
 (defalias 'indexed-type           #'indexed-org-link-type)
 
 (defun indexed-entry-by-id (id)
@@ -695,7 +695,6 @@ Make it target only LINK-TYPES instead of all the cars of
                 ?- ?/ ,parenthesis))))))
 
 (define-obsolete-function-alias 'indexed-roam-explore 'indexed-list-db-contents "2025-03-18")
-(define-obsolete-function-alias 'indexed-list-roam-db-contents 'indexed-list-db-contents "2025-03-18")
 (define-obsolete-function-alias 'indexed-id-nodes #'indexed-org-id-nodes "2025-03-18")
 (define-obsolete-function-alias 'indexed-entries #'indexed-org-entries "2025-03-18")
 (define-obsolete-function-alias 'indexed-files #'indexed-org-files "2025-03-18")

@@ -221,7 +221,7 @@ Also set some variables, including global variables."
 
 (defun indexed-org-parser--parse-file (FILE)
   "Gather entries, links and other data in FILE."
-  (unless (equal indexed-org-parser--buf (current-buffer))
+  (unless (eq indexed-org-parser--buf (current-buffer))
     (indexed-org-parser--init-buf-and-switch))
   (setq indexed-org-parser--found-links nil)
   (let ((file-todo-option-re

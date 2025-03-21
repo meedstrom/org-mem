@@ -136,6 +136,7 @@
                                        (indexed-pos link))
                                  dest))))))))
 
+
 ;; TODO: Maybe generalize: track a list of open DBs and explore any of them
 (defun indexed-list-db-contents (&optional db)
   "Explore contents of currently used SQLite DB.
@@ -145,13 +146,29 @@ instead of default `indexed-roam--connection'."
   (interactive)
   (require 'indexed-roam)
   (cl-assert (sqlite-available-p))
-  (let ((db (or db (indexed-roam))))
-    (unless (ignore-errors (sqlite-pragma db "im_still_here"))
-      (error "indexed-roam-show-contents: Not a live DB connection: %s" db))
+  ;; this is way too roundabout
+  (let* ((dbs (delq 'nil (list
+                          (and (bound-and-true-p indexed-orgdb--connection)
+                               (ignore-errors
+                                 (sqlite-pragma indexed-orgdb--connection "hi"))
+                               indexed-orgdb--connection)
+                          (and (bound-and-true-p indexed-roam--connection)
+                               (ignore-errors
+                                 (sqlite-pragma indexed-roam--connection "hi"))
+                               indexed-roam--connection))))
+         (db (cond
+              (db)
+              ((length> dbs 1)
+               (if (equal "org" (read-answer "List [r]oam or [o]rgdb contents?"
+                                             '(("roam" ?r "indexed-roam")
+                                               ("org" ?o "indexed-orgdb"))))
+                   (nth 0 dbs)
+                 (nth 1 dbs)))
+              ((car dbs)))))
     (pop-to-buffer
      (get-buffer-create (format "*SQLite %.50s*" (prin1-to-string db))))
     (sqlite-mode)
-    (when (stringp db) (setq-local default-directory (file-name-directory db)))
+    ;; (when (stringp db) (setq-local default-directory (file-name-directory db)))
     (setq-local sqlite--db db)
     (sqlite-mode-list-tables)))
 

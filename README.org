@@ -39,11 +39,59 @@ For the elisp, see [[https://github.com/meedstrom/indexed?tab=readme-ov-file#app
 
 ** A SQLite database, for free
 
-You can create your own database ([[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-ii-make-your-own-database][Appendix II]]), but you probably won't need to.  Included is a drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
+You can create your own database ([[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-ii-make-your-own-database][Appendix II]]), but you probably won't need to.  Included are two designs:
 
-As a plugin dev, perhaps the main thing you needed from org-roam was its SQL database.  If so, you can now make your plugins useful to a wider crowd!
+1. A drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
+   - News [2025-03-21]: this DB is now compatible with =org-roam-db-query=!
+2. Our own experimental =(indexed-orgdb)=.
+   - Do not depend on it yet -- the schemata have not been set in stone.
+     - Are you a SQL and Org user?  Please write what you think should go in a good DB.  https://github.com/meedstrom/indexed/issues/1
 
-Due to identical table schemata, you can convert from e.g.
+*** Quick start with =indexed-roam=
+
+Two ways you could use this database: either *with* or *without* org-roam installed.
+**** With org-roam
+
+The following settings so =indexed-roam-mode= will overwite the "org-roam.db" file.  The main reason to do this is speed of saving and not needing =org-roam-db-sync= anymore.
+
+#+begin_src elisp
+(setq org-roam-db-update-on-save nil)
+(setq indexed-roam-db-location org-roam-db-location)
+(indexed-roam-mode)
+#+end_src
+
+Test that it works:
+
+#+begin_src elisp
+(org-roam-db-query [:select * :from files])
+#+end_src
+
+**** Without org-roam
+Set it to be written to a temp file as follows.  (Writing to a file is necessary, for now.  Our other DB, =indexed-orgdb=, is diskless).
+
+#+begin_src elisp
+(setq indexed-roam-db-location "/tmp/indexed-roam.db")
+(indexed-roam-mode)
+#+end_src
+
+Test that it works:
+
+#+begin_src elisp
+(setq my-roam-db (emacsql-sqlite-open indexed-roam-db-location))
+(emacsql my-roam-db [:select * :from files])
+#+end_src
+
+*** Quick start with =indexed-orgdb=
+Activate it:
+#+begin_src elisp
+(indexed-orgdb-mode)
+#+end_src
+
+It's diskless, so no file to think about.
+
+Note this DB probably does *not* work with EmacSQL.  Instead, it's for the Emacs 29+ built-in =sqlite-select=.
+
+In practice, you can often translate a statement like
 
 #+begin_src elisp
 (org-roam-db-query [:select tag :from tags :where (= id $s1)] id)
@@ -52,55 +100,23 @@ Due to identical table schemata, you can convert from e.g.
 to
 
 #+begin_src elisp
-(sqlite-select (indexed-roam) "select tag from tags where id = ?;" (list id))
+(sqlite-select (indexed-orgdb) "select tag from tags where id = ?;" (list id))
 #+end_src
 
 or if you like mysterious aliases,
 
 #+begin_src elisp
-(indexed-roam "select tag from tags where id = ?;" id)
+(indexed-orgdb "select tag from tags where id = ?;" id)
 #+end_src
 
-*** Diskless
-There is no file =org-roam.db= on disk, it lives in volatile RAM, generated on the spot.
-
-There is little point modifying it.  Use =SELECT= queries only.
-
-*** EmacSQL  (UPDATE 2025-03-20)
-
-You can now use the EmacSQL s-exp language instead of raw SQL!
-
-Even =org-roam-db-query= can work as if nothing's out of the ordinary:
+There are several differences between this and org-roam's DB. You can compare, if you if you enable both
 
 #+begin_src elisp
-;; Delete and replace org-roam.db
-(org-roam-db-autosync-mode 0)
-(setq indexed-roam-db-location org-roam-db-location)
-(indexed-reset)
-
-;; It works!
-(org-roam-db-query [:select * :from files])
+(indexed-roam-mode)
+(indexed-orgdb-mode)
 #+end_src
 
-The above is only relevant if you do use org-roam.  I suggest that developers drop the dependency and require only EmacSQL, since this is the same:
-
-#+begin_src elisp
-;; Setup
-(setq indexed-roam-db-location "/tmp/indexed-roam.db")
-(indexed-reset)
-(setq my-orgdb (emacsql-sqlite-open indexed-roam-db-location))
-
-;; It works!
-(emacsql my-orgdb [:select * :from files])
-#+end_src
-
-Of course you shouldn't set =indexed-roam-db-location= on your users' behalf, but you can throw some error if it's nil, and tell them to set it.
-
-*** Explore DB contents
-
-Command =M-x indexed-list-db-contents= lets you explore what's inside the database!
-
-Compare with he corresponding elisp objects: get [[https://github.com/mmontone/emacs-inspector][Inspector]] and eval =(inspector-inspect (indexed-org-entries))=.
+and then use command =M-x indexed-list-db-contents=.
 
 ** Data only
 
@@ -115,29 +131,6 @@ A design choice: Indexed *only* delivers data.  It could easily ship convenience
 but in my experience, that will spiral into dozens of lines over time, to handle a variety of edge cases, and then it will no longer be universally applicable.  Maybe you prefer to handle edge cases different than I do.
 
 So, it is up to you to write your own "goto" function and all else to do with user interaction.
-
-** RFC 1: Naming
-
-How would /you/ name a library that does what this does?
-
-It's essentially org-roam without any UI stuff, left as an exercise for the reader.  Or org-id with more info than just IDs.
-
-("org-lookup"? "docdb"?)
-
-It could be extended to track other file types---AsciiDoc, Markdown, RST---so you can be cosmopolitan and switch dialects according to mood.  "This Monday's living up to its name, think I'm gonna just chill in an AsciiDoc file".  That's my official justification for not putting an "org-" prefix or some such.
-
-My real justification is easier to read code that uses the API.
-
-Still, just "indexed-" feels a bit weird sometimes.
-
-** +RFC 2+
-** RFC 3: Should entries with heading level zero be called something else?
-
-The content before first heading, is now also recorded as an "entry".  This is not technically correct Org jargon.
-
-Small distinguisher: The zeroth-level entry can never have a TODO state, priority, SCHEDULED/DEADLINE, but implementation-wise, that just means several fields are nil.
-
-It would be good to have a simple term, because it comes up a lot when you write Org code: so often necessary to special-case behavior conditioned on whether or not =(org-before-first-heading-p)=.
 
 ** Appendix I: API
 
