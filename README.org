@@ -42,10 +42,8 @@ For the elisp, see [[https://github.com/meedstrom/indexed?tab=readme-ov-file#app
 You can create your own database ([[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-ii-make-your-own-database][Appendix II]]), but you probably won't need to.  Included are two designs:
 
 1. A drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
-   - News [2025-03-21]: this DB is now compatible with =org-roam-db-query=!
 2. Our own experimental =(indexed-orgdb)=.
-   - Do not depend on it yet -- the schemata have not been set in stone.
-     - Are you a SQL and Org user?  Please write what you think should go in a good DB.  https://github.com/meedstrom/indexed/issues/1
+   - Are you a SQL and Org user?  Please write what you think should go in a good DB.  https://github.com/meedstrom/indexed/issues/1
 
 *** Quick start with =indexed-roam=
 **** With org-roam installed
@@ -133,8 +131,6 @@ So, it is up to you to write your own "goto" function and all else to do with us
 
 ** Appendix I: API
 
-NOTE: Namespace *still under flux!*  This *may be out of date!*  Check [[https://github.com/meedstrom/indexed/blob/main/indexed.el][indexed.el]] source.
-
 There are three types of objects: /file-data/, /org-entry/ and /org-link/.  Some functions operate on more than one type.
 
 Polymorphic functions
@@ -166,11 +162,7 @@ Functions operating on ORG-LINK
 - indexed-type
 - indexed-heading-above
 - indexed-id-nearby
-  - (old alias: =indexed-origin= -- I'm partial to naming it =indexed-id-nearby=. What do you think?
-
-    Org-node has used the name "origin" for a year and it works.  Org-roam uses "source".  But both presume an ID-centric design to everything, and make less sense when you allow for the absence of IDs.  It seems that "origin" could refer to /either/ an ID /or/ a file-and-position /or/ some other means of locating the link.
-
-    Also, perhaps =indexed-id-nearby= could become polymorphic.)
+  - (old alias: =indexed-origin=.  Org-node used "origin", org-roam uses "source", but both terms presume an ID-centric design to everything, and make less sense when you allow for the absence of IDs.)
 
 Functions operating on ENTRY
 - indexed-deadline
@@ -181,9 +173,9 @@ Functions operating on ENTRY
 - indexed-olpath-with-self-with-title
 - indexed-olpath-with-title
 - indexed-priority
-- indexed-properties --- subject to change
-- indexed-property --- subject to change
-- indexed-property-assert --- subject to change
+- indexed-properties
+- indexed-property
+- indexed-property-assert
 - indexed-roam-aliases
 - indexed-roam-reflinks-to
 - indexed-roam-refs
@@ -265,7 +257,7 @@ Modes
 Config settings
 
 - indexed-warn-title-collisions
-- indexed-seek-link-types --- subject to removal
+- indexed-seek-link-types
 - indexed-org-dirs
 - indexed-org-dirs-exclude
 
