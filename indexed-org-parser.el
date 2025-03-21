@@ -79,7 +79,6 @@ brackets."
   "Parse first Org timestamp in string S and return ISO8601 string."
   (let ((time
          ;; Code from `org-parse-time-string', which claims to be fast.
-         ;; I wonder how it compares to `iso8601-parse'.
          (if (not (string-match indexed-org-parser--org-ts-regexp0 s))
              (error "Not an Org time string: %s" s)
            (list 0
@@ -94,7 +93,7 @@ brackets."
 	         (string-to-number (match-string 2 s))
 	         nil -1 nil))))
     (when time
-      (format-time-string "%FT%Tz" (encode-time time)))))
+      (format-time-string "%FT%H:%M" (encode-time time)))))
 
 (defvar indexed-org-parser--heading-re (rx bol (repeat 1 14 "*") " "))
 (defun indexed-org-parser--next-heading ()

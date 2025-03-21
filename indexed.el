@@ -34,10 +34,6 @@
 
 ;;; Code:
 
-;; TODO: A special-mode buffer for exploring all indexed objects,
-;;       same thought as `indexed-list-db-contents'.
-;;       Or make a DB anyway, even without the roam module.
-
 ;; TODO: Awareness of CUSTOM_ID, not just ID
 
 ;; TODO: Collect links even if there is no nearby-id (aka "origin"),
@@ -547,7 +543,7 @@ If not running, start it."
   "Whether to also index all files in `org-id-locations'."
   :type 'boolean
   :package-version '(indexed . "0.2.0"))
-
+(indexed-org-links)
 ;; (benchmark-call #'indexed--relist-org-files)  => 0.006 s
 ;; (benchmark-call #'org-roam-list-files)        => 4.141 s
 (defun indexed--relist-org-files ()

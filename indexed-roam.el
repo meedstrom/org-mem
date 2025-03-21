@@ -40,7 +40,7 @@ Overwrites any file previously there."
   :set (lambda (sym val)
          (if (symbol-value sym)
              (prog1 (set-default sym val)
-               (indexed-roam--mk-db))
+               (indexed-roam--re-make-db))
            (set-default sym val)))
   :package-version '(indexed . "0.2.0"))
 
@@ -70,7 +70,7 @@ Overwrites any file previously there."
   (clrhash indexed-roam--ref<>id)
   (clrhash indexed-roam--id<>refs))
 
-(defun indexed-roam--record-aliases-refs (entry)
+(defun indexed-roam--record-aliases-and-refs (entry)
   "Add any ENTRY aliases to `indexed--title<>id'."
   (when-let* ((id (indexed-id entry)))
     (dolist (alias (indexed-roam-aliases entry))
@@ -86,7 +86,7 @@ Overwrites any file previously there."
       (dolist (ref refs)
         (puthash ref id indexed-roam--ref<>id)))))
 
-(defun indexed-roam--forget-aliases-refs (entry)
+(defun indexed-roam--forget-aliases-and-refs (entry)
   (dolist (ref (indexed-roam-refs entry))
     (dolist (id (gethash ref indexed-roam--ref<>id))
       (remhash id indexed-roam--id<>refs))
@@ -144,7 +144,7 @@ What this means?  See indexed-test.el."
 (defvar indexed-roam--connection nil
   "A SQLite handle.")
 
-(defun indexed-roam--mk-db (&rest _)
+(defun indexed-roam--re-make-db (&rest _)
   "Close current `indexed-roam--connection' and populate a new one."
   (ignore-errors (sqlite-close indexed-roam--connection))
   (indexed-roam))
@@ -156,15 +156,15 @@ What this means?  See indexed-test.el."
   :group 'indexed
   (if indexed-roam-mode
       (progn
-        (add-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases-refs -5)
-        (add-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-refs)
+        (add-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases-and-refs -5)
+        (add-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-and-refs)
         (add-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
-        (add-hook 'indexed-post-full-reset-functions #'indexed-roam--mk-db)
+        (add-hook 'indexed-post-full-reset-functions #'indexed-roam--re-make-db)
         (indexed--scan-full))
-    (remove-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases-refs)
-    (remove-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-refs)
+    (remove-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases-and-refs)
+    (remove-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-and-refs)
     (remove-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
-    (remove-hook 'indexed-post-full-reset-functions #'indexed-roam--mk-db)))
+    (remove-hook 'indexed-post-full-reset-functions #'indexed-roam--re-make-db)))
 
 
 ;;; Database
@@ -354,7 +354,7 @@ In each row, print atoms that are strings or lists, readably."
 (defun indexed-roam--mk-rows (&optional specific-files)
   "Return rows of data suitable for inserting into `indexed-roam' DB.
 
-Specifically, return seven lists of rows, one for each SQL table
+Specifically, return lists of rows, one for each SQL table
 defined by `indexed-roam--configure'.
 
 With SPECIFIC-FILES, only return data that involves those files."
@@ -365,86 +365,83 @@ With SPECIFIC-FILES, only return data that involves those files."
         ref-rows
         tag-rows
         link-rows
-        prop-rows
-        (print-length nil)
-        (seen-files (make-hash-table :test 'equal)))
+        (print-length nil))
     (cl-loop
+     with seen-files = (make-hash-table :test 'equal)
      for entry in (indexed-org-id-nodes)
      as file = (indexed-file-name entry)
+     as id = (indexed-id entry)
      when (or (not specific-files) (member file specific-files))
      do
      (unless (gethash file seen-files)
        (puthash file t seen-files)
        (push (indexed-roam--mk-file-row file) file-rows))
-     (cl-symbol-macrolet ((deadline   (indexed-deadline entry))
-                          (id         (indexed-id entry))
-                          (scheduled  (indexed-scheduled entry))
-                          (properties (indexed-properties entry)))
-       ;; See `org-roam-db-insert-aliases'
-       (cl-loop for alias in (indexed-roam-aliases entry) do
-                (push (list id alias) alias-rows))
-       ;; See `org-roam-db-insert-tags'
-       (cl-loop for tag in (indexed-tags entry) do
-                (push (list id tag) tag-rows))
-       ;; See `org-roam-db-insert-file-node' and `org-roam-db-insert-node-data'
-       (push (list id
-                   (indexed-file-name entry)
-                   (indexed-heading-lvl entry)
-                   (indexed-pos entry)
-                   (indexed-todo-state entry)
-                   (indexed-priority entry)
-                   (indexed-scheduled entry)
-                   (indexed-deadline entry)
-                   (indexed-title entry)
-                   (indexed-properties entry)
-                   (indexed-olpath entry))
-             node-rows)
-       ;; See `org-roam-db-insert-refs'
-       (cl-loop for ref in (indexed-roam-refs entry) do
-                (let ((type (gethash ref indexed-roam--ref<>type)))
-                  (push (list id
-                              ref
-                              (or type "cite"))
-                        ref-rows)))
-       (cl-loop for (prop . val) in properties
-                do (push (list id prop val) prop-rows)))
-     (dolist (link (append (indexed-id-links-to entry)
-                           (indexed-roam-reflinks-to entry)))
-       (let ((origin-node (gethash (indexed-origin link) indexed--id<>entry)))
-         (if (not (indexed-pos link))
-             (message "Null link pos in %s" link))
-         (if (not origin-node)
-             (message "Unknown ID: %s" (indexed-origin link))
-           (if (indexed-type link)
-               ;; See `org-roam-db-insert-link'
-               (push (list (indexed-pos link)
-                           (indexed-origin link)
-                           (indexed-dest link)
-                           (indexed-type link)
-                           nil)
-                     link-rows)
-             ;; See `org-roam-db-insert-citation'
-             (push (list (indexed-origin link)
-                         (substring (indexed-dest link) 1)
-                         (indexed-pos link)
-                         nil)
-                   citation-rows))))))
+
+     ;; See `org-roam-db-insert-aliases'
+     (cl-loop for alias in (indexed-roam-aliases entry) do
+              (push (list id alias) alias-rows))
+     ;; See `org-roam-db-insert-tags'
+     (cl-loop for tag in (indexed-tags entry) do
+              (push (list id tag) tag-rows))
+     ;; See `org-roam-db-insert-file-node' and `org-roam-db-insert-node-data'
+     (push (list id
+                 (indexed-file-name entry)
+                 (indexed-heading-lvl entry)
+                 (indexed-pos entry)
+                 (indexed-todo-state entry)
+                 (indexed-priority entry)
+                 (indexed-scheduled entry)
+                 (indexed-deadline entry)
+                 (indexed-title entry)
+                 (indexed-properties entry)
+                 (indexed-olpath entry))
+           node-rows)
+     ;; See `org-roam-db-insert-refs'
+     (cl-loop for ref in (indexed-roam-refs entry) do
+              (let ((type (gethash ref indexed-roam--ref<>type)))
+                (push (list id
+                            ref
+                            (or type "cite"))
+                      ref-rows))))
+
+    (cl-loop
+     for link in (indexed-org-links)
+     as file = (indexed-org-link-file-name link)
+     when (indexed-nearby-id link)
+     when (or (not specific-files) (member file specific-files))
+     do (if (indexed-type link)
+            ;; See `org-roam-db-insert-link'
+            (push (list (indexed-pos link)
+                        (indexed-nearby-id link)
+                        (indexed-dest link)
+                        (indexed-type link)
+                        nil)
+                  link-rows)
+          ;; See `org-roam-db-insert-citation'
+          (push (list (indexed-origin link)
+                      (substring (indexed-dest link) 1)
+                      (indexed-pos link)
+                      nil)
+                citation-rows)))
+
     (list file-rows
           node-rows
           alias-rows
           citation-rows
           ref-rows
           tag-rows
-          link-rows
-          prop-rows)))
+          link-rows)))
 
-;; Numeric times are can be mixed with Lisp times:
+;; Numeric times can mix-and-match with Lisp times, i.e. these return the same:
 ;;    (format-time-string "%F %T" (time-add (time-to-seconds) 100))
 ;;    (format-time-string "%F %T" (time-add (current-time) 100))
-;; So, we skip the overhead of `prin1-to-string' and just store integer mtime.
+;; So, we skip the overhead of `prin1-to-string' and just store integer mtime,
+;; unlike org-roam, which stores lists.
+
 (defun indexed-roam--mk-file-row (file)
   "Return info about FILE."
   (let ((data (indexed-file-data file)))
+    ;; See `org-roam-db-insert-file'
     (list file
           (indexed-file-title data)
           ""                        ; HACK: Hashing is slow, skip
