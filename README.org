@@ -48,11 +48,10 @@ You can create your own database ([[https://github.com/meedstrom/indexed?tab=rea
      - Are you a SQL and Org user?  Please write what you think should go in a good DB.  https://github.com/meedstrom/indexed/issues/1
 
 *** Quick start with =indexed-roam=
+**** With org-roam installed
+For ending your dependence on =org-roam-db-sync=, set the following.
 
-Two ways you could use this database: either *with* or *without* org-roam installed.
-**** With org-roam
-
-The following settings so =indexed-roam-mode= will overwite the "org-roam.db" file.  The main reason to do this is speed of saving and not needing =org-roam-db-sync= anymore.
+It will overwite the "org-roam.db" file. 
 
 #+begin_src elisp
 (setq org-roam-db-update-on-save nil)
@@ -60,14 +59,14 @@ The following settings so =indexed-roam-mode= will overwite the "org-roam.db" fi
 (indexed-roam-mode)
 #+end_src
 
-Test that it works:
+Now, you have a new, all-fake org-roam.db!  Test that it works:
 
 #+begin_src elisp
 (org-roam-db-query [:select * :from files])
 #+end_src
 
-**** Without org-roam
-Set it to be written to a temp file as follows.  (Writing to a file is necessary, for now.  Our other DB, =indexed-orgdb=, is diskless).
+**** Without org-roam installed
+Set the following.
 
 #+begin_src elisp
 (setq indexed-roam-db-location "/tmp/indexed-roam.db")
@@ -82,14 +81,14 @@ Test that it works:
 #+end_src
 
 *** Quick start with =indexed-orgdb=
-Activate it:
+
+This DB is a bit different.  There's no file on disk, it's all RAM.  Activate:
+
 #+begin_src elisp
 (indexed-orgdb-mode)
 #+end_src
 
-It's diskless, so no file to think about.
-
-Note this DB probably does *not* work with EmacSQL.  Instead, it's for the Emacs 29+ built-in =sqlite-select=.
+Note it probably does *not* work with EmacSQL, just the Emacs 29+ built-in =sqlite-select=.
 
 In practice, you can often translate a statement like
 
