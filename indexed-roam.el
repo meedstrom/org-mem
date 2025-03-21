@@ -31,19 +31,6 @@
 (require 'sqlite)
 (require 'sqlite-mode)
 
-;;;###autoload
-(defcustom indexed-roam-db-location nil
-  "If non-nil, a file name to write the DB to.
-Overwrites any file previously there."
-  :type 'boolean
-  :group 'indexed
-  :set (lambda (sym val)
-         (if (symbol-value sym)
-             (prog1 (set-default sym val)
-               (indexed-roam--re-make-db))
-           (set-default sym val)))
-  :package-version '(indexed . "0.2.0"))
-
 
 ;;; Aliases and refs support
 
@@ -148,6 +135,16 @@ What this means?  See indexed-test.el."
   "Close current `indexed-roam--connection' and populate a new one."
   (ignore-errors (sqlite-close indexed-roam--connection))
   (indexed-roam))
+
+(defcustom indexed-roam-db-location nil
+  "If non-nil, a file name to write the DB to.
+Overwrites any file previously there."
+  :type 'boolean
+  :group 'indexed
+  :set (lambda (sym val)
+         (ignore-errors (sqlite-close indexed-roam--connection))
+         (set-default sym val))
+  :package-version '(indexed . "0.2.0"))
 
 ;;;###autoload
 (define-minor-mode indexed-roam-mode
