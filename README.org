@@ -47,7 +47,7 @@ You can create your own database ([[https://github.com/meedstrom/indexed?tab=rea
 
 *** Quick start with =indexed-roam=
 **** With org-roam installed
-For ending your dependence on =org-roam-db-sync=, set the following.
+To end your dependence on =org-roam-db-sync=, set the following.
 
 It will overwite the "org-roam.db" file. 
 
@@ -162,7 +162,7 @@ Functions operating on ORG-LINK
 - indexed-type
 - indexed-heading-above
 - indexed-id-nearby
-  - (old alias: =indexed-origin=.  Org-node used "origin", org-roam uses "source", but both terms presume an ID-centric design to everything, and make less sense when you allow for the absence of IDs.)
+  - (old alias: =indexed-origin=.  Org-roam calls the same thing "source" and org-node calls it "origin", but both terms presume an ID-centric design to everything, and make less sense when you allow for the absence of IDs.)
 
 Functions operating on ENTRY
 - indexed-deadline
@@ -177,8 +177,8 @@ Functions operating on ENTRY
 - indexed-property
 - indexed-property-assert
 - indexed-roam-aliases
-- indexed-roam-reflinks-to
-- indexed-roam-refs
+- indexed-roam-reflinks-to -- needs indexed-roam-mode enabled
+- indexed-roam-refs -- needs indexed-roam-mode enabled
 - indexed-root-heading-to
 - indexed-scheduled
 - indexed-tags
@@ -264,7 +264,6 @@ Config settings
 Commands
 
 - indexed-list-dead-id-links
-- indexed-list-id-collisions
 - indexed-list-title-collisions
 - indexed-list-problems
 - indexed-list-entries

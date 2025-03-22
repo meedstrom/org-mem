@@ -502,8 +502,8 @@ If not running, start it."
     (run-hook-with-args 'indexed-post-full-reset-functions parse-results)
     (message "%s" indexed--next-message)
     (setq indexed--next-message nil)
-    (when indexed--id-collisions
-      (message "Saw same ID twice, see M-x indexed-list-id-collisions"))
+    ;; (when indexed--id-collisions
+    ;;   (message "Saw same ID twice, see M-x indexed-list-id-collisions"))
     (when (and indexed--title-collisions indexed-warn-title-collisions)
       (message "Some IDs share title, see M-x indexed-list-title-collisions"))
     (when (setq indexed--problems problems)

@@ -84,27 +84,27 @@
     (message "Congratulations, no title collisions! (among %d ID-nodes)"
              (hash-table-count indexed--title<>id))))
 
-;;;###autoload
-(defun indexed-list-id-collisions ()
-  "Pop up a buffer listing title collisions between org-ID nodes."
-  (interactive)
-  (if indexed--id-collisions
-      (indexed-list--pop-to-tabulated-buffer
-       :buffer "*ID collisions*"
-       :format [("Time" 6 t) ("ID" 37 t) ("Title 1" 25 t) ("Title 2" 0 t)]
-       :reverter #'indexed-list-title-collisions
-       :entries
-       (cl-loop
-        for row in indexed--id-collisions
-        collect (seq-let ( time id name1 name2 ) row
-                  (list
-                   (sxhash row)
-                   (vector time
-                           (buttonize id #'indexed-list--goto-id id)
-                           name1
-                           name2)))))
-    (message "Congratulations, no ID collisions! (among %d titles)"
-             (hash-table-count indexed--title<>id))))
+;; ;;;###autoload
+;; (defun indexed-list-id-collisions ()
+;;   "Pop up a buffer listing title collisions between org-ID nodes."
+;;   (interactive)
+;;   (if indexed--id-collisions
+;;       (indexed-list--pop-to-tabulated-buffer
+;;        :buffer "*ID collisions*"
+;;        :format [("Time" 6 t) ("ID" 37 t) ("Title 1" 25 t) ("Title 2" 0 t)]
+;;        :reverter #'indexed-list-title-collisions
+;;        :entries
+;;        (cl-loop
+;;         for row in indexed--id-collisions
+;;         collect (seq-let ( time id name1 name2 ) row
+;;                   (list
+;;                    (sxhash row)
+;;                    (vector time
+;;                            (buttonize id #'indexed-list--goto-id id)
+;;                            name1
+;;                            name2)))))
+;;     (message "Congratulations, no ID collisions! (among %d titles)"
+;;              (hash-table-count indexed--title<>id))))
 
 ;;;###autoload
 (defun indexed-list-dead-id-links ()
