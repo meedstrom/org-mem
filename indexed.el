@@ -19,8 +19,8 @@
 ;; URL:      https://github.com/meedstrom/org-node
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.3.1
-;; Package-Requires: ((emacs "29.1") (llama "0.5.0") (el-job "2.2.0"))
+;; Package-Version: 0.3.2
+;; Package-Requires: ((emacs "29.1") (el-job "2.2.0") (llama "0.5.0"))
 
 ;;; Commentary:
 
