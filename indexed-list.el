@@ -28,7 +28,9 @@
 (require 'sqlite)
 (require 'sqlite-mode)
 (require 'eieio)
+(eieio-declare-slots handle)
 (declare-function indexed-roam "indexed-roam")
+(defvar indexed-roam-mode)
 
 (defun indexed-list--goto-file-pos (file.pos)
   "Go to FILE at POS."
@@ -175,7 +177,7 @@ instead of default `indexed-roam--connection'."
 
 ;; TODO: Could be way more detailed.
 ;; Like (inspector-inspect (indexed-org-entries))
-;;;###autoload.
+;;;###autoload
 (defun indexed-list-entries ()
   "List all Org entries."
   (interactive)
