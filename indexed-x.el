@@ -156,7 +156,7 @@ Put the forgotten links into `indexed-x-last-removed-links'."
           for origin being each hash-key of indexed--origin<>links
           using (hash-values link-set)
           when (member origin dead-ids)
-          append (mapcar (##plist-get % :dest) link-set))))
+          append (mapcar #'indexed-dest link-set))))
     (mapc (##remhash % indexed--origin<>links) dead-ids)
     (setq indexed-x-last-removed-links nil)
     (cl-loop
