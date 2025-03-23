@@ -138,7 +138,6 @@
                                        (indexed-pos link))
                                  dest))))))))
 
-
 ;; TODO: Maybe generalize: track a list of open DBs and explore any of them
 (defun indexed-list-db-contents (&optional db)
   "Explore contents of currently used SQLite DB.
@@ -154,10 +153,10 @@ instead of default `indexed-roam--connection'."
          (ignore-errors
            (sqlite-pragma indexed-orgdb--connection "hi"))
          (push indexed-orgdb--connection dbs))
-    (and (bound-and-true-p indexed-roam--connection)
+    (and indexed-roam-mode
          (ignore-errors
-           (sqlite-pragma (oref indexed-roam--connection handle) "hi"))
-         (push (oref indexed-roam--connection handle) dbs))
+           (sqlite-pragma (oref (indexed-roam) handle) "hi"))
+         (push (oref (indexed-roam) handle) dbs))
     (let ((db (cond (db)
                     ((length> dbs 1)
                      (if (equal "org" (read-answer
@@ -175,8 +174,8 @@ instead of default `indexed-roam--connection'."
       (sqlite-mode-list-tables))))
 
 ;; TODO: Could be way more detailed.
-;; `inspector-inspect-last-sexp' does it so well.
-;;;###autoload
+;; Like (inspector-inspect (indexed-org-entries))
+;;;###autoload.
 (defun indexed-list-entries ()
   "List all Org entries."
   (interactive)
@@ -196,7 +195,6 @@ instead of default `indexed-roam--connection'."
                   (file-name-nondirectory (indexed-file-name entry))
                   (string-join (indexed-olpath entry) " > "))))))
 
-;; so i dont have to remember the boilerplate nor update in many places
 (cl-defun indexed-list--pop-to-tabulated-buffer (&key buffer format entries reverter)
   "Create, populate and display a `tabulated-list-mode' buffer.
 
