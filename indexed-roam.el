@@ -195,6 +195,7 @@ If passed any DEPRECATED-ARGS, signal an error."
               (if (and (require 'org-roam nil t)
                        (fboundp 'org-roam-db)
                        (fboundp 'org-roam-db--get-connection)
+                       (fboundp 'org-roam-db-clear-all)
                        (boundp 'org-roam-db-location))
                   (progn
                     (when (and indexed-updater-mode
@@ -202,13 +203,13 @@ If passed any DEPRECATED-ARGS, signal an error."
                       (error "Both options should not be t: `indexed-roam-overwrite' and `org-roam-db-update-on-save'"))
                     (setq conn (org-roam-db--get-connection))
                     (unless (and conn (emacsql-live-p conn))
-                      ;; No live connection, take the chance to write a new DB.
+                      ;; No live connection, take the chance to repopulate.
                       ;; Note that live connections sometimes get closed by
                       ;; `indexed-roam--re-make-db', such as when you turn on
                       ;; `indexed-roam-mode'.
-                      (ignore-errors (delete-file org-roam-db-location))
                       (setq conn (org-roam-db))
                       (setq name org-roam-db-location)
+                      (org-roam-db-clear-all)
                       (indexed-roam--populate-usably-for-emacsql
                        (oref conn handle) (indexed-roam--mk-rows))))
                 (error "Option `indexed-roam-overwrite' t, but org-roam unavailable"))
