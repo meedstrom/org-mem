@@ -27,6 +27,7 @@
 (require 'indexed)
 (require 'sqlite)
 (require 'sqlite-mode)
+(require 'eieio)
 (declare-function indexed-roam "indexed-roam")
 
 (defun indexed-list--goto-file-pos (file.pos)
@@ -148,30 +149,30 @@ instead of default `indexed-roam--connection'."
   (require 'indexed-roam)
   (cl-assert (sqlite-available-p))
   ;; this is way too roundabout
-  (let* ((dbs (delq 'nil (list
-                          (and (bound-and-true-p indexed-orgdb--connection)
-                               (ignore-errors
-                                 (sqlite-pragma indexed-orgdb--connection "hi"))
-                               indexed-orgdb--connection)
-                          (and (bound-and-true-p indexed-roam--connection)
-                               (ignore-errors
-                                 (sqlite-pragma indexed-roam--connection "hi"))
-                               indexed-roam--connection))))
-         (db (cond
-              (db)
-              ((length> dbs 1)
-               (if (equal "org" (read-answer "List [r]oam or [o]rgdb contents?"
-                                             '(("roam" ?r "indexed-roam")
-                                               ("org" ?o "indexed-orgdb"))))
-                   (nth 0 dbs)
-                 (nth 1 dbs)))
-              ((car dbs)))))
-    (pop-to-buffer
-     (get-buffer-create (format "*SQLite %.50s*" (prin1-to-string db))))
-    (sqlite-mode)
-    ;; (when (stringp db) (setq-local default-directory (file-name-directory db)))
-    (setq-local sqlite--db db)
-    (sqlite-mode-list-tables)))
+  (let (dbs)
+    (and (bound-and-true-p indexed-orgdb--connection)
+         (ignore-errors
+           (sqlite-pragma indexed-orgdb--connection "hi"))
+         (push indexed-orgdb--connection dbs))
+    (and (bound-and-true-p indexed-roam--connection)
+         (ignore-errors
+           (sqlite-pragma (oref indexed-roam--connection handle) "hi"))
+         (push (oref indexed-roam--connection handle) dbs))
+    (let ((db (cond (db)
+                    ((length> dbs 1)
+                     (if (equal "org" (read-answer
+                                       "List [r]oam or [o]rgdb contents?"
+                                       '(("roam" ?r "indexed-roam")
+                                         ("org" ?o "indexed-orgdb"))))
+                         (nth 1 dbs)
+                       (nth 0 dbs)))
+                    ((car dbs)))))
+      (pop-to-buffer
+       (get-buffer-create (format "*SQLite %.50s*" (prin1-to-string db))))
+      (sqlite-mode)
+      ;; (when (stringp db) (setq-local default-directory (file-name-directory db)))
+      (setq-local sqlite--db db)
+      (sqlite-mode-list-tables))))
 
 ;; TODO: Could be way more detailed.
 ;; `inspector-inspect-last-sexp' does it so well.
