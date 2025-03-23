@@ -180,6 +180,20 @@ e.g. \"~/.local/\", \".git/\" or \"_site\" for that reason."
   (:method ((x indexed-org-entry)) (indexed-org-entry-file-name x))
   (:method ((x indexed-file-data)) (indexed-file-data-file-name x)))
 
+(cl-defgeneric indexed-file-data (thing)
+  "Return file-data object for wherever THING is.
+If THING is a file name, return the object for that file name."
+  (:method ((x string))
+           (or (gethash x indexed--file<>data)
+               (error "File not indexed: %s" x)))
+  (:method ((x indexed-org-entry))
+           (or (gethash (indexed-org-entry-file-name x) indexed--file<>data)
+               (error "File not indexed: %s" (indexed-org-entry-file-name x))))
+  (:method ((x indexed-org-link))
+           (or (gethash (indexed-org-link-file-name x) indexed--file<>data)
+               (error "File not indexed: %s" (indexed-org-link-file-name x))))
+  (:method ((x indexed-file-data)) x))
+
 ;; Short...
 ;; Could become generics if supporting other file types than Org.
 (defalias 'indexed-title          #'indexed-org-entry-title)
@@ -224,17 +238,9 @@ e.g. \"~/.local/\", \".git/\" or \"_site\" for that reason."
   (cl-loop for file in (ensure-list files)
            append (gethash file indexed--file<>entries)))
 
-(defun indexed-file-data (thing)
-  "Return file-data object for wherever THING is.
-If THING is a file name, return the object for that file name."
-  (gethash (if (stringp thing) thing (indexed-file-name thing))
-           indexed--file<>data))
-
 (defalias 'indexed-mtime
   (defun indexed-file-mtime (thing)
     (indexed-file-data-mtime (indexed-file-data thing))))
-
-;; (indexed-file-title #s(indexed-org-entry :closed nil :deadline nil :file-name "/home/kept/org/daily/2022-03-01.org" :heading-lvl 1 :id nil :lnum 9 :olpath nil :pos 142 :priority nil :properties nil :scheduled nil :tags-inherited ("private" "daily") :tags-local nil :title "12:06 TODOs" :todo-state nil))
 
 (defun indexed-file-title (thing)
   "From file where THING is, return value of #+title."
@@ -455,11 +461,11 @@ If not running, start it."
                    :funcall-per-input #'indexed-org-parser--parse-file
                    :callback #'indexed--finalize-full)))
 
-;; To debug: do M-x edebug-defun on `indexed-org-parser--parse-file',
-;; then eval this.
-;; (indexed--debug-parse-file "~/org/some-file.org")
+;; To debug, do M-x edebug-defun on `indexed-org-parser--parse-file',
+;; then eval:  (indexed--debug-parse-file "~/org/some-file.org")
 (defun indexed--debug-parse-file (file)
-  "Run `indexed-org-parser--parse-file' on FILE in correct environment."
+  "Run `indexed-org-parser--parse-file' on FILE.
+Set some variables it expects."
   (dolist (var (indexed--mk-work-vars))
     (set (car var) (cdr var)))
   (indexed-org-parser--parse-file file))
@@ -543,7 +549,7 @@ If not running, start it."
   "Whether to also index all files in `org-id-locations'."
   :type 'boolean
   :package-version '(indexed . "0.2.0"))
-(indexed-org-links)
+
 ;; (benchmark-call #'indexed--relist-org-files)  => 0.006 s
 ;; (benchmark-call #'org-roam-list-files)        => 4.141 s
 (defun indexed--relist-org-files ()

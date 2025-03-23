@@ -283,7 +283,11 @@ changed."
 
 ;;;###autoload
 (defun indexed-x-snitch-to-org-id (entry)
-  "Tell `org-id-locations' about ENTRY."
+  "Add ENTRY to `org-id-locations', ensuring that ID-links work.
+
+If `indexed-check-org-id-locations' is t, this naturally also results in
+causing ENTRY\\='s file to be scanned for nodes in the future regardless
+of whether or not the file is a descendant of `indexed-org-dirs'."
   (require 'org-id)
   (when (and org-id-track-globally
              (hash-table-p org-id-locations)

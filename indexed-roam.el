@@ -175,20 +175,22 @@ If nil, write a diskless DB."
 (defun indexed-roam (&rest deprecated-args)
   "Return an EmacSQL connection.
 If `indexed-roam-overwrite' is t, return that of `org-roam-db'.
-With DEPRECATED-ARGS, signal an error."
+
+If passed any DEPRECATED-ARGS, signal an error."
   (when deprecated-args
-    "Function `indexed-roam' no longer takes arguments")
+    (error "Function `indexed-roam' no longer takes arguments"))
   (unless indexed-roam-mode
     (error "Enable `indexed-roam-mode' to use `indexed-roam'"))
   (if (and (require 'emacsql nil t)
            (fboundp 'emacsql-live-p)
+           (fboundp 'emacsql-sqlite-open)
            (fboundp 'emacsql-sqlite-default-connection))
-      (progn
-        (unless (eq (emacsql-sqlite-default-connection)
-                    'emacsql-sqlite-builtin-connection)
-          (error "`indexed-roam-mode' requires built-in SQLite"))
+      (if (not (eq (emacsql-sqlite-default-connection)
+                   'emacsql-sqlite-builtin-connection))
+          (error "`indexed-roam-mode' requires built-in SQLite")
         (let ((T (current-time))
               conn name)
+
           (if indexed-roam-overwrite
               (if (and (require 'org-roam nil t)
                        (fboundp 'org-roam-db)
@@ -200,17 +202,27 @@ With DEPRECATED-ARGS, signal an error."
                       (error "Both options should not be t: `indexed-roam-overwrite' and `org-roam-db-update-on-save'"))
                     (setq conn (org-roam-db--get-connection))
                     (unless (and conn (emacsql-live-p conn))
+                      ;; No live connection, take the chance to write a new DB.
+                      ;; Note that live connections sometimes get closed by
+                      ;; `indexed-roam--re-make-db', such as when you turn on
+                      ;; `indexed-roam-mode'.
                       (ignore-errors (delete-file org-roam-db-location))
-                      (setq conn (org-roam-db)
-                            name org-roam-db-location)
+                      (setq conn (org-roam-db))
+                      (setq name org-roam-db-location)
                       (indexed-roam--populate-usably-for-emacsql
                        (oref conn handle) (indexed-roam--mk-rows))))
                 (error "Option `indexed-roam-overwrite' t, but org-roam unavailable"))
-            (unless (and indexed-roam--connection
-                         (emacsql-live-p indexed-roam--connection))
-              (setq indexed-roam--connection (indexed-roam--open-new-db)))
-            (setq conn indexed-roam--connection))
+            ;; Option `indexed-roam-overwrite' nil; make own DB and connection.
+            (setq conn indexed-roam--connection)
+            (unless (and conn (emacsql-live-p conn))
+              (setq conn (emacsql-sqlite-open nil))
+              (setq indexed-roam--connection conn)
+              (indexed-roam--configure (oref conn handle))
+              (indexed-roam--populate-usably-for-emacsql
+               (oref conn handle) (indexed-roam--mk-rows))))
+
           (when indexed--next-message
+            ;; Print a benchmark if called by command `indexed-reset'.
             (setq indexed--next-message
                   (concat indexed--next-message
                           (format " (+ %.2fs writing %s)"
@@ -218,20 +230,6 @@ With DEPRECATED-ARGS, signal an error."
                                   (or name "SQLite DB")))))
           conn))
     (error "`indexed-roam' requires \"emacsql\"")))
-
-(defun indexed-roam--open-new-db (&optional loc)
-  "Generate a new database and return an EmacSQL connection to it.
-Shape it according to org-roam schemata and pre-populate it with data.
-
-Normally, this creates a diskless database.  With optional file path
-LOC, write the database as a file to LOC."
-  (when (fboundp 'emacsql-sqlite-open)
-    (let* ((conn (progn (and loc (file-exists-p loc) (delete-file loc))
-                        (emacsql-sqlite-open loc)))
-           (raw (oref conn handle)))
-      (indexed-roam--configure raw)
-      (indexed-roam--populate-usably-for-emacsql raw (indexed-roam--mk-rows))
-      conn)))
 
 (defun indexed-roam--configure (db)
   "Set up tables, schemata and PRAGMA settings in DB."
