@@ -184,7 +184,7 @@ Enabled by =indexed-roam-mode=.  Explained elsewhere.
 
 ** Appendix II: A SQLite database, for free
 
-You can create your own database ([[https://github.com/meedstrom/indexed#appendix-iii-make-your-own-database][Appendix III]]), but you probably won't need to.  Included are two designs:
+Included are two designs:
 
 1. A drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
 2. Our own experimental =(indexed-orgdb)=.
@@ -192,15 +192,28 @@ You can create your own database ([[https://github.com/meedstrom/indexed#appendi
      - There is prior art on the matter at [[https://github.com/ndwarshuis/org-sql/blob/80bea9996de7fa8bc7ff891a91cfaff91111dcd8/org-sql.el#L141][org-sql]], but your story is still welcome!
 
 *** Quick start with =indexed-roam=
-**** With org-roam installed
+UPDATE NOTICE [2025-03-23 Sun 16:44]:  Hopefully a lot of bugs went away. Function =(indexed-roam)= now always returns an EmacSQL connection, and takes no arguments.
 
-NOTE [2025-03-23 Sun 13:34]: this still needs polish
+**** Without org-roam installed
+
+Activating the mode creates an in-memory database by default.
+
+#+begin_src elisp
+(indexed-roam-mode)
+#+end_src
+
+Test that it works:
+
+#+begin_src elisp
+(emacsql (indexed-roam) [:select * :from files])
+#+end_src
+
+**** With org-roam installed
 
 To end your dependence on =org-roam-db-sync=, set the following.  It will overwite the "org-roam.db" file.
 
 #+begin_src elisp
-(setq org-roam-db-update-on-save nil)
-(setq indexed-roam-db-location org-roam-db-location)
+(setq indexed-roam-overwrite t)
 (indexed-roam-mode)
 #+end_src
 
@@ -210,20 +223,13 @@ Now, you have a new, all-fake org-roam.db!  Test that it works:
 (org-roam-db-query [:select * :from files])
 #+end_src
 
-**** Without org-roam installed
-Set the following.
+N/B: because =(equal (org-roam-db) (indexed-roam))=, the above is equivalent to these:
 
 #+begin_src elisp
-(setq indexed-roam-db-location "/tmp/indexed-roam.db")
-(indexed-roam-mode)
+(emacsql (org-roam-db) [:select * :from files])
+(emacsql (indexed-roam) [:select * :from files])
 #+end_src
 
-Test that it works:
-
-#+begin_src elisp
-(setq my-roam-db (emacsql-sqlite-open indexed-roam-db-location))
-(emacsql my-roam-db [:select * :from files])
-#+end_src
 
 *** Quick start with =indexed-orgdb=
 

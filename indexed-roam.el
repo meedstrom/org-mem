@@ -29,7 +29,8 @@
 (require 'seq)
 (require 'indexed)
 (require 'sqlite)
-(require 'sqlite-mode)
+(require 'eieio)
+(eieio-declare-slots handle)
 
 
 ;;; Aliases and refs support
@@ -128,22 +129,26 @@ What this means?  See indexed-test.el."
 ;;; Mode
 
 (defvar indexed-roam--connection nil
-  "A SQLite handle.")
+  "An EmacSQL connection.")
+
+(defcustom indexed-roam-overwrite nil
+  "Whether to overwrite the DB at `org-roam-db-location'.
+If nil, write a diskless DB."
+  :type 'boolean
+  :group 'indexed
+  :package-version '(indexed . "0.4.0"))
 
 (defun indexed-roam--re-make-db (&rest _)
   "Close current `indexed-roam--connection' and populate a new one."
-  (ignore-errors (sqlite-close indexed-roam--connection))
+  (if indexed-roam-overwrite
+      (and (fboundp 'org-roam-db--close)
+           (org-roam-db--close))
+    (and (fboundp 'emacsql-close)
+         (fboundp 'emacsql-live-p)
+         indexed-roam--connection
+         (emacsql-live-p indexed-roam--connection)
+         (emacsql-close indexed-roam--connection)))
   (indexed-roam))
-
-(defcustom indexed-roam-db-location nil
-  "If non-nil, a file name to write the DB to.
-Overwrites any file previously there."
-  :type 'file
-  :group 'indexed
-  :set (lambda (sym val)
-         (ignore-errors (sqlite-close indexed-roam--connection))
-         (set-default sym val))
-  :package-version '(indexed . "0.2.0"))
 
 ;;;###autoload
 (define-minor-mode indexed-roam-mode
@@ -165,39 +170,63 @@ Overwrites any file previously there."
 
 ;;; Database
 
-;;;###autoload
-(defun indexed-roam (&optional sql &rest args)
-  "Return the SQLite handle to the org-roam-like database.
-Each call checks if it is alive, and renews if not.
-
-If arguments SQL and ARGS provided, pass to `sqlite-select'."
+(defun indexed-roam (&rest deprecated-args)
+  "Return an EmacSQL connection.
+If `indexed-roam-overwrite' is t, return that of `org-roam-db'.
+With DEPRECATED-ARGS, signal an error."
+  (when deprecated-args
+    "Function `indexed-roam' no longer takes arguments")
   (unless indexed-roam-mode
     (error "Enable `indexed-roam-mode' to use `indexed-roam'"))
-  (or (ignore-errors (sqlite-pragma indexed-roam--connection "im_still_here"))
-      (setq indexed-roam--connection (indexed-roam--open-new-db
-                                      indexed-roam-db-location)))
-  (if sql
-      (sqlite-select indexed-roam--connection sql args)
-    indexed-roam--connection))
+  (if (and (require 'emacsql nil t)
+           (fboundp 'emacsql-live-p)
+           (fboundp 'emacsql-sqlite-default-connection))
+      (progn
+        (unless (eq (emacsql-sqlite-default-connection)
+                    'emacsql-sqlite-builtin-connection)
+          (error "`indexed-roam-mode' requires built-in SQLite"))
+        (let ((T (current-time))
+              conn name)
+          (if indexed-roam-overwrite
+              (if (and (require 'org-roam nil t)
+                       (fboundp 'org-roam-db)
+                       (fboundp 'org-roam-db--get-connection)
+                       (boundp 'org-roam-db-location))
+                  (progn
+                    (setq conn (org-roam-db--get-connection))
+                    (unless (and conn (emacsql-live-p conn))
+                      (ignore-errors (delete-file org-roam-db-location))
+                      (setq conn (org-roam-db)
+                            name org-roam-db-location)
+                      (indexed-roam--populate-usably-for-emacsql
+                       (oref conn handle) (indexed-roam--mk-rows))))
+                (error "Option `indexed-roam-overwrite' t, but org-roam unavailable"))
+            (unless (and indexed-roam--connection
+                         (emacsql-live-p indexed-roam--connection))
+              (setq indexed-roam--connection (indexed-roam--open-new-db)))
+            (setq conn indexed-roam--connection))
+          (when indexed--next-message
+            (setq indexed--next-message
+                  (concat indexed--next-message
+                          (format " (+ %.2fs writing %s)"
+                                  (float-time (time-since T))
+                                  (or name "SQLite DB")))))
+          conn))
+    (error "`indexed-roam' requires \"emacsql\"")))
 
 (defun indexed-roam--open-new-db (&optional loc)
-  "Generate a new database and return a connection-handle to it.
+  "Generate a new database and return an EmacSQL connection to it.
 Shape it according to org-roam schemata and pre-populate it with data.
 
 Normally, this creates a diskless database.  With optional file path
 LOC, write the database as a file to LOC."
-  (let ((T (current-time))
-        (name (or loc "SQLite DB"))
-        (db (progn (and loc (file-exists-p loc) (delete-file loc))
-                   (sqlite-open loc))))
-    (indexed-roam--configure db)
-    (indexed-roam--populate-usably-for-emacsql db (indexed-roam--mk-rows))
-    (when indexed--next-message
-      (setq indexed--next-message
-            (concat indexed--next-message
-                    (format " (+ %.2fs writing %s)"
-                            (float-time (time-since T)) name))))
-    db))
+  (when (fboundp 'emacsql-sqlite-open)
+    (let* ((conn (progn (and loc (file-exists-p loc) (delete-file loc))
+                        (emacsql-sqlite-open loc)))
+           (raw (oref conn handle)))
+      (indexed-roam--configure raw)
+      (indexed-roam--populate-usably-for-emacsql raw (indexed-roam--mk-rows))
+      conn)))
 
 (defun indexed-roam--configure (db)
   "Set up tables, schemata and PRAGMA settings in DB."
@@ -361,13 +390,16 @@ With SPECIFIC-FILES, only return data that involves those files."
         ref-rows
         tag-rows
         link-rows
-        (print-length nil))
+        (print-length nil)
+        (roam-dir (when (boundp 'org-roam-directory)
+                    (abbreviate-file-name (file-truename org-roam-directory)))))
     (cl-loop
      with seen-files = (make-hash-table :test 'equal)
      for entry in (indexed-org-id-nodes)
      as file = (indexed-file-name entry)
      as id = (indexed-id entry)
-     when (or (not specific-files) (member file specific-files))
+     unless (and specific-files (not (member file specific-files)))
+     unless (and roam-dir (not (string-prefix-p roam-dir file)))
      do
      (unless (gethash file seen-files)
        (puthash file t seen-files)
@@ -404,7 +436,8 @@ With SPECIFIC-FILES, only return data that involves those files."
      for link in (indexed-org-links)
      as file = (indexed-org-link-file-name link)
      when (indexed-nearby-id link)
-     when (or (not specific-files) (member file specific-files))
+     unless (and specific-files (not (member file specific-files)))
+     unless (and roam-dir (not (string-prefix-p roam-dir file)))
      do (if (indexed-type link)
             ;; See `org-roam-db-insert-link'
             (push (list (indexed-pos link)
@@ -448,7 +481,7 @@ With SPECIFIC-FILES, only return data that involves those files."
 ;;; Update-on-save
 
 (defun indexed-roam--update-db (parse-results)
-  "Update current DB about nodes and links involving FILES.
+  "Update current DB about nodes and links from PARSE-RESULTS.
 Suitable on `indexed-post-incremental-update-functions'."
   ;; NOTE: There's a likely performance bug in Emacs sqlite.c.
   ;;       I have a yuge file, which takes 0.01 seconds to delete on the
@@ -457,7 +490,7 @@ Suitable on `indexed-post-incremental-update-functions'."
   ;;       Aside from tracking down the bug, could we workaround by getting rid
   ;;       of all the CASCADE rules and pre-determine what needs to be deleted?
   ;;       It's not The Way to use a RDBMS, but it's a simple enough puzzle.
-  (let* ((db (indexed-roam))
+  (let* ((db (oref (indexed-roam) handle))
          (files (mapcar #'indexed-file-name (nth 1 parse-results)))
          (rows (indexed-roam--mk-rows files)))
     (dolist (file files)
