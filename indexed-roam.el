@@ -40,6 +40,13 @@
 (defvar indexed-roam--id<>refs (make-hash-table :test 'equal))
 (defvar indexed-roam--ref<>type (make-hash-table :test 'equal)) ;; REVIEW: weird
 
+;; This one works without the rest
+;;;###autoload
+(defun indexed-roam-aliases (entry)
+  "Property ROAM_ALIASES in ENTRY, properly split."
+  (when-let* ((aliases (indexed-property "ROAM_ALIASES" entry)))
+    (split-string-and-unquote aliases)))
+
 (defun indexed-roam-refs (entry)
   "Property ROAM_REFS in ENTRY, properly split."
   (gethash (indexed-id entry) indexed-roam--id<>refs))
@@ -49,12 +56,7 @@
   (cl-loop for ref in (indexed-roam-refs entry)
            append (gethash ref indexed--dest<>links)))
 
-(defun indexed-roam-aliases (entry)
-  "Property ROAM_ALIASES in ENTRY, properly split."
-  (when-let* ((aliases (indexed-property "ROAM_ALIASES" entry)))
-    (split-string-and-unquote aliases)))
-
-(defun indexed-roam--wipe-lisp-tables (_)
+(defun indexed-roam--wipe-ref-tables (_)
   (clrhash indexed-roam--ref<>id)
   (clrhash indexed-roam--id<>refs))
 

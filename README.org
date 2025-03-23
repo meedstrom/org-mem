@@ -107,7 +107,7 @@ Test that it works:
 
 **** With org-roam installed
 
-To end your dependence on =org-roam-db-sync=, set the following.  It will overwite the "org-roam.db" file.
+To end your dependence on =org-roam-db-sync=, you can set the following.  It will overwrite the "org-roam.db" file.
 
 #+begin_src elisp
 (setq indexed-roam-overwrite t)
@@ -169,6 +169,19 @@ and then use command =M-x indexed-list-db-contents=.
 
 There are three types of objects: /file-data/, /org-entry/ and /org-link/.  Some functions operate on more than one type.
 
+Functions of no argument
+
+- indexed-org-files
+  - Return all /file-data/ objects
+- indexed-org-entries
+  - Return all /org-entry/ objects
+- indexed-org-id-nodes
+  - Return all /org-entry/ objects that have an ID
+- indexed-org-links-and-citations
+  - Return all /org-link/ objects
+- indexed-org-links
+  - Return all /org-link/ objects with a type such as =id:= or =https:=
+
 Polymorphic functions
 - indexed-pos
 - indexed-file-name
@@ -213,8 +226,8 @@ Functions operating on ENTRY
 - indexed-property
 - indexed-property-assert
 - indexed-roam-aliases
-- indexed-roam-reflinks-to -- needs indexed-roam-mode enabled
-- indexed-roam-refs -- needs indexed-roam-mode enabled
+- indexed-roam-reflinks-to -- needs =indexed-roam-mode=
+- indexed-roam-refs -- needs =indexed-roam-mode=
 - indexed-root-heading-to
 - indexed-scheduled
 - indexed-tags
@@ -222,14 +235,6 @@ Functions operating on ENTRY
 - indexed-tags-local
 - indexed-todo-state
 - indexed-toptitle
-
-Functions without argument (which you can use to iterate over all objects)
-
-- indexed-org-entries
-- indexed-org-id-nodes (subset of above)
-- indexed-org-links-and-citations
-- indexed-org-links (subset of above)
-- indexed-org-files
 
 Hooks
 
@@ -296,6 +301,7 @@ Config settings
 - indexed-seek-link-types
 - indexed-org-dirs
 - indexed-org-dirs-exclude
+- indexed-roam-overwrite
 
 Commands
 
@@ -305,7 +311,6 @@ Commands
 - indexed-list-entries
 - indexed-list-db-contents
 - indexed-reset
-
 
 ** Tip: Fully inform org-id
 # XXX update the blob link
