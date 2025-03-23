@@ -81,7 +81,6 @@
   (dolist (alias (indexed-roam-aliases entry))
     (remhash alias indexed--title<>id)))
 
-;; Autoload due to `indexed-orgdb-prop-splitters'.
 ;;;###autoload
 (defun indexed-roam-split-refs-field (roam-refs)
   "Split a ROAM-REFS field correctly.
@@ -139,7 +138,7 @@ What this means?  See indexed-test.el."
 (defcustom indexed-roam-db-location nil
   "If non-nil, a file name to write the DB to.
 Overwrites any file previously there."
-  :type 'boolean
+  :type 'file
   :group 'indexed
   :set (lambda (sym val)
          (ignore-errors (sqlite-close indexed-roam--connection))

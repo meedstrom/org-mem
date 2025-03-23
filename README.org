@@ -33,91 +33,15 @@ Two different APIs to access the same data.
 
 Why two?  It's free.  When the data has been gathered anyway, there is no reason to /only/ insert it into a SQLite db, nor /only/ put it in a hash table.
 
-And hash table is nicer for simple lookups, SQL for complex lookups.
+Hash table is nicer for simple lookups (and slightly faster).  SQL excels for complex lookups.
 
-For the elisp, see [[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-i-api][Appendix I]]. For the SQL, see below.
+As a bonus, it's fairly easy to design your own SQL database, so this library does not lock you in.  Included is one that matches [[https://github.com/org-roam/org-roam][org-roam's]] database perfectly, and a future milestone might be adding one that matches [[https://github.com/ndwarshuis/org-sql][org-sql]].
 
-** A SQLite database, for free
-
-You can create your own database ([[https://github.com/meedstrom/indexed?tab=readme-ov-file#appendix-ii-make-your-own-database][Appendix II]]), but you probably won't need to.  Included are two designs:
-
-1. A drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
-2. Our own experimental =(indexed-orgdb)=.
-   - Are you a SQL and Org user?  Please write what you think should go in a good DB.  https://github.com/meedstrom/indexed/issues/1
-
-*** Quick start with =indexed-roam=
-**** With org-roam installed
-To end your dependence on =org-roam-db-sync=, set the following.
-
-It will overwite the "org-roam.db" file. 
-
-#+begin_src elisp
-(setq org-roam-db-update-on-save nil)
-(setq indexed-roam-db-location org-roam-db-location)
-(indexed-roam-mode)
-#+end_src
-
-Now, you have a new, all-fake org-roam.db!  Test that it works:
-
-#+begin_src elisp
-(org-roam-db-query [:select * :from files])
-#+end_src
-
-**** Without org-roam installed
-Set the following.
-
-#+begin_src elisp
-(setq indexed-roam-db-location "/tmp/indexed-roam.db")
-(indexed-roam-mode)
-#+end_src
-
-Test that it works:
-
-#+begin_src elisp
-(setq my-roam-db (emacsql-sqlite-open indexed-roam-db-location))
-(emacsql my-roam-db [:select * :from files])
-#+end_src
-
-*** Quick start with =indexed-orgdb=
-
-This DB is a bit different.  There's no file on disk, it's all RAM.  Activate:
-
-#+begin_src elisp
-(indexed-orgdb-mode)
-#+end_src
-
-Note it probably does *not* work with EmacSQL, just the Emacs 29+ built-in =sqlite-select=.
-
-In practice, you can often translate a statement like
-
-#+begin_src elisp
-(org-roam-db-query [:select tag :from tags :where (= id $s1)] id)
-#+end_src
-
-to
-
-#+begin_src elisp
-(sqlite-select (indexed-orgdb) "select tag from tags where id = ?;" (list id))
-#+end_src
-
-or if you like mysterious aliases,
-
-#+begin_src elisp
-(indexed-orgdb "select tag from tags where id = ?;" id)
-#+end_src
-
-There are several differences between this and org-roam's DB. You can compare, if you if you enable both
-
-#+begin_src elisp
-(indexed-roam-mode)
-(indexed-orgdb-mode)
-#+end_src
-
-and then use command =M-x indexed-list-db-contents=.
+For the elisp API, see [[https://github.com/meedstrom/indexed#appendix-i-lisp-api][Appendix I]]. To use SQL instead, see [[https://github.com/meedstrom/indexed#appendix-ii-a-sqlite-database-for-free][Appendix II]].
 
 ** Data only
 
-A design choice: Indexed *only* delivers data.  It could easily ship conveniences like, let's call it a function "indexed-goto":
+A design choice: Indexed *only* delivers data.  It could easily ship conveniences like... let's call it a function "indexed-goto":
 
 #+begin_src elisp
 (defun indexed-goto (entry)
@@ -129,7 +53,33 @@ but in my experience, that will spiral into dozens of lines over time, to handle
 
 So, it is up to you to write your own "goto" function and all else to do with user interaction.
 
-** Appendix I: API
+** No Org at init
+
+A design choice: Indexed does not use Org code to analyze your files, but a [[https://github.com/meedstrom/indexed/blob/main/indexed-org-parser.el][custom parser]].  That's for three reasons:
+
+1. *Fast init*.  Since I want Emacs init to be fast, it's not allowed to load Org, but I still want to be able to use a command like =org-node-find= to browse my Org stuff, before deciding to actually jump into an Org file.
+
+   That means the data must be able to exist, before Org has loaded.
+   
+   - Future milestone: I want to be told at init if there's a dangling Org clock somewhere.  Or a deadline.
+
+2. *Robustness.*  Many users heavily customize Org, so no surprise that it sometimes breaks.  In my experience, it's very nice then to have an alternative way to browse that does not depend on a functional Org setup.
+
+   Many people build tools around grep for partly this reason.  It means you're not stranded in the worst case.
+
+3. *Fast rebuild.*  As they say, "there are two hard things in computer science: cache invalidation and naming things^{1}".
+
+   Indexed must update its cache as the user saves, renames and deletes files.  Not a difficult problem, until you realize that files may change due to a Git operation, OS file operations, a =rm= command on the terminal, edits by another Emacs instance, or even remote edits by Logseq.
+
+   A solution could be a filesystem watcher, but that feels simultaneously brittle and overkill to me.
+
+   A robust approach to cache invalidation is to avoid trying: ensure that a full rebuild is fast enough that you can just do /that/ instead.
+
+   In fact, =indexed-updater-mode= does a bit of both, because it is still important that saving a file does not lag;  it does its best to update only the necessary tables on save, and an idle timer causes a full reset every now and then.
+
+[1]: I sometimes feel I failed at naming this library!  Got opinions? [[https://github.com/meedstrom/indexed/issues/4][Leave a comment!]] 
+
+** Appendix I: Lisp API
 
 There are three types of objects: /file-data/, /org-entry/ and /org-link/.  Some functions operate on more than one type.
 
@@ -215,9 +165,9 @@ Hooks used when =indexed-updater-mode= is enabled
 
 A separate file =indexed-x.el= is loaded when you enable =indexed-updater-mode=.
 
-It is separate because =indexed-updater-mode= is not strictly necessary -- it could be replaced by a simple timer that calls =indexed-reset= every 30 seconds, or whatever you deem suitable.
+It is separate because =indexed-updater-mode= is not strictly necessary -- it could be replaced by a simple timer that calls =indexed-reset= every 20 seconds, or whatever you deem suitable.
 
-It ships a variety of tools.
+The file also ships some extra tools.
 
 **** Programmer tool: Instantly index thing at point
 
@@ -232,7 +182,87 @@ Examples of when those are useful is when you write a command like =org-node-ext
 
 Enabled by =indexed-roam-mode=.  Explained elsewhere.
 
-** Appendix II: Make your own database
+** Appendix II: A SQLite database, for free
+
+You can create your own database ([[https://github.com/meedstrom/indexed#appendix-iii-make-your-own-database][Appendix III]]), but you probably won't need to.  Included are two designs:
+
+1. A drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(indexed-roam)=.
+2. Our own experimental =(indexed-orgdb)=.
+   - Are you a SQL and Org user?  Please write [[https://github.com/meedstrom/indexed/issues/1][what you think should go in a good DB]].
+     - There is prior art on the matter at [[https://github.com/ndwarshuis/org-sql/blob/80bea9996de7fa8bc7ff891a91cfaff91111dcd8/org-sql.el#L141][org-sql]], but your story is still welcome!
+
+*** Quick start with =indexed-roam=
+**** With org-roam installed
+
+NOTE [2025-03-23 Sun 13:34]: this still needs polish
+
+To end your dependence on =org-roam-db-sync=, set the following.  It will overwite the "org-roam.db" file.
+
+#+begin_src elisp
+(setq org-roam-db-update-on-save nil)
+(setq indexed-roam-db-location org-roam-db-location)
+(indexed-roam-mode)
+#+end_src
+
+Now, you have a new, all-fake org-roam.db!  Test that it works:
+
+#+begin_src elisp
+(org-roam-db-query [:select * :from files])
+#+end_src
+
+**** Without org-roam installed
+Set the following.
+
+#+begin_src elisp
+(setq indexed-roam-db-location "/tmp/indexed-roam.db")
+(indexed-roam-mode)
+#+end_src
+
+Test that it works:
+
+#+begin_src elisp
+(setq my-roam-db (emacsql-sqlite-open indexed-roam-db-location))
+(emacsql my-roam-db [:select * :from files])
+#+end_src
+
+*** Quick start with =indexed-orgdb=
+
+This DB is a bit different.  There's no file on disk, it's all RAM.  Activate:
+
+#+begin_src elisp
+(indexed-orgdb-mode)
+#+end_src
+
+Note it probably does *not* work with EmacSQL, just the Emacs 29+ built-in =sqlite-select=.
+
+In practice, you can often translate a statement like
+
+#+begin_src elisp
+(org-roam-db-query [:select tag :from tags :where (= id $s1)] id)
+#+end_src
+
+to
+
+#+begin_src elisp
+(sqlite-select (indexed-orgdb) "select tag from tags where id = ?;" (list id))
+#+end_src
+
+or if you like mysterious aliases,
+
+#+begin_src elisp
+(indexed-orgdb "select tag from tags where id = ?;" id)
+#+end_src
+
+There are several differences between this and org-roam's DB. You can compare, if you if you enable both
+
+#+begin_src elisp
+(indexed-roam-mode)
+(indexed-orgdb-mode)
+#+end_src
+
+and then use command =M-x indexed-list-db-contents=.
+
+** Appendix III: Make your own database
 Steps:
 
 1. Read indexed-roam.el as a reference implementation
@@ -247,7 +277,7 @@ Steps:
 
 3. Done!
 
-** Appendix III: User stuff
+** Appendix IV: User stuff
 
 Modes
 
