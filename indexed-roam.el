@@ -462,7 +462,8 @@ Suitable on `indexed-post-incremental-update-functions'."
          (files (mapcar #'indexed-file-name (nth 1 parse-results)))
          (rows (indexed-roam--mk-rows files)))
     (dolist (file files)
-      (sqlite-execute db "DELETE FROM files WHERE file LIKE ?;" (list file)))
+      (sqlite-execute db "DELETE FROM files WHERE file LIKE ?;"
+                      (list (prin1-to-string file))))
     (indexed-roam--populate-usably-for-emacsql db rows)))
 
 
