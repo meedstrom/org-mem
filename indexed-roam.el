@@ -195,6 +195,9 @@ With DEPRECATED-ARGS, signal an error."
                        (fboundp 'org-roam-db--get-connection)
                        (boundp 'org-roam-db-location))
                   (progn
+                    (when (and indexed-updater-mode
+                               (bound-and-true-p org-roam-db-update-on-save))
+                      (error "Both options should not be t: `indexed-roam-overwrite' and `org-roam-db-update-on-save'"))
                     (setq conn (org-roam-db--get-connection))
                     (unless (and conn (emacsql-live-p conn))
                       (ignore-errors (delete-file org-roam-db-location))

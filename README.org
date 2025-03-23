@@ -110,6 +110,7 @@ Test that it works:
 To end your dependence on =org-roam-db-sync=, you can set the following.  It will overwrite the "org-roam.db" file.
 
 #+begin_src elisp
+(setq org-roam-db-update-on-save nil)
 (setq indexed-roam-overwrite t)
 (indexed-roam-mode)
 #+end_src
