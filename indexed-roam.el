@@ -182,6 +182,7 @@ If passed any DEPRECATED-ARGS, signal an error."
   (unless indexed-roam-mode
     (error "Enable `indexed-roam-mode' to use `indexed-roam'"))
   (if (and (require 'emacsql nil t)
+           (require 'emacsql-sqlite nil t)
            (fboundp 'emacsql-live-p)
            (fboundp 'emacsql-sqlite-open)
            (fboundp 'emacsql-sqlite-default-connection))
