@@ -1,4 +1,10 @@
-* Indexed
+# Copying and distribution of this file, with or without modification,
+# are permitted in any medium without royalty provided the copyright
+# notice and this notice are preserved.  This file is offered as-is,
+# without any warranty.
+#+TITLE: Indexed
+#+HTML: <a href="https://repology.org/project/emacs%3Aorg-node/versions"> <img src="https://repology.org/badge/vertical-allrepos/emacs%3Aorg-node.svg" alt="Packaging status" align="right"> </a>
+
 An efficient cache of metadata about all your Org files.
 
 Builds fast.  My =M-x indexed-reset=:
@@ -55,7 +61,7 @@ So, it is up to you to write your own "goto" function and all else to do with us
 
 ** No Org at init
 
-A design choice: Indexed does not use Org code to analyze your files, but a [[https://github.com/meedstrom/indexed/blob/main/indexed-org-parser.el][custom parser]].  That's for three reasons:
+A design choice: Indexed does not use Org code to analyze your files, but a [[https://github.com/meedstrom/indexed/blob/main/indexed-org-parser.el][custom, more dumb parser]].  That's for three reasons:
 
 1. *Fast init*.  Since I want Emacs init to be fast, it's not allowed to load Org, but I still want to be able to use a command like =org-node-find= to browse my Org stuff, before deciding to actually jump into an Org file.
 
@@ -64,8 +70,6 @@ A design choice: Indexed does not use Org code to analyze your files, but a [[ht
    - Future milestone: I want to be told at init if there's a dangling Org clock somewhere.  Or a deadline.
 
 2. *Robustness.*  Many users heavily customize Org, so no surprise that it sometimes breaks.  In my experience, it's very nice then to have an alternative way to browse that does not depend on a functional Org setup.
-
-   That's one advantage of tools built around grep and the like.  It means you're not stranded in the worst case.
 
 3. *Fast rebuild.*  As they say, there are two hard things in computer science: cache invalidation and naming things^{note1}.
    
@@ -77,7 +81,7 @@ A design choice: Indexed does not use Org code to analyze your files, but a [[ht
 
    In fact, =indexed-updater-mode= does a bit of both, because it is still important that saving a file does not lag;  it does its best to update only the necessary tables on save, and an idle timer causes a full reset every now and then.
 
-   - {}^{note1}: I sometimes feel I failed at naming this library!  Got opinions? [[https://github.com/meedstrom/indexed/issues/4][Leave a comment!]] 
+   - {}^{note1}: I sometimes feel I failed at naming this library! Got opinions/ideas?  [[https://github.com/meedstrom/indexed/issues/4][Leave a comment!]] 
 
 ** Appendix I: A SQLite database, for free
 
@@ -102,7 +106,7 @@ Activating the mode creates an in-memory database by default.
 Test that it works:
 
 #+begin_src elisp
-(emacsql (indexed-roam) [:select * :from files])
+(emacsql (indexed-roam) [:select * :from files :limit 10])
 #+end_src
 
 **** With org-roam installed
@@ -118,20 +122,21 @@ To end your dependence on =org-roam-db-sync=, you can set the following.  It wil
 Now, you have a new, all-fake org-roam.db!  Test that it works:
 
 #+begin_src elisp
-(org-roam-db-query [:select * :from files])
+(org-roam-db-query [:select * :from files :limit 10])
 #+end_src
 
 N/B: because =(equal (org-roam-db) (indexed-roam))=, the above is equivalent to these:
 
 #+begin_src elisp
-(emacsql (org-roam-db) [:select * :from files])
-(emacsql (indexed-roam) [:select * :from files])
+(emacsql (org-roam-db) [:select * :from files :limit 10])
+(emacsql (indexed-roam) [:select * :from files :limit 10])
 #+end_src
 
+Note if you use multiple Emacsen simultaneously, there's a *known issue* with error "attempt to write a readonly database".  Get unstuck with =M-: (org-roam-db--close-all)= if that happens.
 
 *** Quick start with =indexed-orgdb=
 
-This DB is a bit different.
+This DB is a bit different, subject to redesign.
 
 #+begin_src elisp
 (indexed-orgdb-mode)

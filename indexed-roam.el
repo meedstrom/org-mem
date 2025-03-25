@@ -29,8 +29,7 @@
 (require 'seq)
 (require 'indexed)
 (require 'sqlite)
-(require 'eieio)
-(eieio-declare-slots handle)
+(require 'emacsql)
 
 
 ;;; Aliases and refs support
@@ -49,12 +48,16 @@
 
 (defun indexed-roam-refs (entry)
   "Property ROAM_REFS in ENTRY, properly split."
-  (gethash (indexed-id entry) indexed-roam--id<>refs))
+  (if indexed-roam-mode
+      (gethash (indexed-id entry) indexed-roam--id<>refs)
+    (error "Function `indexed-roam-refs' depends on `indexed-roam-mode'")))
 
 (defun indexed-roam-reflinks-to (entry)
   "All links that point to a member of ENTRY\\='s ROAM_REFS."
-  (cl-loop for ref in (indexed-roam-refs entry)
-           append (gethash ref indexed--dest<>links)))
+  (if indexed-roam-mode
+      (cl-loop for ref in (indexed-roam-refs entry)
+               append (gethash ref indexed--dest<>links))
+    (error "Function `indexed-roam-reflinks-to' depends on `indexed-roam-mode'")))
 
 (defun indexed-roam--wipe-ref-tables (_)
   (clrhash indexed-roam--ref<>id)
@@ -227,7 +230,7 @@ If passed any DEPRECATED-ARGS, signal an error."
             ;; Print a benchmark if called by command `indexed-reset'.
             (setq indexed--next-message
                   (concat indexed--next-message
-                          (format " (+ %.2fs writing %s)"
+                          (format " + %.2fs writing %s"
                                   (float-time (time-since T))
                                   (or name "SQLite DB")))))
           conn))

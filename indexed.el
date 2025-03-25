@@ -20,7 +20,7 @@
 ;; Created:  2025-03-15
 ;; Keywords: text
 ;; Package-Version: 0.4.1
-;; Package-Requires: ((emacs "29.1") (el-job "2.2.0") (llama "0.5.0"))
+;; Package-Requires: ((emacs "29.1") (el-job "2.2.0") (llama "0.5.0") (emacsql "4.2.0"))
 
 ;;; Commentary:
 
@@ -98,7 +98,9 @@ Exceptions:
 - Subdirectories starting with underscore or dot, such as \".emacs.d/\".
   To check these, add them explicitly.
 - Subdirectories that are symlinks.
-- Anything matching `indexed-org-dirs-exclude'."
+- Anything matching `indexed-org-dirs-exclude'.
+
+See also `indexed-check-org-id-locations'."
   :type '(repeat directory)
   :package-version '(indexed . "0.2.0"))
 
