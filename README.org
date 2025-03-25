@@ -5,6 +5,8 @@
 #+TITLE: Indexed
 #+HTML: <a href="https://repology.org/project/emacs%3Aorg-node/versions"> <img src="https://repology.org/badge/vertical-allrepos/emacs%3Aorg-node.svg" alt="Packaging status" align="right"> </a>
 
+# TODO: Document that TRAMP won't work
+
 An efficient cache of metadata about all your Org files.
 
 Builds fast.  My =M-x indexed-reset=:
@@ -320,7 +322,6 @@ Commands
 - indexed-reset
 
 *** Tip: Fully inform org-id
-# XXX update the blob link
 
 Never sit through a slow =M-x org-id-update-id-locations= again!
 
@@ -330,9 +331,6 @@ Never sit through a slow =M-x org-id-update-id-locations= again!
 
 This tells org-id about all IDs that Indexed can find under =indexed-org-dirs=.
 
-That's very good, because if you had clicked an ID-link that org-id did not know about, it would react by running =org-id-update-id-locations=, making Emacs appear to hang for as long as a minute.
+That's very good, because if you had clicked an ID-link that org-id did not know about, it would react by running =org-id-update-id-locations=, making Emacs appear to hang for a long time.
 
-Never had this problem?  If you came here from org-node or org-roam,  that's because they solve this problem for you.  I did not want to do it in this library for two reasons:
-
-1. packaging hygiene
-2. the org-id [[https://github.com/meedstrom/org-node/blob/a889ede01dbcf22668bfe718037619732169245f/org-node.el#L992-1037][Schrodinger's cat bug]]
+Never had this problem?  If you came here from org-node or org-roam,  that's because they solve this problem for you.
