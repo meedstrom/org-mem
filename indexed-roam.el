@@ -31,6 +31,23 @@
 (require 'sqlite)
 (require 'emacsql)
 
+;;;###autoload
+(define-minor-mode indexed-roam-mode
+  "Add awareness of ROAM_REFS and make the `indexed-roam' DB."
+  :global t
+  :group 'indexed
+  (if indexed-roam-mode
+      (progn
+        (add-hook 'indexed-record-entry-functions 'indexed-roam--record-aliases-and-refs -5)
+        (add-hook 'indexed-forget-entry-functions 'indexed-roam--forget-aliases-and-refs)
+        (add-hook 'indexed-post-incremental-update-functions 'indexed-roam--update-db)
+        (add-hook 'indexed-post-full-reset-functions 'indexed-roam--re-make-db)
+        (indexed--scan-full))
+    (remove-hook 'indexed-record-entry-functions 'indexed-roam--record-aliases-and-refs)
+    (remove-hook 'indexed-forget-entry-functions 'indexed-roam--forget-aliases-and-refs)
+    (remove-hook 'indexed-post-incremental-update-functions 'indexed-roam--update-db)
+    (remove-hook 'indexed-post-full-reset-functions 'indexed-roam--re-make-db)))
+
 
 ;;; Aliases and refs support
 
@@ -131,7 +148,7 @@ What this means?  See indexed-test.el."
                    path))))))
 
 
-;;; Mode
+;;; Database
 
 (defvar indexed-roam--connection nil
   "An EmacSQL connection.")
@@ -145,6 +162,14 @@ If nil, write a diskless DB."
 
 (defun indexed-roam--re-make-db (&rest _)
   "Close current `indexed-roam--connection' and populate a new one."
+  (when (and indexed-roam-overwrite
+             (boundp 'org-roam-db-version)
+             (> org-roam-db-version 20))
+    (display-warning 'indexed-roam "
+Org-roam bumped the DB version, and indexed-roam has not caught up.
+Setting `indexed-roam-overwrite' to nil for now.
+Make up for it with: (setq org-roam-db-update-on-save t)")
+    (setq indexed-roam-overwrite nil))
   (if indexed-roam-overwrite
       (and (fboundp 'org-roam-db--close)
            (org-roam-db--close))
@@ -154,26 +179,6 @@ If nil, write a diskless DB."
          (emacsql-live-p indexed-roam--connection)
          (emacsql-close indexed-roam--connection)))
   (indexed-roam))
-
-;;;###autoload
-(define-minor-mode indexed-roam-mode
-  "Add awareness of ROAM_REFS and make the `indexed-roam' DB."
-  :global t
-  :group 'indexed
-  (if indexed-roam-mode
-      (progn
-        (add-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases-and-refs -5)
-        (add-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-and-refs)
-        (add-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
-        (add-hook 'indexed-post-full-reset-functions #'indexed-roam--re-make-db)
-        (indexed--scan-full))
-    (remove-hook 'indexed-record-entry-functions #'indexed-roam--record-aliases-and-refs)
-    (remove-hook 'indexed-forget-entry-functions #'indexed-roam--forget-aliases-and-refs)
-    (remove-hook 'indexed-post-incremental-update-functions #'indexed-roam--update-db)
-    (remove-hook 'indexed-post-full-reset-functions #'indexed-roam--re-make-db)))
-
-
-;;; Database
 
 (defun indexed-roam (&rest deprecated-args)
   "Return an EmacSQL connection.
@@ -238,7 +243,7 @@ If passed any DEPRECATED-ARGS, signal an error."
 
 (defun indexed-roam--configure (db)
   "Set up tables, schemata and PRAGMA settings in DB."
-  (sqlite-execute db "PRAGMA user_version = 19;")
+  (sqlite-execute db "PRAGMA user_version = 20;")
   (sqlite-execute db "PRAGMA foreign_keys = on;")
   ;; Note to devs: try M-x `indexed-roam--insert-schemata-atpt'
   (mapc
@@ -569,7 +574,7 @@ Suitable on `indexed-post-incremental-update-functions'."
    :title (indexed-title entry)
    :tags (indexed-tags entry)
    :aliases (indexed-roam-aliases entry)
-   :todo (indexed-todo entry)
+   :todo (indexed-todo-state entry)
    :refs (indexed-roam-refs entry)
    :point (indexed-pos entry)
    :priority (indexed-priority entry)

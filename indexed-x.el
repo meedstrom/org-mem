@@ -282,6 +282,7 @@ changed."
              when (get-text-property 0 'inherited tag)
              collect (substring-no-properties tag))))
 
+;; TODO: Make this default, if `indexed-check-org-id-locations' t.
 ;;;###autoload
 (defun indexed-x-snitch-to-org-id (entry)
   "Add ENTRY to `org-id-locations', ensuring that ID-links work.
@@ -289,10 +290,8 @@ changed."
 If `indexed-check-org-id-locations' is t, this naturally also results in
 causing ENTRY\\='s file to be scanned for nodes in the future regardless
 of whether or not the file is a descendant of `indexed-org-dirs'."
-  (require 'org-id)
-  (when (and org-id-track-globally
-             (hash-table-p org-id-locations)
-             (indexed-id entry))
+  (when (and (indexed-id entry)
+             (indexed--ensure-org-id-table-p))
     (puthash (indexed-id entry) (indexed-file-name entry) org-id-locations)))
 
 (provide 'indexed-x)

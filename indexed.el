@@ -19,8 +19,8 @@
 ;; URL:      https://github.com/meedstrom/org-node
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.4.1
-;; Package-Requires: ((emacs "29.1") (el-job "2.2.0") (llama "0.5.0") (emacsql "4.2.0"))
+;; Package-Version: 0.5.0
+;; Package-Requires: ((emacs "29.1") (el-job "2.2.0") (emacsql "4.2.0") (llama "0.5.0"))
 
 ;;; Commentary:
 
@@ -58,6 +58,8 @@
 (require 'el-job)
 
 (defvar org-id-locations)
+(defvar org-id-track-globally)
+(declare-function org-id-locations-load "org-id")
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function indexed-x-ensure-link-at-point-known "indexed-x")
 (declare-function indexed-x--handle-save "indexed-x")
@@ -81,7 +83,7 @@ or triple the time it takes to run `indexed-reset'."
   :type '(repeat string)
   :package-version '(indexed . "0.2.0"))
 
-(defcustom indexed-org-dirs '("~/org/")
+(defcustom indexed-org-dirs nil
   "List of directories to index.
 Each directory is checked recursively \(looking in subdirectories,
 sub-subdirectories etc) for files that end in \".org\".
@@ -95,7 +97,7 @@ Exceptions:
 
 See also `indexed-check-org-id-locations'."
   :type '(repeat directory)
-  :package-version '(indexed . "0.2.0"))
+  :package-version '(indexed . "0.5.0"))
 
 (defcustom indexed-org-dirs-exclude
   '("/logseq/bak/"
@@ -447,13 +449,22 @@ If not running, start it."
 (defun indexed--scan-full ()
   "Arrange a full scan."
   (unless (el-job-is-busy 'indexed)
+    (indexed--warn-deprec)
     (setq indexed--time-at-begin-full-scan (current-time))
-    (el-job-launch :id 'indexed
-                   :inject-vars (indexed--mk-work-vars)
-                   :load-features '(indexed-org-parser)
-                   :inputs #'indexed--relist-org-files
-                   :funcall-per-input #'indexed-org-parser--parse-file
-                   :callback #'indexed--finalize-full)))
+    (when (eq 'inputs-were-empty
+              (el-job-launch
+               :id 'indexed
+               :inject-vars (indexed--mk-work-vars)
+               :load-features '(indexed-org-parser)
+               :inputs #'indexed--relist-org-files
+               :funcall-per-input #'indexed-org-parser--parse-file
+               :callback #'indexed--finalize-full))
+      (if indexed-check-org-id-locations
+          (message "No org-ids found.  If you know you have IDs, try M-x %S."
+                   (if (fboundp 'org-roam-update-org-id-locations)
+                       'org-roam-update-org-id-locations
+                     'org-id-update-id-locations))
+        (message "No files found under `indexed-org-dirs'")))))
 
 ;; To debug, do M-x edebug-defun on `indexed-org-parser--parse-file',
 ;; then eval:  (indexed--debug-parse-file "~/org/some-file.org")
@@ -538,14 +549,23 @@ Set some variables it expects."
 ;;; Subroutines
 
 (defcustom indexed-check-org-id-locations nil
-  "Whether to also index all files in `org-id-locations'."
+  "Whether to also index all files in `org-id-locations'.
+Has no effect until after Org has loaded."
   :type 'boolean
-  :package-version '(indexed . "0.2.0"))
+  :package-version '(indexed . "0.5.0"))
 
 (defun indexed--tramp-file-p (file)
   "Pass FILE to `tramp-tramp-file-p' if available, else return nil."
   (when (featurep 'tramp)
     (tramp-tramp-file-p file)))
+
+(defun indexed--ensure-org-id-table-p ()
+  (require 'org-id)
+  (and org-id-track-globally
+       (or (hash-table-p org-id-locations)
+           (ignore-errors
+             (setq org-id-locations
+                   (org-id-alist-to-hash org-id-locations))))))
 
 ;; (benchmark-call #'indexed--relist-org-files)  => 0.006 s
 ;; (benchmark-call #'org-roam-list-files)        => 4.141 s
@@ -573,23 +593,27 @@ though unlikely, that some file paths cannot be found in
                    nconc (indexed--dir-files-recursive
                           dir ".org" indexed-org-dirs-exclude)))
      do (puthash file t indexed--files-temp-tbl)))
+  ;; Maybe check org-id-locations.  I wish from Santa, a better API.
   (if (and indexed-check-org-id-locations
-           (featurep 'org-id))
-      (if (or (hash-table-p org-id-locations)
-              (ignore-errors
-                (setq org-id-locations
-                      (org-id-alist-to-hash org-id-locations))))
-          (cl-loop
-           for file being each hash-value of org-id-locations do
-           (setq file (or (gethash file indexed--abbr-truenames)
-                          (and (file-exists-p file)
-                               (not (indexed--tramp-file-p file))
-                               (puthash file
-                                        (indexed--abbrev-file-names
-                                         (file-truename file))
-                                        indexed--abbr-truenames))))
-           (when file (puthash file t indexed--files-temp-tbl)))
-        (message "indexed: Could not check org-id-locations"))
+           (featurep 'org))
+      (progn
+        (require 'org-id)
+        (unless (bound-and-true-p org-id-track-globally)
+          (error "If `indexed-check-org-id-locations' is t, `org-id-track-globally' must be t"))
+        (when (null org-id-locations)
+          (org-id-locations-load))
+        (if (indexed--ensure-org-id-table-p)
+            (cl-loop
+             for file being each hash-value of org-id-locations do
+             (setq file (or (gethash file indexed--abbr-truenames)
+                            (and (file-exists-p file)
+                                 (not (indexed--tramp-file-p file))
+                                 (puthash file
+                                          (indexed--abbrev-file-names
+                                           (file-truename file))
+                                          indexed--abbr-truenames))))
+             (when file (puthash file t indexed--files-temp-tbl)))
+          (message "indexed: Could not check org-id-locations")))
     (unless indexed-org-dirs
       (error "At least one setting must be non-nil: `indexed-org-dirs' or `indexed-check-org-id-locations'")))
   (hash-table-keys indexed--files-temp-tbl))
@@ -724,6 +748,26 @@ Make it target only LINK-TYPES instead of all the cars of
 		    ,parenthesis))
 	    (or (regexp "[^[:punct:][:space:]\n]")
                 ?- ?/ ,parenthesis))))))
+
+(defun indexed--warn-deprec ()
+  "Warn about use of deprecated variable names, and unintern them."
+  (dolist (old-var (cl-remove-if-not #'boundp
+                                     '(indexed-pre-reset-functions
+                                       indexed-post-reset-functions
+                                       indexed-x-pre-update-functions
+                                       indexed-x-post-update-functions
+                                       indexed-x-forget-file-functions
+                                       indexed-x-forget-entry-functions
+                                       indexed-x-forget-link-functions)))
+    (lwarn 'indexed :warning "Deprecated: %s" old-var)
+    (makunbound old-var)))
+
+(define-obsolete-function-alias 'indexed-id-nodes #'indexed-org-id-nodes "2025-03-18")
+(define-obsolete-function-alias 'indexed-entries #'indexed-org-entries "2025-03-18")
+(define-obsolete-function-alias 'indexed-files #'indexed-org-files "2025-03-18")
+(define-obsolete-function-alias 'indexed-links #'indexed-org-links "2025-03-18")
+(define-obsolete-function-alias 'indexed-todo #'indexed-todo-state "2025-03-18")
+(define-obsolete-function-alias 'indexed-file #'indexed-file-name "2025-03-18")
 
 (provide 'indexed)
 
