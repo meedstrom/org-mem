@@ -129,7 +129,7 @@ e.g. \"~/.local/\", \".git/\" or \"_site\" for that reason."
 (defvar indexed--dest<>links   (make-hash-table :test 'equal))
 (defvar indexed--origin<>links (make-hash-table :test 'equal))
 
-(cl-defstruct (indexed-file-data (:constructor nil)
+(cl-defstruct (indexed-file-data (:constructor indexed-file-data--make-obj)
                                  (:copier nil))
   (file-name  () :read-only t :type string)
   (file-title () :read-only t :type string)

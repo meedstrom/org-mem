@@ -177,15 +177,15 @@ There are three types of objects: /file-data/, /org-entry/ and /org-link/.  Some
 
 Functions of no argument
 
-- indexed-org-files
+- =indexed-org-files=
   - Return all /file-data/ objects
-- indexed-org-entries
+- =indexed-org-entries=
   - Return all /org-entry/ objects
-- indexed-org-id-nodes
+- =indexed-org-id-nodes=
   - Return all /org-entry/ objects that have an ID
-- indexed-org-links-and-citations
+- =indexed-org-links-and-citations=
   - Return all /org-link/ objects
-- indexed-org-links
+- =indexed-org-links=
   - Return all /org-link/ objects with a type such as =id:= or =https:=
 
 Polymorphic functions
@@ -282,15 +282,15 @@ Enabled by =indexed-roam-mode=.  Explained elsewhere.
 ** Appendix III: Make your own database
 Steps:
 
-1. Read indexed-roam.el as a reference implementation
+1. Read file indexed-roam.el as a reference implementation, or file indexed-orgdb.el if you want only the built-in sqlite feature and no EmacSQL
 
-   - See how it looks up the indexed data it needs.
-   - See which things require a =prin1-to-string=.
-   - See how arguments are ultimately passed to =sqlite-execute=.
+   - See how it looks up the data it needs
+   - See which things require a =prin1-to-string=
+   - See how arguments are ultimately passed to =sqlite-execute=
 
-     Alas, this file got a bit hard to read after squeezing for performance, but it can be done simpler. [TODO: write a simple reference impl]
+   [TODO: write a simpler example impl]
 
-2. Hook your own DB-creator onto =indexed-post-full-reset-functions=, or just on a repeating timer or some suitable hook.
+2. Hook your own DB-creator onto =indexed-post-full-reset-functions=, or just on some hook that suits your use-case
 
 3. Done!
 
@@ -307,6 +307,7 @@ Config settings
 - indexed-seek-link-types
 - indexed-org-dirs
 - indexed-org-dirs-exclude
+- indexed-check-org-id-locations
 - indexed-roam-overwrite
 
 Commands
@@ -318,7 +319,7 @@ Commands
 - indexed-list-db-contents
 - indexed-reset
 
-** Tip: Fully inform org-id
+*** Tip: Fully inform org-id
 # XXX update the blob link
 
 Never sit through a slow =M-x org-id-update-id-locations= again!

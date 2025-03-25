@@ -156,7 +156,8 @@ Put the forgotten links into `indexed-x-last-removed-links'."
           using (hash-values link-set)
           when (member origin dead-ids)
           append (mapcar #'indexed-dest link-set))))
-    (mapc (##remhash % indexed--origin<>links) dead-ids)
+    (dolist (id dead-ids)
+      (remhash id indexed--origin<>links))
     (setq indexed-x-last-removed-links nil)
     (cl-loop
      for dest being each hash-key of indexed--dest<>links
@@ -185,12 +186,13 @@ to pick it up."
              (file-exists-p buffer-file-truename))
     ;; Satisfice w/ incomplete data for now
     (puthash buffer-file-truename
-             (record 'indexed-file-data
-                     buffer-file-truename
-                     (org-get-title)
-                     0
-                     (point-max)
-                     nil)
+             (indexed-file-data--make-obj
+              :file-name buffer-file-truename
+              :file-title (org-get-title)
+              ;; :max-lines (line-number-at-pos (point-max)) ;; Slow
+              :max-lines 0
+              :ptmax (point-max)
+              :toplvl-id nil)
              indexed--file<>data)
     ;; TODO: Try it; untested.
     ;; (when-let* ((boundp 'el-job--all-jobs)
