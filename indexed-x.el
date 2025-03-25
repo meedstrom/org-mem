@@ -141,6 +141,7 @@ For a thorough cleanup, you should also run
              indexed--abbr-truenames)
     (dolist (goner goners)
       (remhash goner indexed--file<>data)
+      (remhash goner indexed--file<>entries)
       (run-hook-with-args 'indexed-forget-file-functions goner))))
 
 ;; TODO: Explain why this is separate from above.
