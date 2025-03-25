@@ -192,7 +192,7 @@ to pick it up."
                      (point-max)
                      nil)
              indexed--file<>data)
-    ;; XXX HACK untested
+    ;; TODO: Try it; untested.
     ;; (when-let* ((boundp 'el-job--all-jobs)
     ;;             (job-for-later (gethash 'indexed-x el-job--all-jobs)))
     ;;   (push buffer-file-truename (el-job-queued-inputs job-for-later)))

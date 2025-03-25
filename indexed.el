@@ -63,14 +63,6 @@
 (declare-function indexed-x--handle-save "indexed-x")
 (declare-function indexed-x--handle-rename "indexed-x")
 (declare-function indexed-x--handle-delete "indexed-x")
-
-(define-obsolete-variable-alias 'indexed-pre-reset-functions 'indexed-pre-full-reset-functions "2025-03-18")
-(define-obsolete-variable-alias 'indexed-post-reset-functions 'indexed-post-full-reset-functions "2025-03-18")
-(define-obsolete-variable-alias 'indexed-x-pre-update-functions 'indexed-pre-incremental-update-functions "2025-03-18")
-(define-obsolete-variable-alias 'indexed-x-post-update-functions 'indexed-post-incremental-update-functions "2025-03-18")
-(define-obsolete-variable-alias 'indexed-x-forget-file-functions 'indexed-forget-file-functions "2025-03-18")
-(define-obsolete-variable-alias 'indexed-x-forget-entry-functions 'indexed-forget-entry-functions "2025-03-18")
-(define-obsolete-variable-alias 'indexed-x-forget-link-functions 'indexed-forget-link-functions "2025-03-18")
 (declare-function tramp-tramp-file-p "tramp")
 
 (defgroup indexed nil "Cache metadata on all Org files."
@@ -732,16 +724,6 @@ Make it target only LINK-TYPES instead of all the cars of
 		    ,parenthesis))
 	    (or (regexp "[^[:punct:][:space:]\n]")
                 ?- ?/ ,parenthesis))))))
-
-(define-obsolete-function-alias 'indexed-roam-explore 'indexed-list-db-contents "2025-03-18")
-(define-obsolete-function-alias 'indexed-id-nodes #'indexed-org-id-nodes "2025-03-18")
-(define-obsolete-function-alias 'indexed-entries #'indexed-org-entries "2025-03-18")
-(define-obsolete-function-alias 'indexed-files #'indexed-org-files "2025-03-18")
-(define-obsolete-function-alias 'indexed-links #'indexed-org-links "2025-03-18")
-(define-obsolete-function-alias 'indexed-todo #'indexed-todo-state "2025-03-18")
-(define-obsolete-function-alias 'indexed-file #'indexed-file-name "2025-03-18")
-(define-obsolete-function-alias 'indexed-mode #'indexed-updater-mode "2025-03-19")
-(define-obsolete-function-alias 'indexed-update-on-save-mode #'indexed-updater-mode "2025-03-19")
 
 (provide 'indexed)
 
