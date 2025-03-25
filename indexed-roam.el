@@ -204,7 +204,6 @@ If passed any DEPRECATED-ARGS, signal an error."
               (if (and (require 'org-roam nil t)
                        (fboundp 'org-roam-db)
                        (fboundp 'org-roam-db--get-connection)
-                       (fboundp 'org-roam-db-clear-all)
                        (boundp 'org-roam-db-location))
                   (progn
                     (when (and indexed-updater-mode
@@ -216,9 +215,12 @@ If passed any DEPRECATED-ARGS, signal an error."
                       ;; Note that live connections sometimes get closed by
                       ;; `indexed-roam--re-make-db', such as when you turn on
                       ;; `indexed-roam-mode'.
+                      ;; Delete file instead of using `org-roam-db-clear-all',
+                      ;; b/c that takes 10 seconds.
+                      (cl-assert (file-name-absolute-p org-roam-db-location))
+                      (ignore-errors (delete-file org-roam-db-location))
                       (setq conn (org-roam-db))
                       (setq name org-roam-db-location)
-                      (org-roam-db-clear-all)
                       (indexed-roam--populate-usably-for-emacsql
                        (oref conn handle) (indexed-roam--mk-rows))))
                 (error "Option `indexed-roam-overwrite' t, but org-roam unavailable"))
@@ -445,26 +447,27 @@ With SPECIFIC-FILES, only return data that involves those files."
                             (or type "cite"))
                       ref-rows))))
 
-    (cl-loop
-     for link in (indexed-org-links)
-     as file = (indexed-org-link-file-name link)
-     when (indexed-nearby-id link)
-     unless (and specific-files (not (member file specific-files)))
-     unless (and roam-dir (not (string-prefix-p roam-dir file)))
-     do (if (indexed-type link)
-            ;; See `org-roam-db-insert-link'
-            (push (list (indexed-pos link)
-                        (indexed-nearby-id link)
-                        (indexed-dest link)
-                        (indexed-type link)
-                        nil)
-                  link-rows)
-          ;; See `org-roam-db-insert-citation'
-          (push (list (indexed-origin link)
-                      (substring (indexed-dest link) 1)
-                      (indexed-pos link)
-                      nil)
-                citation-rows)))
+    (let ((dummy-props (prin1-to-string '(:outline nil))))
+      (cl-loop
+       for link in (indexed-org-links)
+       as file = (indexed-org-link-file-name link)
+       when (indexed-nearby-id link)
+       unless (and specific-files (not (member file specific-files)))
+       unless (and roam-dir (not (string-prefix-p roam-dir file)))
+       do (if (indexed-type link)
+              ;; See `org-roam-db-insert-link'
+              (push (list (indexed-pos link)
+                          (indexed-nearby-id link)
+                          (indexed-dest link)
+                          (indexed-type link)
+                          dummy-props)
+                    link-rows)
+            ;; See `org-roam-db-insert-citation'
+            (push (list (indexed-origin link)
+                        (substring (indexed-dest link) 1)
+                        (indexed-pos link)
+                        dummy-props)
+                  citation-rows))))
 
     (list file-rows
           node-rows
