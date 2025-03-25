@@ -407,7 +407,7 @@ the string DEST begins with \"@\".
 (defvar indexed--title-collisions nil)
 (defvar indexed--id-collisions nil)
 (defvar indexed--time-elapsed 1.0)
-(defvar indexed--files-to-index (make-hash-table :test 'equal))
+;; (defvar indexed--files-to-index (make-hash-table :test 'equal))
 
 ;; This mode keeps most logic in "indexed-x" because it's not necessary, you
 ;; could just call `indexed-reset' every 30 seconds or something equally
@@ -483,9 +483,9 @@ Set some variables it expects."
   (clrhash indexed--origin<>links)
   (clrhash indexed--dest<>links)
   (setq indexed--title-collisions nil)
-  (seq-let (missing-files file-data entries links problems) parse-results
-    (dolist (goner missing-files)
-      (remhash goner indexed--files-to-index))
+  (seq-let (_missing-files file-data entries links problems) parse-results
+    ;; (dolist (goner missing-files)
+    ;;   (remhash goner indexed--files-to-index))
     (dolist (fdata file-data)
       (puthash (indexed-file-name fdata) fdata indexed--file<>data)
       (run-hook-with-args 'indexed-record-file-functions fdata))
@@ -562,7 +562,8 @@ in `org-id-locations' and `buffer-file-truename'.
 
 Note though that org-id would not necessarily have truenames."
   (cl-assert indexed-org-dirs)
-  (let ((file-name-handler-alist nil))
+  (let ((file-name-handler-alist nil)
+        (table (make-hash-table :test 'equal)))
     (cl-loop
      for file in (indexed--abbrev-file-names
                   (cl-loop
@@ -570,16 +571,16 @@ Note though that org-id would not necessarily have truenames."
                                (mapcar #'file-truename indexed-org-dirs))
                    nconc (indexed--dir-files-recursive
                           dir ".org" indexed-org-dirs-exclude)))
-     do (puthash file t indexed--files-to-index))
+     do (puthash file t table))
     (when (and indexed-check-org-id-locations
                (featurep 'org-id))
       (if (or (hash-table-p org-id-locations)
               (ignore-errors
                 (setq org-id-locations (org-id-alist-to-hash org-id-locations))))
           (cl-loop for file being each hash-value of org-id-locations
-                   do (puthash file t indexed--files-to-index))
+                   do (puthash file t table))
         (message "indexed: Could not check org-id-locations")))
-    (hash-table-keys indexed--files-to-index)))
+    (hash-table-keys table)))
 
 ;; TODO: Make it possible to list only the files in ~/.emacs.d/ but exclude
 ;;       all ~/.emacs.d/*/ subdirs.

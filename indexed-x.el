@@ -143,7 +143,7 @@ For a thorough cleanup, you should also run
      (run-hook-with-args 'indexed-forget-entry-functions entry))
     (dolist (goner goners)
       (remhash goner indexed--file<>data)
-      (remhash goner indexed--files-to-index)
+      ;; (remhash goner indexed--files-to-index)
       (run-hook-with-args 'indexed-forget-file-functions goner))))
 
 ;; TODO: Explain why this is separate from above.
