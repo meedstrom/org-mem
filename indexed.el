@@ -71,6 +71,7 @@
 (define-obsolete-variable-alias 'indexed-x-forget-file-functions 'indexed-forget-file-functions "2025-03-18")
 (define-obsolete-variable-alias 'indexed-x-forget-entry-functions 'indexed-forget-entry-functions "2025-03-18")
 (define-obsolete-variable-alias 'indexed-x-forget-link-functions 'indexed-forget-link-functions "2025-03-18")
+(declare-function tramp-tramp-file-p "tramp")
 
 (defgroup indexed nil "Cache metadata on all Org files."
   :group 'text)
@@ -407,7 +408,6 @@ the string DEST begins with \"@\".
 (defvar indexed--title-collisions nil)
 (defvar indexed--id-collisions nil)
 (defvar indexed--time-elapsed 1.0)
-;; (defvar indexed--files-to-index (make-hash-table :test 'equal))
 
 ;; This mode keeps most logic in "indexed-x" because it's not necessary, you
 ;; could just call `indexed-reset' every 30 seconds or something equally
@@ -484,8 +484,6 @@ Set some variables it expects."
   (clrhash indexed--dest<>links)
   (setq indexed--title-collisions nil)
   (seq-let (_missing-files file-data entries links problems) parse-results
-    ;; (dolist (goner missing-files)
-    ;;   (remhash goner indexed--files-to-index))
     (dolist (fdata file-data)
       (puthash (indexed-file-name fdata) fdata indexed--file<>data)
       (run-hook-with-args 'indexed-record-file-functions fdata))
@@ -547,23 +545,34 @@ Set some variables it expects."
 
 ;;; Subroutines
 
-(defcustom indexed-check-org-id-locations t
+(defcustom indexed-check-org-id-locations nil
   "Whether to also index all files in `org-id-locations'."
   :type 'boolean
   :package-version '(indexed . "0.2.0"))
 
+(defun indexed--tramp-file-p (file)
+  "Pass FILE to `tramp-tramp-file-p' if available, else return nil."
+  (when (featurep 'tramp)
+    (tramp-tramp-file-p file)))
+
 ;; (benchmark-call #'indexed--relist-org-files)  => 0.006 s
 ;; (benchmark-call #'org-roam-list-files)        => 4.141 s
+(defvar indexed--files-temp-tbl (make-hash-table :test 'equal))
 (defun indexed--relist-org-files ()
   "Query filesystem for Org files under `indexed-org-dirs'.
 
-Return abbreviated truenames, to be directly comparable with file names
-in `org-id-locations' and `buffer-file-truename'.
+If user option `indexed-check-org-id-locations' is t,
+also include files from `org-id-locations'.
 
-Note though that org-id would not necessarily have truenames."
-  (cl-assert indexed-org-dirs)
-  (let ((file-name-handler-alist nil)
-        (table (make-hash-table :test 'equal)))
+Return abbreviated truenames, to be directly comparable with
+`buffer-file-truename' and any file name references in indexed objects.
+
+Note that `org-id-locations' is not guaranteed to hold abbreviated
+truenames, so this function transforms them.  That means it is possible,
+though unlikely, that some file paths cannot be found in
+`org-id-locations' even though they came from there."
+  (clrhash indexed--files-temp-tbl)
+  (let ((file-name-handler-alist nil))
     (cl-loop
      for file in (indexed--abbrev-file-names
                   (cl-loop
@@ -571,16 +580,37 @@ Note though that org-id would not necessarily have truenames."
                                (mapcar #'file-truename indexed-org-dirs))
                    nconc (indexed--dir-files-recursive
                           dir ".org" indexed-org-dirs-exclude)))
-     do (puthash file t table))
-    (when (and indexed-check-org-id-locations
-               (featurep 'org-id))
+     do (puthash file t indexed--files-temp-tbl)))
+  (if (and indexed-check-org-id-locations
+           (featurep 'org-id))
       (if (or (hash-table-p org-id-locations)
               (ignore-errors
-                (setq org-id-locations (org-id-alist-to-hash org-id-locations))))
-          (cl-loop for file being each hash-value of org-id-locations
-                   do (puthash file t table))
-        (message "indexed: Could not check org-id-locations")))
-    (hash-table-keys table)))
+                (setq org-id-locations
+                      (org-id-alist-to-hash org-id-locations))))
+          (cl-loop
+           for file being each hash-value of org-id-locations do
+           (setq file (or (gethash file indexed--abbr-truenames)
+                          (and (file-exists-p file)
+                               (not (indexed--tramp-file-p file))
+                               (puthash file
+                                        (indexed--abbrev-file-names
+                                         (file-truename file))
+                                        indexed--abbr-truenames))))
+           (when file (puthash file t indexed--files-temp-tbl)))
+        (message "indexed: Could not check org-id-locations"))
+    (unless indexed-org-dirs
+      (error "At least one setting must be non-nil: `indexed-org-dirs' or `indexed-check-org-id-locations'")))
+  (hash-table-keys indexed--files-temp-tbl))
+
+(defvar indexed--abbr-truenames (make-hash-table :test 'equal)
+  "Table mapping file names to abbreviated truenames.
+
+Can be used to avoid the performance overhead of
+`abbreviate-file-name', `expand-file-name', or `file-truename'.
+
+Be mindful that a given path is checked once and cached forever, so if a
+given file or its containing directory has become a symlink since,
+this is not reliable.")
 
 ;; TODO: Make it possible to list only the files in ~/.emacs.d/ but exclude
 ;;       all ~/.emacs.d/*/ subdirs.

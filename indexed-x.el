@@ -51,12 +51,6 @@
 (declare-function org-get-title "org")
 (declare-function org-get-todo-state "org")
 (declare-function org-link-display-format "ol")
-(declare-function tramp-tramp-file-p "tramp")
-
-(defun indexed-x--tramp-file-p (file)
-  "Pass FILE to `tramp-tramp-file-p' if available, else return nil."
-  (when (featurep 'tramp)
-    (tramp-tramp-file-p file)))
 
 (defun indexed-x--handle-save ()
   "Arrange to re-scan nodes and links in current buffer."
@@ -64,7 +58,7 @@
     (let ((% buffer-file-truename))
       (when (and (string-suffix-p ".org" %)
                  (not (backup-file-name-p %))
-                 (not (indexed-x--tramp-file-p %)))
+                 (not (indexed--tramp-file-p %)))
         (indexed-x--scan-targeted %)))))
 
 ;; NOTE: When setting `delete-by-moving-to-trash' is t, `delete-file' calls
@@ -78,7 +72,7 @@
 ;;    (thread-last (list file newname)
 ;;                 (cl-remove-if-not (##string-suffix-p ".org" %))
 ;;                 (cl-remove-if #'backup-file-name-p)
-;;                 (cl-remove-if #'indexed-x--tramp-file-p)
+;;                 (cl-remove-if #'indexed--tramp-file-p)
 ;;                 ;; REVIEW: May not apply right to oldname?
 ;;                 (mapcar #'file-truename)
 ;;                 (indexed--abbrev-file-names))))
@@ -87,7 +81,7 @@
   "Arrange to forget nodes and links in FILE."
   (when indexed-updater-mode
     (when (string-suffix-p ".org" file)
-      (unless (indexed-x--tramp-file-p file)
+      (unless (indexed--tramp-file-p file)
         (setq file (indexed--abbrev-file-names file))
         ;; Used to just hand the file to `indexed-x--scan-targeted' which will
         ;; have the same effect if the file is gone, but sometimes it is not
@@ -141,15 +135,20 @@ For a thorough cleanup, you should also run
      (remhash (indexed-id entry) indexed--id<>entry)
      (remhash (indexed-title entry) indexed--title<>id)
      (run-hook-with-args 'indexed-forget-entry-functions entry))
+    (maphash (lambda (name truename)
+               (and (member truename goners)
+                    (remhash name indexed--abbr-truenames)))
+             indexed--abbr-truenames)
     (dolist (goner goners)
       (remhash goner indexed--file<>data)
-      ;; (remhash goner indexed--files-to-index)
       (run-hook-with-args 'indexed-forget-file-functions goner))))
 
 ;; TODO: Explain why this is separate from above.
+;;       Tried to merge once, realized there was a reason to separate, now
+;;       forgot the reason.
 (defvar indexed-x-last-removed-links nil)
 (defun indexed-x--forget-links-from (dead-ids)
-  "Forget links with :origin matching any of DEAD-IDS.
+  "Forget links with :nearby-id matching any of DEAD-IDS.
 Put the forgotten links into `indexed-x-last-removed-links'."
   (let ((dests-to-update
          (cl-loop
