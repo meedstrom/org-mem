@@ -752,7 +752,9 @@ already contains an abbreviated truename."
      (cons '$inlinetask-min-level (bound-and-true-p org-inlinetask-min-level))
      (cons '$nonheritable-tags (bound-and-true-p org-tags-exclude-from-inheritance))
      (cons '$default-todo-re
-           (let ((default (default-value 'org-todo-keywords)))
+           (let ((default (if (boundp 'org-todo-keywords)
+                              (default-value 'org-todo-keywords)
+                            '((sequence "IDEA" "DONE")))))
              (indexed-org-parser--make-todo-regexp
               (string-join (if (stringp (car default))
                                default
