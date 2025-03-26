@@ -20,7 +20,7 @@
 ;; Created:  2025-03-15
 ;; Keywords: text
 ;; Package-Version: 0.5.2
-;; Package-Requires: ((emacs "29.1") (el-job "2.4.0") (emacsql "4.2.0") (llama "0.5.0"))
+;; Package-Requires: ((emacs "29.1") (el-job "2.4.1") (emacsql "4.2.0") (llama "0.5.0"))
 
 ;;; Commentary:
 
@@ -770,6 +770,11 @@ Make it target only LINK-TYPES instead of all the cars of
 (define-obsolete-function-alias 'indexed-links #'indexed-org-links "2025-03-18")
 (define-obsolete-function-alias 'indexed-todo #'indexed-todo-state "2025-03-18")
 (define-obsolete-function-alias 'indexed-file #'indexed-file-name "2025-03-18")
+
+(unless (featurep 'indexed)
+  (when (fboundp 'el-job--unhide-buffer) ;; <2.4.1
+    (display-warning
+     'indexed "Update el-job for some better errors in indexed.el")))
 
 (provide 'indexed)
 
