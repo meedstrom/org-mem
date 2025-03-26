@@ -125,7 +125,6 @@ e.g. \"~/.local/\", \".git/\" or \"_site\" for that reason."
 
 (defvar indexed--title<>id     (make-hash-table :test 'equal))
 (defvar indexed--id<>entry     (make-hash-table :test 'equal))
-(defvar indexed--id<>file      (make-hash-table :test 'equal)) ; Literally `org-id-locations'.
 (defvar indexed--file<>data    (make-hash-table :test 'equal))
 (defvar indexed--file<>entries (make-hash-table :test 'equal))
 (defvar indexed--dest<>links   (make-hash-table :test 'equal))
@@ -234,6 +233,11 @@ If THING is a file name, return the object for that file name."
   "All entries in FILES."
   (cl-loop for file in (ensure-list files)
            append (gethash file indexed--file<>entries)))
+
+(defun indexed-file-by-id (id)
+  "The file that contains ID."
+  (let ((entry (gethash id indexed--id<>entry)))
+    (and entry (indexed-org-entry-file-name entry))))
 
 (defalias 'indexed-mtime
   (defun indexed-file-mtime (thing)
@@ -480,7 +484,6 @@ Set some variables it expects."
   (run-hook-with-args 'indexed-pre-full-reset-functions parse-results)
   (clrhash indexed--title<>id)
   (clrhash indexed--id<>entry)
-  (clrhash indexed--id<>file)
   (clrhash indexed--file<>data)
   (clrhash indexed--file<>entries)
   (clrhash indexed--origin<>links)
@@ -541,7 +544,6 @@ Set some variables it expects."
                     (indexed-title entry)
                     (indexed-title other-entry))
               indexed--id-collisions))
-      (puthash id file indexed--id<>file)
       (puthash id entry indexed--id<>entry)
       (puthash title id indexed--title<>id))))
 
