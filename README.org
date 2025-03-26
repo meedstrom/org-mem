@@ -304,3 +304,15 @@ Commands
 - indexed-list-entries
 - indexed-list-db-contents
 - indexed-reset
+
+*** Tip: Fully inform org-id
+
+Never sit through a slow =M-x org-id-update-id-locations= again.
+
+#+begin_src elisp
+(setq indexed-sync-with-org-id t)
+#+end_src
+
+This tells org-id about everything that Indexed can find under =indexed-org-dirs=.  If you had clicked an ID-link that org-id did not know about, it would react by running =org-id-update-id-locations=, making Emacs appear to hang for quite a while.
+
+Never had this problem? If you came here from org-node or org-roam, that’s because they solve this problem for you.
