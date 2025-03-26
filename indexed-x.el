@@ -52,6 +52,19 @@
 (declare-function org-get-todo-state "org")
 (declare-function org-link-display-format "ol")
 
+(defvar indexed-x--timer (timer-create))
+(defun indexed-x--activate-timer (&rest _)
+  "Adjust `indexed-x--timer' based on duration of last indexing.
+If not running, start it."
+  (let ((new-delay (* 25 (1+ indexed--time-elapsed))))
+    (when (or (not (member indexed-x--timer timer-idle-list))
+              ;; Don't enter an infinite loop -- idle timers can be a footgun.
+              (not (> (float-time (or (current-idle-time) 0))
+                      new-delay)))
+      (cancel-timer indexed-x--timer)
+      (setq indexed-x--timer
+            (run-with-idle-timer new-delay t #'indexed--scan-full)))))
+
 (defun indexed-x--handle-save ()
   "Arrange to re-scan nodes and links in current buffer."
   (when indexed-updater-mode
@@ -128,17 +141,27 @@ Argument JOB is the el-job object."
 For a thorough cleanup, you should also run
 `indexed-x--forget-links-from'."
   (when (setq goners (ensure-list goners))
-    (cl-loop
-     for entry in (indexed-org-entries)
-     when (member (indexed-file-name entry) goners)
-     do
-     (remhash (indexed-id entry) indexed--id<>entry)
-     (remhash (indexed-title entry) indexed--title<>id)
-     (run-hook-with-args 'indexed-forget-entry-functions entry))
-    (maphash (lambda (name truename)
-               (and (member truename goners)
-                    (remhash name indexed--abbr-truenames)))
-             indexed--abbr-truenames)
+    (let (files)
+      ;; Low priority: clean `indexed--abbr-truenames' just in case.
+      (maphash (lambda (file truename)
+                 (when (member truename goners)
+                   (remhash file indexed--abbr-truenames)
+                   (push file files)))
+               indexed--abbr-truenames)
+      (when (and indexed-sync-with-org-id
+                 (indexed--try-ensure-org-id-table-p))
+        ;; REVIEW: This can possibly be simplified to the same thing we do with
+        ;;         table `indexed--id<>entry' below, but need to think
+        ;;         carefully about that.
+        (maphash (lambda (id file)
+                   (when (member file files)
+                     (remhash id org-id-locations)))
+                 org-id-locations)))
+    (dolist (entry (indexed-org-entries))
+      (when (member (indexed-file-name entry) goners)
+        (remhash (indexed-id entry) indexed--id<>entry)
+        (remhash (indexed-title entry) indexed--title<>id)
+        (run-hook-with-args 'indexed-forget-entry-functions entry)))
     (dolist (goner goners)
       (remhash goner indexed--file<>data)
       (remhash goner indexed--file<>entries)
@@ -194,12 +217,7 @@ to pick it up."
               :max-lines 0
               :ptmax (point-max)
               :toplvl-id nil)
-             indexed--file<>data)
-    ;; TODO: Try it; untested.
-    ;; (when-let* ((boundp 'el-job--all-jobs)
-    ;;             (job-for-later (gethash 'indexed-x el-job--all-jobs)))
-    ;;   (push buffer-file-truename (el-job-queued-inputs job-for-later)))
-    ))
+             indexed--file<>data)))
 
 (defun indexed-x-ensure-link-at-point-known (&rest _)
   (require 'org)
@@ -283,17 +301,8 @@ changed."
              when (get-text-property 0 'inherited tag)
              collect (substring-no-properties tag))))
 
-;; TODO: Make this default, if `indexed-check-org-id-locations' t.
-;;;###autoload
-(defun indexed-x-snitch-to-org-id (entry)
-  "Add ENTRY to `org-id-locations', ensuring that ID-links work.
-
-If `indexed-check-org-id-locations' is t, this naturally also results in
-causing ENTRY\\='s file to be scanned for nodes in the future regardless
-of whether or not the file is a descendant of `indexed-org-dirs'."
-  (when (and (indexed-id entry)
-             (indexed--ensure-org-id-table-p))
-    (puthash (indexed-id entry) (indexed-file-name entry) org-id-locations)))
+(defun indexed-x-snitch-to-org-id ()
+  (declare (obsolete "baked into `indexed-sync-with-org-id'" "2025-03-26")))
 
 (provide 'indexed-x)
 

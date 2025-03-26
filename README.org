@@ -175,7 +175,7 @@ and then use command =M-x indexed-list-db-contents=.
 
 ** Appendix II: Lisp API
 
-There are three types of objects: /file-data/, /org-entry/ and /org-link/.  Some functions operate on more than one type.
+There are three types of objects: /file-data/, /org-entry/ and /org-link/. Logically speaking, files contain entries and entries contain links, right?
 
 Functions of no argument
 
@@ -190,14 +190,6 @@ Functions of no argument
 - =indexed-org-links=
   - Return all link objects with a type such as =id:= or =https:=
 
-Polymorphic functions
-- indexed-pos
-- indexed-file-name
-- indexed-file-data
-- indexed-file-title
-- indexed-file-title-or-basename
-- indexed-file-mtime
-
 Functions operating on raw file paths
 - indexed-entry-near-lnum-in-file
 - indexed-entry-near-pos-in-file
@@ -206,18 +198,17 @@ Functions operating on raw file paths
 
 Functions operating on raw id
 - indexed-entry-by-id
+- indexed-file-by-id
 - indexed-links-from
 
 Functions operating on raw titles
 - indexed-id-node-by-title
 
-Functions operating on FILE-DATA
-- indexed-mtime
-
 Functions operating on ORG-LINK
 - indexed-dest
 - indexed-type
 - indexed-heading-above
+- indexed-pos
 - indexed-id-nearby
   - (old alias: =indexed-origin=.  Org-roam calls the same thing "source" and org-node calls it "origin", but both terms presume an ID-centric design to everything, and make less sense when you allow for the absence of IDs.)
 
@@ -229,11 +220,12 @@ Functions operating on ENTRY
 - indexed-olpath-with-self
 - indexed-olpath-with-self-with-title
 - indexed-olpath-with-title
+- indexed-pos
 - indexed-priority
 - indexed-properties
 - indexed-property
 - indexed-property-assert
-- indexed-roam-aliases
+- indexed-roam-aliases -- works without =indexed-roam-mode=
 - indexed-roam-reflinks-to -- needs =indexed-roam-mode=
 - indexed-roam-refs -- needs =indexed-roam-mode=
 - indexed-root-heading-to
@@ -244,7 +236,14 @@ Functions operating on ENTRY
 - indexed-todo-state
 - indexed-toptitle
 
-Hooks
+Polymorphic functions (that work on all three types)
+- indexed-file-name
+- indexed-file-data
+- indexed-file-title
+- indexed-file-title-or-basename
+- indexed-file-mtime
+
+Hooks used by command =indexed-reset= and mode =indexed-updater-mode=
 
 - indexed-pre-full-reset-functions
 - indexed-post-full-reset-functions
@@ -252,7 +251,7 @@ Hooks
 - indexed-record-entry-functions
 - indexed-record-link-functions
 
-Hooks used when =indexed-updater-mode= is enabled
+Additional hooks used by mode =indexed-updater-mode=
 
 - indexed-pre-incremental-update-functions
 - indexed-post-incremental-update-functions
@@ -275,11 +274,7 @@ You may want to call the following functions after inserting entries or links in
 - indexed-x-ensure-entry-at-point-known
 - indexed-x-ensure-link-at-point-known
 
-Examples of when those are useful is when you write a command like =org-node-extract-subtree=, or subroutine like =org-node-backlink--add-in-target=.
-
-*** Extension: indexed-roam.el
-
-Loaded by =indexed-roam-mode=.  Explained elsewhere.
+Examples of when those are useful is when you write a command like [[https://github.com/meedstrom/org-node/blob/b1fe1da5ea4fef44ebaafadd3dddb355aaf4207d/org-node.el#L1477][org-node-extract-subtree]] or a subroutine like [[https://github.com/meedstrom/org-node/blob/b1fe1da5ea4fef44ebaafadd3dddb355aaf4207d/org-node-backlink.el#L435][org-node-backlink--add-in-target]].
 
 ** Appendix III: Make your own database
 Steps:
@@ -309,7 +304,7 @@ Config settings
 - indexed-seek-link-types
 - indexed-org-dirs
 - indexed-org-dirs-exclude
-- indexed-check-org-id-locations
+- indexed-sync-with-org-id
 - indexed-roam-overwrite
 
 Commands

@@ -40,7 +40,7 @@
 ;;       bc file + pos can still locate it.
 
 ;; TODO: Collect internal Org [[links]] without type: prefix?  Would have to
-;;       distinguish them from citations, which currently masquerade as link
+;;       distinguish them from citations, which we currently encode as link
 ;;       objects with TYPE nil.
 
 ;; TODO: Replace olpath in the struct with a list CRUMBS with more info,
@@ -59,13 +59,20 @@
 
 (defvar org-id-locations)
 (defvar org-id-track-globally)
+(defvar org-id-locations-file)
+(defvar org-id-extra-files)
+(defvar indexed-x--timer)
 (declare-function org-id-locations-load "org-id")
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function indexed-x-ensure-link-at-point-known "indexed-x")
 (declare-function indexed-x--handle-save "indexed-x")
 (declare-function indexed-x--handle-rename "indexed-x")
 (declare-function indexed-x--handle-delete "indexed-x")
+(declare-function indexed-x--activate-timer "indexed-x")
 (declare-function tramp-tramp-file-p "tramp")
+(define-obsolete-variable-alias
+  'indexed-check-org-id-locations
+  'indexed-sync-with-org-id "2025-03-26")
 
 (defgroup indexed nil "Cache metadata on all Org files."
   :group 'text)
@@ -86,16 +93,23 @@ or triple the time it takes to run `indexed-reset'."
 (defcustom indexed-org-dirs nil
   "List of directories to index.
 Each directory is checked recursively \(looking in subdirectories,
-sub-subdirectories etc) for files that end in \".org\".
+sub-subdirectories etc\) for files that end in \".org\".
 
 Exceptions:
 
-- Subdirectories starting with underscore or dot, such as \".emacs.d/\".
-  To check these, add them explicitly.
+- Subdirectories starting with underscore or dot, such as \".emacs.d\".
+  To check such a directory, add its full path explicitly.
 - Subdirectories that are symlinks.
 - Anything matching `indexed-org-dirs-exclude'.
 
-See also `indexed-check-org-id-locations'."
+This can be left at nil if `indexed-sync-with-org-id' is t.
+Benefits of configuring it anyway:
+
+- Awareness of files that contain no ID at all.
+- Notice quicker when files are missing or renamed.
+  - Particularly useful if this Emacs session is not the only thing that
+    edits the files.
+- Avert many situations that trigger `org-id-update-id-locations'."
   :type '(repeat directory)
   :package-version '(indexed . "0.5.0"))
 
@@ -116,9 +130,22 @@ You can eke out a performance boost by excluding directories with a
 humongous amount of files, such as the infamous \"node_modules\", even
 if they contain no Org files.  However, directories that start with a
 period or underscore are always ignored, so no need to add rules for
-e.g. \"~/.local/\", \".git/\" or \"_site\" for that reason."
+e.g. \"/.local/\", \"/.git/\" or \"/_site/\" for that reason."
   :type '(repeat string)
   :package-version '(indexed . "0.2.0"))
+
+(defcustom indexed-sync-with-org-id nil
+  "Whether to exchange data with `org-id-locations'.
+
+Benefits:
+- Index files that contain ID even outside `indexed-org-dirs'.
+- Help ID-links always work so they won\\='t need to call
+  `org-id-update-id-locations'.
+
+No effect until after Org has loaded.
+Never runs `org-id-locations-save', nor updates `org-id-files'."
+  :type 'boolean
+  :package-version '(indexed . "0.6.0"))
 
 
 ;;; Lisp API
@@ -213,6 +240,8 @@ If THING is a file name, return the object for that file name."
   "The entry with ID."
   (gethash id indexed--id<>entry))
 
+;; TODO: How to seek nearest ancestor with an id?
+;;       Need to add a CRUMBS field or sth, to the entry struct.
 (defun indexed-entry-near-lnum-in-file (lnum file)
   "The entry around line-number LNUM in FILE."
   (cl-loop
@@ -266,10 +295,6 @@ If THING is a file name, return the object for that file name."
            when (member (indexed-file-name entry) files)
            collect entry))
 
-(defun indexed-links-from (id)
-  "All links found under the entry with ID."
-  (gethash id indexed--origin<>links))
-
 (defun indexed-id-by-title (title)
   "The ID that currently corresponds to TITLE."
   (gethash title indexed--title<>id))
@@ -282,6 +307,10 @@ If THING is a file name, return the object for that file name."
   "Among entries that have ID, find the one titled TITLE."
   (gethash (gethash title indexed--title<>id)
            indexed--id<>entry))
+
+(defun indexed-links-from (id)
+  "All links found under the entry with ID."
+  (gethash id indexed--origin<>links))
 
 (defun indexed-olpath-with-self (entry)
   "Outline path, including ENTRY\\='s own heading."
@@ -401,7 +430,6 @@ the string DEST begins with \"@\".
 (defvar indexed-forget-link-functions nil
     "Hook passed one `indexed-org-link' object after forgetting it.")
 
-(defvar indexed--timer (timer-create))
 (defvar indexed--problems nil)
 (defvar indexed--title-collisions nil)
 (defvar indexed--id-collisions nil)
@@ -414,32 +442,20 @@ the string DEST begins with \"@\".
 (define-minor-mode indexed-updater-mode
   "Keep cache up to date."
   :global t
+  (require 'indexed-x)
   (if indexed-updater-mode
       (progn
-        (require 'indexed-x)
         (add-hook 'after-save-hook #'indexed-x--handle-save)
         ;; (advice-add 'rename-file :after #'indexed-x--handle-rename)
         (advice-add 'delete-file :after #'indexed-x--handle-delete)
         (advice-add 'org-insert-link :after #'indexed-x-ensure-link-at-point-known)
-        (indexed--activate-timer)
+        (indexed-x--activate-timer)
         (indexed--scan-full))
     (remove-hook 'after-save-hook #'indexed-x--handle-save)
     ;; (advice-remove 'rename-file #'indexed-x--handle-rename)
     (advice-remove 'delete-file #'indexed-x--handle-delete)
     (advice-remove 'org-insert-link #'indexed-x-ensure-link-at-point-known)
-    (cancel-timer indexed--timer)))
-
-(defun indexed--activate-timer (&rest _)
-  "Adjust `indexed--timer' based on duration of last indexing.
-If not running, start it."
-  (let ((new-delay (* 25 (1+ indexed--time-elapsed))))
-    (when (or (not (member indexed--timer timer-idle-list))
-              ;; Don't enter an infinite loop -- idle timers can be a footgun.
-              (not (> (float-time (or (current-idle-time) 0))
-                      new-delay)))
-      (cancel-timer indexed--timer)
-      (setq indexed--timer
-            (run-with-idle-timer new-delay t #'indexed--scan-full)))))
+    (cancel-timer indexed-x--timer)))
 
 (defvar indexed--next-message nil)
 (defun indexed-reset (&optional interactive)
@@ -463,7 +479,7 @@ If not running, start it."
                :inputs #'indexed--relist-org-files
                :funcall-per-input #'indexed-org-parser--parse-file
                :callback #'indexed--finalize-full))
-      (if indexed-check-org-id-locations
+      (if indexed-sync-with-org-id
           (message "No org-ids found.  If you know you have IDs, try M-x %S."
                    (if (fboundp 'org-roam-update-org-id-locations)
                        'org-roam-update-org-id-locations
@@ -533,35 +549,58 @@ Set some variables it expects."
         (title (indexed-title entry)))
     (push entry (gethash file indexed--file<>entries))
     (when id
+      (indexed--maybe-snitch-to-org-id entry)
       (let ((other-id (gethash title indexed--title<>id)))
         (when (and other-id (not (string= id other-id)))
           (push (list (format-time-string "%H:%M") title id other-id)
                 indexed--title-collisions)))
-      (when-let* ((other-entry (gethash id indexed--id<>entry)))
-        ;; user error, or bug
-        (push (list (format-time-string "%H:%M")
-                    id
-                    (indexed-title entry)
-                    (indexed-title other-entry))
-              indexed--id-collisions))
+      ;; NOTE: Too often false alarm, unused for now
+      ;; (when-let* ((other-entry (gethash id indexed--id<>entry)))
+      ;;   (push (list (format-time-string "%H:%M")
+      ;;               id
+      ;;               (indexed-title entry)
+      ;;               (indexed-title other-entry))
+      ;;         indexed--id-collisions))
       (puthash id entry indexed--id<>entry)
       (puthash title id indexed--title<>id))))
 
 
 ;;; Subroutines
 
-(defcustom indexed-check-org-id-locations nil
-  "Whether to also index all files in `org-id-locations'.
-Has no effect until after Org has loaded."
-  :type 'boolean
-  :package-version '(indexed . "0.5.0"))
+;; REVIEW: Consider wiping this table on every full reset.
+;;         Resulting latency can be considered acceptable on modern machines,
+;;         esp. if full resets only occur after some idle, but some users have
+;;         terrible filesystem perf due to bad virtualization (Termux?), plus
+;;         we might one day support TRAMP, where this sort of cache is handy.
+(defvar indexed--abbr-truenames (make-hash-table :test 'equal)
+  "Table mapping seen file names to abbreviated truenames.
+
+Can be used to avoid the performance overhead of
+`abbreviate-file-name' and `file-truename'.
+
+Currently only populated if `indexed-sync-with-org-id' t.
+
+Be mindful that a given path is rarely re-checked, and it is possible
+that a given path or a parent directory has become a symlink since.
+While `indexed-updater-mode' attempts to keep the table up-to-date,
+do not treat it as guaranteed when important.")
+
+(defun indexed--abbr-truename (file)
+  "From wild file path FILE, get the abbreviated truename."
+  (or (gethash file indexed--abbr-truenames)
+      (and (file-exists-p file)
+           (not (indexed--tramp-file-p file))
+           (puthash file
+                    (indexed--abbrev-file-names (file-truename file))
+                    indexed--abbr-truenames))))
 
 (defun indexed--tramp-file-p (file)
-  "Pass FILE to `tramp-tramp-file-p' if available, else return nil."
+  "Pass FILE to `tramp-tramp-file-p' if Tramp loaded, else return nil."
   (when (featurep 'tramp)
     (tramp-tramp-file-p file)))
 
-(defun indexed--ensure-org-id-table-p ()
+(defun indexed--try-ensure-org-id-table-p ()
+  "Coerce `org-id-locations' into a hash table, return nil on fail."
   (require 'org-id)
   (and org-id-track-globally
        (or (hash-table-p org-id-locations)
@@ -569,13 +608,22 @@ Has no effect until after Org has loaded."
              (setq org-id-locations
                    (org-id-alist-to-hash org-id-locations))))))
 
+(defun indexed--maybe-snitch-to-org-id (entry)
+  "Add applicable ENTRY data to `org-id-locations'."
+  (when (and indexed-sync-with-org-id
+             (indexed-id entry)
+             (indexed--try-ensure-org-id-table-p))
+    (puthash (indexed-id entry) (indexed-file-name entry) org-id-locations)))
+
+(setq indexed-sync-with-org-id t)
 ;; (benchmark-call #'indexed--relist-org-files)  => 0.006 s
 ;; (benchmark-call #'org-roam-list-files)        => 4.141 s
-(defvar indexed--files-temp-tbl (make-hash-table :test 'equal))
+(defvar indexed--raw-file-ctr 0)
+(defvar indexed--temp-tbl (make-hash-table :test 'equal))
 (defun indexed--relist-org-files ()
   "Query filesystem for Org files under `indexed-org-dirs'.
 
-If user option `indexed-check-org-id-locations' is t,
+If user option `indexed-sync-with-org-id' is t,
 also include files from `org-id-locations'.
 
 Return abbreviated truenames, to be directly comparable with
@@ -585,7 +633,8 @@ Note that `org-id-locations' is not guaranteed to hold abbreviated
 truenames, so this function transforms them.  That means it is possible,
 though unlikely, that some file paths cannot be found in
 `org-id-locations' even though they came from there."
-  (clrhash indexed--files-temp-tbl)
+  (clrhash indexed--temp-tbl)
+  (setq indexed--raw-file-ctr 0)
   (let ((file-name-handler-alist nil))
     (cl-loop
      for file in (indexed--abbrev-file-names
@@ -594,45 +643,38 @@ though unlikely, that some file paths cannot be found in
                                (mapcar #'file-truename indexed-org-dirs))
                    nconc (indexed--dir-files-recursive
                           dir ".org" indexed-org-dirs-exclude)))
-     do (puthash file t indexed--files-temp-tbl)))
-  ;; Maybe check org-id-locations.  I wish from Santa, a better API.
-  (if (and indexed-check-org-id-locations
-           (featurep 'org))
-      (progn
-        (require 'org-id)
-        (unless (bound-and-true-p org-id-track-globally)
-          (error "If `indexed-check-org-id-locations' is t, `org-id-track-globally' must be t"))
-        (when (null org-id-locations)
-          (org-id-locations-load))
-        (if (indexed--ensure-org-id-table-p)
-            (cl-loop
-             for file being each hash-value of org-id-locations do
-             (setq file (or (gethash file indexed--abbr-truenames)
-                            (and (file-exists-p file)
-                                 (not (indexed--tramp-file-p file))
-                                 (puthash file
-                                          (indexed--abbrev-file-names
-                                           (file-truename file))
-                                          indexed--abbr-truenames))))
-             (when file (puthash file t indexed--files-temp-tbl)))
-          (message "indexed: Could not check org-id-locations")))
-    (unless indexed-org-dirs
-      (error "At least one setting must be non-nil: `indexed-org-dirs' or `indexed-check-org-id-locations'")))
-  (hash-table-keys indexed--files-temp-tbl))
-
-(defvar indexed--abbr-truenames (make-hash-table :test 'equal)
-  "Table mapping file names to abbreviated truenames.
-
-Can be used to avoid the performance overhead of
-`abbreviate-file-name', `expand-file-name', or `file-truename'.
-
-Be mindful that a given path is checked once and cached forever, so if a
-given file or its containing directory has become a symlink since,
-this is not reliable.")
+     do (puthash file t indexed--temp-tbl))
+    (when (> indexed--raw-file-ctr (* 10 (hash-table-count indexed--temp-tbl)))
+      (message "%d files in `indexed-org-dirs' but only %d Org, expected?"
+               indexed--raw-file-ctr (hash-table-count indexed--temp-tbl)))
+    ;; Maybe check org-id-locations.  I wish for Christmas, a better org-id API.
+    ;; Must be why org-roam decided to wrap around org-id rather than fight it.
+    (if (and indexed-sync-with-org-id
+             (featurep 'org))
+        (progn
+          (require 'org-id)
+          (unless (bound-and-true-p org-id-track-globally)
+            (error "If `indexed-sync-with-org-id' is t, `org-id-track-globally' must be t"))
+          (when (and org-id-locations-file (null org-id-locations))
+            (org-id-locations-load))
+          (dolist (file (if (symbolp org-id-extra-files)
+                            (symbol-value org-id-extra-files)
+                          org-id-extra-files))
+            (let ((abtrue (indexed--abbr-truename file)))
+              (when abtrue
+                (puthash abtrue t indexed--temp-tbl))))
+          (if (indexed--try-ensure-org-id-table-p)
+              (cl-loop
+               for file being each hash-value of org-id-locations
+               as abtrue = (indexed--abbr-truename file)
+               when abtrue do (puthash abtrue t indexed--temp-tbl))
+            (message "indexed: Could not check org-id-locations")))
+      (unless indexed-org-dirs
+        (error "At least one setting must be non-nil: `indexed-org-dirs' or `indexed-sync-with-org-id'"))))
+  (hash-table-keys indexed--temp-tbl))
 
 ;; TODO: Make it possible to list only the files in ~/.emacs.d/ but exclude
-;;       all ~/.emacs.d/*/ subdirs.
-;; (progn (ignore-errors (native-compile #'indexed--dir-files-recursive)) (benchmark-run 100 (indexed--dir-files-recursive org-roam-directory "org" '("logseq/"))))
+;;       subdirs ~/.emacs.d/*/ categorically.
 (defun indexed--dir-files-recursive (dir suffix excludes)
   "Faster, purpose-made variant of `directory-files-recursively'.
 Return a list of all files under directory DIR, its
@@ -659,6 +701,7 @@ Does not modify the match data."
                         (file-symlink-p (directory-file-name file)))
               (setq result (nconc result (indexed--dir-files-recursive
         		                  file suffix excludes)))))
+        (cl-incf indexed--raw-file-ctr)
         (when (string-suffix-p suffix file)
           (unless (cl-loop for substr in excludes
                            thereis (string-search substr file))
@@ -716,8 +759,8 @@ already contains an abbreviated truename."
                                default
                              (apply #'append (mapcar #'cdr default)))
                            " "))))
-     (cons '$structures-to-ignore
-           (list "src" "comment" "example"))
+     ;; NOTE: These two are unused as yet.
+     (cons '$structures-to-ignore (list "src" "comment" "example"))
      (cons '$drawers-to-ignore
            (delete-dups
             (list (or (and (boundp 'org-super-links-backlink-into-drawer)
@@ -772,9 +815,8 @@ Make it target only LINK-TYPES instead of all the cars of
 (define-obsolete-function-alias 'indexed-file #'indexed-file-name "2025-03-18")
 
 (unless (featurep 'indexed)
-  (when (fboundp 'el-job--unhide-buffer) ;; <2.4.1
-    (display-warning
-     'indexed "Update el-job for some better errors in indexed.el")))
+  (when (fboundp 'el-job--unhide-buffer) ;; indicates <2.4.1
+    (message "Update to el-job 2.4.1 for some better errors in indexed.el")))
 
 (provide 'indexed)
 
