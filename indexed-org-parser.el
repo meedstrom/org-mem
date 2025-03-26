@@ -49,10 +49,6 @@
 (defvar indexed-org-parser--all-dir-locals nil
   "Dir-local variables found so far.")
 
-;; For dir-locals calculation.  Never enabled.
-(unless (featurep 'org)
-  (define-derived-mode org-mode outline-mode "Org"))
-
 (defun indexed-org-parser--make-todo-regexp (keywords-string)
   "Build a regexp from KEYWORDS-STRING.
 KEYWORDS-STRING is expected to be the sort of thing you see after
@@ -66,6 +62,10 @@ the custom TODO words thus defined."
                (string-trim)
                (split-string)
                (regexp-opt)))
+
+(unless (featurep 'org)
+  ;; For dir-locals calculation.  Never enabled.
+  (define-derived-mode org-mode outline-mode "Org"))
 
 ;; Should we also use equiv of `org-link-escape'?
 (defun indexed-org-parser--org-link-display-format (s)
