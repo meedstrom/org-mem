@@ -3,7 +3,7 @@
 # notice and this notice are preserved.  This file is offered as-is,
 # without any warranty.
 #+TITLE: Indexed
-#+HTML: <a href="https://repology.org/project/emacs%3Aindexed/versions"> <img src="https://repology.org/badge/vertical-allrepos/emacs%3Aindexed.svg" alt="Packaging status" align="right"> </a>
+#+HTML: <a href="https://melpa.org/#/indexed"><img align="right" alt="MELPA" src="https://melpa.org/packages/indexed-badge.svg"/></a>
 
 # TODO: Document that TRAMP won't work
 
@@ -134,7 +134,7 @@ N/B: because =(equal (org-roam-db) (indexed-roam))=, the above is equivalent to 
 (emacsql (indexed-roam) [:select * :from files :limit 10])
 #+end_src
 
-Note if you use multiple Emacsen simultaneously, there's a *known issue* with error "attempt to write a readonly database".  Get unstuck with =M-: (org-roam-db--close-all)= if that happens.
+There's a *known issue* if you use multiple Emacsen, the error "attempt to write a readonly database".  Get unstuck with =M-: (org-roam-db--close-all)= if that happens.
 
 *** Quick start with =indexed-orgdb=
 
