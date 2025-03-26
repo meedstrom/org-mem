@@ -77,8 +77,6 @@ A design choice: Indexed does not use Org code to analyze your files, but a [[ht
    
    Indexed must update its cache as the user saves, renames and deletes files.  Not a difficult problem, until you realize that files may change due to a Git operation, OS file operations, a =rm= command on the terminal, edits by another Emacs instance, or even remote edits by Logseq.
 
-   A solution could be a filesystem watcher, but that feels simultaneously brittle and overkill to me.
-
    A robust approach to cache invalidation is to avoid trying: ensure that a full rebuild is fast enough that you can just do /that/ instead.
 
    In fact, =indexed-updater-mode= does a bit of both, because it is still important that saving a file does not lag;  it does its best to update only the necessary tables on save, and an idle timer causes a full reset every now and then.
@@ -163,15 +161,6 @@ or if you like mysterious aliases,
 #+begin_src elisp
 (indexed-orgdb "select tag from tags where id = ?;" id)
 #+end_src
-
-There are several differences between this and org-roam's DB. You can compare, if you if you enable both
-
-#+begin_src elisp
-(indexed-roam-mode)
-(indexed-orgdb-mode)
-#+end_src
-
-and then use command =M-x indexed-list-db-contents=.
 
 ** Appendix II: Lisp API
 
@@ -315,17 +304,3 @@ Commands
 - indexed-list-entries
 - indexed-list-db-contents
 - indexed-reset
-
-*** Tip: Fully inform org-id
-
-Never sit through a slow =M-x org-id-update-id-locations= again!
-
-#+begin_src elisp
-(add-hook 'indexed-record-entry-functions #'indexed-x-snitch-to-org-id)
-#+end_src
-
-This tells org-id about all IDs that Indexed can find under =indexed-org-dirs=.
-
-That's very good, because if you had clicked an ID-link that org-id did not know about, it would react by running =org-id-update-id-locations=, making Emacs appear to hang for a long time.
-
-Never had this problem?  If you came here from org-node or org-roam,  that's because they solve this problem for you.
