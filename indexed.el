@@ -751,14 +751,14 @@ Make it target only LINK-TYPES instead of all the cars of
 
 (defun indexed--warn-deprec ()
   "Warn about use of deprecated variable names, and unintern them."
-  (dolist (old-var (cl-remove-if-not #'boundp
-                                     '(indexed-pre-reset-functions
-                                       indexed-post-reset-functions
-                                       indexed-x-pre-update-functions
-                                       indexed-x-post-update-functions
-                                       indexed-x-forget-file-functions
-                                       indexed-x-forget-entry-functions
-                                       indexed-x-forget-link-functions)))
+  (dolist (old-var (seq-filter #'boundp
+                               '(indexed-pre-reset-functions
+                                 indexed-post-reset-functions
+                                 indexed-x-pre-update-functions
+                                 indexed-x-post-update-functions
+                                 indexed-x-forget-file-functions
+                                 indexed-x-forget-entry-functions
+                                 indexed-x-forget-link-functions)))
     (lwarn 'indexed :warning "Deprecated: %s" old-var)
     (makunbound old-var)))
 

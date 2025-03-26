@@ -95,7 +95,7 @@ Included are two designs:
      - There is prior art on the matter at [[https://github.com/ndwarshuis/org-sql/blob/80bea9996de7fa8bc7ff891a91cfaff91111dcd8/org-sql.el#L141][org-sql]], but your story is still welcome!
 
 *** Quick start with =indexed-roam=
-UPDATE NOTICE [2025-03-23 Sun 16:44]:  Hopefully a lot of bugs went away. Function =(indexed-roam)= now always returns an EmacSQL connection, and takes no arguments.
+UPDATE NOTICE [2025-03-23 Sun 16:44]: Function =(indexed-roam)= now returns an EmacSQL connection.
 
 **** Without org-roam installed
 
