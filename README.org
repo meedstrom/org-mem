@@ -22,7 +22,7 @@ Many Org plugins now do reinvent the wheel, when it comes to keeping track of so
 
 Example: org-roam's DB, org-node's hash tables, orgrr's hash tables, ..., and some just re-run grep all the time, which still leads to writing elisp to cross-reference the results with something useful.
 
-And let's not talk about the org-agenda... (Try putting 2000 files into =org-agenda-files=!)  It needs to open each file in real-time to know anything about them, so everyday commands grind to a halt.
+And let's not talk about the org-agenda...  Try putting 2000 files into =org-agenda-files=!  It needs to open each file in real-time to know anything about them, so everyday commands grind to a halt.
 
 ** Quick overview
 
@@ -49,7 +49,7 @@ To use SQL, see [[https://github.com/meedstrom/indexed#appendix-i-a-sqlite-datab
 
 ** Data only
 
-A design choice: Indexed *only* delivers data.  It could easily ship conveniences like... let's call it a function "indexed-goto":
+A design choice: Indexed *only* delivers data.  It could easily ship conveniences like, let's call it a function "indexed-goto":
 
 #+begin_src elisp
 (defun indexed-goto (entry)
@@ -81,7 +81,7 @@ A design choice: Indexed does not use Org code to analyze your files, but a [[ht
 
    In fact, =indexed-updater-mode= does a bit of both, because it is still important that saving a file does not lag;  it does its best to update only the necessary tables on save, and an idle timer causes a full reset every now and then.
 
-   - {}^{note1}: I sometimes feel I failed at naming this library! Got opinions/ideas?  [[https://github.com/meedstrom/indexed/issues/4][Leave a comment!]] 
+   - [^{note1}]: I sometimes feel I failed at naming this library! Got opinions/ideas?  [[https://github.com/meedstrom/indexed/issues/4][Leave a comment!]] 
 
 ** Appendix I: A SQLite database, for free
 

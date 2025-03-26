@@ -102,11 +102,11 @@ Exceptions:
 - Subdirectories that are symlinks.
 - Anything matching `indexed-org-dirs-exclude'.
 
-This can be left at nil if `indexed-sync-with-org-id' is t.
+Can left at nil if `indexed-sync-with-org-id' is t.
 Benefits of configuring it anyway:
 
 - Awareness of files that contain no ID at all.
-- Notice quicker when files are missing or renamed.
+- Notice when files are missing or renamed in these directories.
   - Particularly useful if this Emacs session is not the only thing that
     edits the files.
 - Avert many situations that trigger `org-id-update-id-locations'."
@@ -138,12 +138,15 @@ e.g. \"/.local/\", \"/.git/\" or \"/_site/\" for that reason."
   "Whether to exchange data with `org-id-locations'.
 
 Benefits:
-- Index files that contain ID even outside `indexed-org-dirs'.
-- Help ID-links always work so they won\\='t need to call
+- Will index files even outside `indexed-org-dirs',
+  so long as they contain some ID.
+- Help ensure that ID-links to somewhere in `indexed-org-dirs'
+  always work and never trigger a recovery response to run
   `org-id-update-id-locations'.
 
 No effect until after Org has loaded.
-Never runs `org-id-locations-save', nor updates `org-id-files'."
+Only updates `org-id-locations', no other variable.
+Never runs `org-id-locations-save'."
   :type 'boolean
   :package-version '(indexed . "0.6.0"))
 
