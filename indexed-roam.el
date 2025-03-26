@@ -447,7 +447,7 @@ With SPECIFIC-FILES, only return data that involves those files."
                             (or type "cite"))
                       ref-rows))))
 
-    (let ((dummy-props (prin1-to-string '(:outline nil))))
+    (let ((dummy-props '(:outline nil)))
       (cl-loop
        for link in (indexed-org-links)
        as file = (indexed-org-link-file-name link)
