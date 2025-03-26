@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-node
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.5.2
+;; Package-Version: 0.6.0
 ;; Package-Requires: ((emacs "29.1") (el-job "2.4.1") (emacsql "4.2.0") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -615,7 +615,6 @@ do not treat it as guaranteed when important.")
              (indexed--try-ensure-org-id-table-p))
     (puthash (indexed-id entry) (indexed-file-name entry) org-id-locations)))
 
-(setq indexed-sync-with-org-id t)
 ;; (benchmark-call #'indexed--relist-org-files)  => 0.006 s
 ;; (benchmark-call #'org-roam-list-files)        => 4.141 s
 (defvar indexed--raw-file-ctr 0)

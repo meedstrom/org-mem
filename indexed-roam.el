@@ -596,7 +596,7 @@ Can be used in two ways:
          (links (gethash target-id indexed--dest<>links)))
     (cl-loop
      for link in links
-     as src-id = (indexed-origin link)
+     as src-id = (indexed-nearby-id link)
      as src-entry = (gethash src-id indexed--id<>entry)
      when src-entry
      collect (org-roam-backlink-create
@@ -620,7 +620,7 @@ Can be used in two ways:
        for ref in (indexed-roam-refs entry)
        append (cl-loop
                for link in (gethash ref indexed--dest<>links)
-               as src-id = (indexed-origin link)
+               as src-id = (indexed-nearby-id link)
                as src-entry = (gethash src-id indexed--id<>entry)
                when src-entry
                collect (org-roam-reflink-create
