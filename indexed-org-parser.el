@@ -469,7 +469,7 @@ Also set some variables, including global variables."
                              CRUMBS))
               (push (record 'indexed-org-entry
                             CLOSED
-                            nil
+                            DEADLINE
                             FILE
                             LEVEL
                             ID
