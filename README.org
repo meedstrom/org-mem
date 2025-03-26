@@ -3,7 +3,7 @@
 # notice and this notice are preserved.  This file is offered as-is,
 # without any warranty.
 #+TITLE: Indexed
-#+HTML: <a href="https://repology.org/project/emacs%3Aorg-node/versions"> <img src="https://repology.org/badge/vertical-allrepos/emacs%3Aorg-node.svg" alt="Packaging status" align="right"> </a>
+#+HTML: <a href="https://repology.org/project/emacs%3Aindexed/versions"> <img src="https://repology.org/badge/vertical-allrepos/emacs%3Aindexed.svg" alt="Packaging status" align="right"> </a>
 
 # TODO: Document that TRAMP won't work
 
@@ -180,15 +180,15 @@ There are three types of objects: /file-data/, /org-entry/ and /org-link/.  Some
 Functions of no argument
 
 - =indexed-org-files=
-  - Return all /file-data/ objects
+  - Return all file objects
 - =indexed-org-entries=
-  - Return all /org-entry/ objects
+  - Return all entry objects
 - =indexed-org-id-nodes=
-  - Return all /org-entry/ objects that have an ID
+  - Return all entry objects that have an ID
 - =indexed-org-links-and-citations=
-  - Return all /org-link/ objects
+  - Return all link objects
 - =indexed-org-links=
-  - Return all /org-link/ objects with a type such as =id:= or =https:=
+  - Return all link objects with a type such as =id:= or =https:=
 
 Polymorphic functions
 - indexed-pos
@@ -279,7 +279,7 @@ Examples of when those are useful is when you write a command like =org-node-ext
 
 *** Extension: indexed-roam.el
 
-Enabled by =indexed-roam-mode=.  Explained elsewhere.
+Loaded by =indexed-roam-mode=.  Explained elsewhere.
 
 ** Appendix III: Make your own database
 Steps:
