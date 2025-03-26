@@ -98,8 +98,8 @@
 
 (defun indexed-roam--forget-aliases-and-refs (entry)
   (dolist (ref (indexed-roam-refs entry))
-    (dolist (id (gethash ref indexed-roam--ref<>id))
-      (remhash id indexed-roam--id<>refs))
+    (remhash (gethash ref indexed-roam--ref<>id)
+             indexed-roam--id<>refs)
     (remhash ref indexed-roam--ref<>id))
   (dolist (alias (indexed-roam-aliases entry))
     (remhash alias indexed--title<>id)))
