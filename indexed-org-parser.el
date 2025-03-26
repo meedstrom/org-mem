@@ -39,11 +39,19 @@
 (defvar $default-todo-re)
 (defvar $nonheritable-tags)
 (defvar $inlinetask-min-level)
+(defvar $use-tag-inheritance)
 (defvar $structures-to-ignore) ; TODO: implement
 (defvar $drawers-to-ignore) ; TODO: implement
 
 (defvar indexed-org-parser--found-links nil
   "Link objects found so far.")
+
+(defvar indexed-org-parser--all-dir-locals nil
+  "Dir-local variables found so far.")
+
+;; For dir-locals calculation.  Never enabled.
+(unless (featurep 'org)
+  (define-derived-mode org-mode outline-mode "Org"))
 
 (defun indexed-org-parser--make-todo-regexp (keywords-string)
   "Build a regexp from KEYWORDS-STRING.
@@ -224,12 +232,14 @@ Also set some variables, including global variables."
   (unless (eq indexed-org-parser--buf (current-buffer))
     (indexed-org-parser--init-buf-and-switch))
   (setq indexed-org-parser--found-links nil)
+  ;; TODO: Upcase all or downcase all the let-bindings, no longer semantic
   (let ((file-todo-option-re
          (rx bol (* space) (or "#+todo: " "#+seq_todo: " "#+typ_todo: ")))
         missing-file
         found-entries
         file-data
         problem
+        USE-TAG-INHERITANCE
         HEADING-POS HERE FAR END ID-HERE ID FILE-ID CRUMBS
         DRAWER-BEG DRAWER-END
         TITLE FILE-TITLE LNUM
@@ -254,6 +264,27 @@ Also set some variables, including global variables."
             (erase-buffer)
             (insert-file-contents FILE))
           (goto-char 1)
+
+          (let* ((DIR (file-name-directory FILE))
+                 (DIR-LOCALS
+                  (cdr (or (assoc DIR indexed-org-parser--all-dir-locals)
+                           ;; HACK: Oh boy.
+                           (let* ((default-directory DIR)
+                                  (buffer-file-name FILE)
+                                  (major-mode 'org-mode)
+                                  (enable-local-variables :safe)
+                                  (new (hack-dir-local--get-variables)))
+                             (if new
+                                 (push new indexed-org-parser--all-dir-locals)
+                               (push (cons DIR nil) indexed-org-parser--all-dir-locals))
+                             new))))
+                 (FILE-LOCALS (append (hack-local-variables--find-variables)
+                                      (hack-local-variables-prop-line)))
+                 (LOCAL-USE-TAG-INHERITANCE (or (assq 'org-use-tag-inheritance FILE-LOCALS)
+                                                (assq 'org-use-tag-inheritance DIR-LOCALS))))
+            (setq USE-TAG-INHERITANCE (if LOCAL-USE-TAG-INHERITANCE
+                                          (cdr LOCAL-USE-TAG-INHERITANCE)
+                                        $use-tag-inheritance)))
 
           ;; If the very first line of file is a heading, don't try to scan any
           ;; file-level front matter.  Our usage of
@@ -348,9 +379,10 @@ Also set some variables, including global variables."
           ;; Prep
           (setq LNUM (line-number-at-pos))
           (setq CRUMBS nil)
-          (setq FILE-TAGS (cl-loop for tag in FILE-TAGS
-                                   unless (member tag $nonheritable-tags)
-                                   collect tag))
+          (setq FILE-TAGS (and USE-TAG-INHERITANCE
+                               (cl-loop for tag in FILE-TAGS
+                                        unless (member tag $nonheritable-tags)
+                                        collect tag)))
 
           ;; Loop over the file's headings
           (while (not (eobp))
@@ -447,9 +479,10 @@ Also set some variables, including global variables."
                       nil))
               (setq ID (cdr (assoc "ID" PROPS)))
               (setq HERITABLE-TAGS
-                    (cl-loop for tag in TAGS
-                             unless (member tag $nonheritable-tags)
-                             collect tag))
+                    (and USE-TAG-INHERITANCE
+                         (cl-loop for tag in TAGS
+                                  unless (member tag $nonheritable-tags)
+                                  collect tag)))
               ;; CRUMBS is a list that can look like
               ;;    ((3 "Heading" "id1234" ("noexport" "work" "urgent"))
               ;;     (2 "Another heading" "id6532" ("work"))

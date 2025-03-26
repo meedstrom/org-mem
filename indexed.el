@@ -754,6 +754,10 @@ already contains an abbreviated truename."
      (cons '$merged-re (concat org-link-bracket-re "\\|" reduced-plain-re))
      (cons '$inlinetask-min-level (bound-and-true-p org-inlinetask-min-level))
      (cons '$nonheritable-tags (bound-and-true-p org-tags-exclude-from-inheritance))
+     (cons '$use-tag-inheritance
+           (if (boundp 'org-use-tag-inheritance)
+               (default-value 'org-use-tag-inheritance)
+             t))
      (cons '$default-todo-re
            (let ((default (if (boundp 'org-todo-keywords)
                               (default-value 'org-todo-keywords)
