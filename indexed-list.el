@@ -131,14 +131,14 @@
        (cl-loop
         for (dest . link) in dead-links
         as origin-id = (indexed-origin link)
-        as entry = (gethash origin-id indexed--id<>entry)
+        as entry = (indexed-entry-by-id origin-id)
         collect
         (list (sxhash link)
               (vector (buttonize (indexed-title entry)
                                  #'indexed-list--goto-file-pos
                                  (cons (indexed-file-name entry)
-                                       (indexed-pos link))
-                                 dest))))))))
+                                       (indexed-pos link)))
+                      dest)))))))
 
 ;; TODO: Maybe generalize: track a list of open DBs and explore any of them
 (defun indexed-list-db-contents (&optional db)
