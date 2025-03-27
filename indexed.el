@@ -367,8 +367,8 @@ An org-ID node is an entry with an ID."
   "All links and citations.
 Citations are `indexed-org-link' objects where TYPE is nil and
 the string DEST begins with \"@\".
-(2025-03-18: This may change in the future!)"
-  (hash-table-values indexed--dest<>links))
+2025-03-18: This may change in the future!"
+  (apply #'append (hash-table-values indexed--dest<>links)))
 
 ;; PROP used to be a keyword, so you could write (indexed-property :ID entry),
 ;; but decided to make `indexed-properties' consistent with
