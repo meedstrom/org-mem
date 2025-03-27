@@ -63,10 +63,6 @@ the custom TODO words thus defined."
                (split-string)
                (regexp-opt)))
 
-(unless (featurep 'org)
-  ;; For dir-locals calculation.  Never enabled.
-  (define-derived-mode org-mode outline-mode "Org"))
-
 ;; Should we also use equiv of `org-link-escape'?
 (defun indexed-org-parser--org-link-display-format (s)
   "Copy of `org-link-display-format'.
