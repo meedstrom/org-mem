@@ -363,6 +363,13 @@ An org-ID node is an entry with an ID."
                           unless (null (indexed-org-link-type link))
                           collect link)))
 
+(defun indexed-org-id-links ()
+  "All ID-links."
+  (cl-loop for links being each hash-value of indexed--dest<>links
+           nconc (cl-loop for link in links
+                          when (equal "id" (indexed-org-link-type link))
+                          collect link)))
+
 (defun indexed-org-links-and-citations ()
   "All links and citations.
 Citations are `indexed-org-link' objects where TYPE is nil and
