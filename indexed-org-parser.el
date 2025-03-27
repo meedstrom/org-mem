@@ -263,7 +263,6 @@ Also set some variables, including global variables."
           (let ((inhibit-read-only t))
             (erase-buffer)
             (insert-file-contents FILE))
-          (goto-char 1)
 
           (let* ((DIR (file-name-directory FILE))
                  (DIR-LOCALS
@@ -286,6 +285,7 @@ Also set some variables, including global variables."
                                           (cdr LOCAL-USE-TAG-INHERITANCE)
                                         $use-tag-inheritance)))
 
+          (goto-char 1)
           ;; If the very first line of file is a heading, don't try to scan any
           ;; file-level front matter.  Our usage of
           ;; `indexed-org-parser--next-heading' cannot handle that edge-case.

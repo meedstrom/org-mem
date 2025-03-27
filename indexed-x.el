@@ -133,7 +133,7 @@ Argument JOB is the el-job object."
       (push prob indexed--problems))
     (run-hook-with-args 'indexed-post-incremental-update-functions results)
     (when problems
-      (message "Scan had problems, see M-x org-node-list-scan-problems"))))
+      (message "Scan had problems, see M-x indexed-list-problems"))))
 
 (defun indexed-x--forget-files (goners)
   "Remove from cache, most info about entries in file list GONERS.
