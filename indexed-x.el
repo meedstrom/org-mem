@@ -56,7 +56,7 @@
 (defun indexed-x--activate-timer (&rest _)
   "Adjust `indexed-x--timer' based on duration of last indexing.
 If not running, start it."
-  (let ((new-delay (* 25 (1+ indexed--time-elapsed))))
+  (let ((new-delay (* 20 (1+ indexed--time-elapsed))))
     (when (or (not (member indexed-x--timer timer-idle-list))
               ;; Don't enter an infinite loop -- idle timers can be a footgun.
               (not (> (float-time (or (current-idle-time) 0))

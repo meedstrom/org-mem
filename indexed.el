@@ -62,6 +62,8 @@
 (defvar org-id-locations-file)
 (defvar org-id-extra-files)
 (defvar indexed-x--timer)
+(defvar indexed-roam-mode)
+(defvar indexed-roam--ref<>id)
 (declare-function org-id-locations-load "org-id")
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function indexed-x-ensure-link-at-point-known "indexed-x")
@@ -518,20 +520,13 @@ Set some variables it expects."
     (dolist (link links)
       (indexed--record-link link)
       (run-hook-with-args 'indexed-record-link-functions link))
-    (setq indexed--time-elapsed
-          (float-time (time-since indexed--time-at-begin-full-scan)))
     (when indexed--next-message
-      (setq indexed--next-message
-            (format
-             "indexed: Analyzed %d lines in %d entries (%d with ID) in %d files in %.2fs"
-             (apply #'+ (mapcar #'indexed-file-data-max-lines
-                                (hash-table-values indexed--file<>data)))
-             (length (indexed-org-entries))
-             (length (indexed-org-id-nodes))
-             (length (indexed-org-files))
-             (float-time (time-since indexed--time-at-begin-full-scan)))))
+      (setq indexed--next-message (indexed--format-stats
+                                   indexed--time-at-begin-full-scan)))
     (run-hook-with-args 'indexed-post-full-reset-functions parse-results)
     (message "%s" indexed--next-message)
+    (setq indexed--time-elapsed
+          (float-time (time-since indexed--time-at-begin-full-scan)))
     (setq indexed--next-message nil)
     ;; (when indexed--id-collisions
     ;;   (message "Saw same ID twice, see M-x indexed-list-id-collisions"))
@@ -539,6 +534,44 @@ Set some variables it expects."
       (message "Some IDs share title, see M-x indexed-list-title-collisions"))
     (when (setq indexed--problems problems)
       (message "Indexing had problems, see M-x indexed-list-problems"))))
+
+(defun indexed--format-stats (start-time)
+  (let ((n-subtrees
+         (cl-loop for entries being each hash-value of indexed--file<>entries
+                  sum (length (if (= 0 (indexed-heading-lvl (car entries)))
+                                  (cdr entries)
+                                entries))))
+        (n-subtrees-w-id
+         (cl-loop for id-node being each hash-value of indexed--id<>entry
+                  count (/= 0 (indexed-heading-lvl id-node))))
+        (n-id-links
+         (cl-loop for id being each hash-key of indexed--id<>entry
+                  sum (length (gethash id indexed--dest<>links))))
+        (n-links
+         (cl-loop for links being each hash-value of indexed--dest<>links
+                  sum (length links))))
+    (with-temp-buffer
+      (insert
+       (format
+        "Indexed %d files (%d with ID),
+        %d subtrees (%d with ID),
+        %d links (%d ID-links%s),
+        in %.2fs"
+        (hash-table-count indexed--file<>data)
+        (- (hash-table-count indexed--id<>entry) n-subtrees-w-id)
+        n-subtrees
+        n-subtrees-w-id
+        n-links
+        n-id-links
+        (if indexed-roam-mode
+            (format ", %d reflinks"
+                    (cl-loop
+                     for ref being each hash-key of indexed-roam--ref<>id
+                     sum (length (gethash ref indexed--dest<>links))))
+          "")
+        (float-time (time-since start-time))))
+      (align-regexp 1 (point-max) "\\(\\s-*\\)(")
+      (buffer-string))))
 
 (defun indexed--record-link (link)
   "Add info related to LINK to various tables."
