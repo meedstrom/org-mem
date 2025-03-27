@@ -376,6 +376,17 @@ Also set some variables, including global variables."
             ;; We should now be at the first heading
             (widen))
 
+          (setq file-data
+                (record 'indexed-file-data
+                        FILE
+                        FILE-TITLE
+                        -1 ;; to amend at the end
+                        (ceiling (float-time
+                                  (file-attribute-modification-time
+                                   (file-attributes FILE))))
+                        -1 ;; to amend at the end
+                        FILE-ID))
+
           ;; Prep
           (setq LNUM (line-number-at-pos))
           (setq CRUMBS nil)
@@ -552,17 +563,8 @@ Also set some variables, including global variables."
             (setq LNUM (+ (- LNUM 1) (line-number-at-pos)))
             (widen))
 
-          (setq file-data
-                (record 'indexed-file-data
-                        FILE
-                        FILE-TITLE
-                        LNUM
-                        ;; Use integer mtime for `eq' operations
-                        (ceiling (float-time
-                                  (file-attribute-modification-time
-                                   (file-attributes FILE))))
-                        (point)
-                        FILE-ID)))
+          (aset file-data 3 LNUM)
+          (aset file-data 5 (point)))
       
       ;; Don't crash when there is an error signal, just report it.
       ;; Could allow for plural problems here, but one per file is plenty
