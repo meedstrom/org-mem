@@ -507,12 +507,12 @@ Suitable on `indexed-post-incremental-update-functions'."
   ;;       of all the CASCADE rules and pre-determine what needs to be deleted?
   ;;       It's not The Way to use a RDBMS, but it's a simple enough puzzle.
   (let* ((db (oref (indexed-roam) handle))
-         (files (mapcar #'indexed-file-name (nth 1 parse-results)))
-         (rows (indexed-roam--mk-rows files)))
+         (files (mapcar #'indexed-file-name (nth 1 parse-results))))
     (dolist (file files)
       (sqlite-execute db "DELETE FROM files WHERE file LIKE ?;"
                       (list (prin1-to-string file))))
-    (indexed-roam--populate-usably-for-emacsql db rows)))
+    (when files
+      (indexed-roam--populate-usably-for-emacsql db (indexed-roam--mk-rows files)))))
 
 
 ;;; Dev tools
