@@ -761,7 +761,7 @@ already contains an abbreviated truename."
      (cons '$default-todo-re
            (let ((default (if (boundp 'org-todo-keywords)
                               (default-value 'org-todo-keywords)
-                            '((sequence "IDEA" "DONE")))))
+                            '((sequence "TODO" "DONE")))))
              (indexed-org-parser--make-todo-regexp
               (string-join (if (stringp (car default))
                                default

@@ -109,8 +109,8 @@ If not running, start it."
     (el-job-launch :id 'indexed-x
                    :inject-vars (indexed--mk-work-vars)
                    :load-features '(indexed-org-parser)
-                   :funcall-per-input #'indexed-org-parser--parse-file
                    :inputs (ensure-list files)
+                   :funcall-per-input #'indexed-org-parser--parse-file
                    :callback #'indexed-x--finalize-targeted)))
 
 (defun indexed-x--finalize-targeted (results _job)
