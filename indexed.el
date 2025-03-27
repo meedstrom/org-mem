@@ -655,6 +655,7 @@ do not treat it as guaranteed when important.")
   "Add applicable ENTRY data to `org-id-locations'."
   (when (and indexed-sync-with-org-id
              (indexed-id entry)
+             (featurep 'org-id)
              (indexed--try-ensure-org-id-table-p))
     (puthash (indexed-id entry) (indexed-file-name entry) org-id-locations)))
 
