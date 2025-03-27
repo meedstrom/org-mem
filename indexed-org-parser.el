@@ -273,7 +273,7 @@ Also set some variables, including global variables."
                                   (buffer-file-name FILE)
                                   (major-mode 'org-mode)
                                   (enable-local-variables :safe)
-                                  (new (hack-dir-local--get-variables)))
+                                  (new (hack-dir-local--get-variables nil)))
                              (if new
                                  (push new indexed-org-parser--all-dir-locals)
                                (push (cons DIR nil) indexed-org-parser--all-dir-locals))
