@@ -34,6 +34,7 @@
 ;;; Code:
 
 (require 'indexed)
+(require 'sqlite)
 
 (defvar indexed-orgdb--connection nil
   "A SQLite handle.")
