@@ -31,9 +31,12 @@
 (require 'sqlite)
 (require 'emacsql)
 
+;; REVIEW: Most people won't use the DB, but we still make it.
+;;         Maybe let a setting control it.
 ;;;###autoload
 (define-minor-mode indexed-roam-mode
-  "Add awareness of ROAM_REFS and make the `indexed-roam' DB."
+  "Add awareness of ROAM_REFS and make the `indexed-roam' DB.
+See also user option `indexed-roam-overwrite'."
   :global t
   :group 'indexed
   (if indexed-roam-mode
@@ -155,7 +158,7 @@ What this means?  See indexed-test.el."
 
 (defcustom indexed-roam-overwrite nil
   "Whether to overwrite the DB at `org-roam-db-location'.
-If nil, write a diskless DB."
+This means `org-roam-db-query' should work as expected."
   :type 'boolean
   :group 'indexed
   :package-version '(indexed . "0.4.0"))
@@ -359,8 +362,8 @@ If passed any DEPRECATED-ARGS, signal an error."
              (indexed-roam--mk-singular-value-quoted-like-emacsql links)))))))
 
 (defun indexed-roam--mk-singular-value-quoted-like-emacsql (rows)
-  "Turn ROWS into literal \(not prepared) value for a SQL INSERT.
-In each row, print atoms that are strings or lists, readably."
+  "Turn ROWS into a literal \(not prepared) value for SQL INSERT.
+In each row, print readably any atoms that are strings or lists."
   (with-temp-buffer
     (let ((print-level nil)
           (print-length nil)
@@ -394,8 +397,8 @@ In each row, print atoms that are strings or lists, readably."
 (defun indexed-roam--mk-rows (&optional specific-files)
   "Return rows of data suitable for inserting into `indexed-roam' DB.
 
-Specifically, return lists of rows, one for each SQL table
-defined by `indexed-roam--configure'.
+Specifically, return seven lists of rows, one for each SQL table
+defined at `indexed-roam--configure'.
 
 With SPECIFIC-FILES, only return data that involves those files."
   (let (file-rows

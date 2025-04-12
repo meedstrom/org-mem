@@ -24,12 +24,12 @@
 ;; - Probably not usable by EmacSQL.
 ;;   - Made with built-in `sqlite-select' in mind.
 ;; - In cases where we want to store a Lisp list literally (as of 2025-03-20,
-;;   that's only the OLPATH), we use `prin1', but we do not `prin1' things that
-;;   are already strings.
+;;   that's only the `indexed-olpath'), we use `prin1', but we do not `prin1'
+;;   things that are already strings.
 ;;   - That means you don't have to contend with backslash-escaped quote
 ;;     characters.
 ;; - New table "properties".
-;; - No "refs" or "aliases".
+;; - No "refs" or "aliases" tables.
 
 ;;; Code:
 
@@ -171,10 +171,10 @@ LOC, write the database as a file to LOC."
 ;; This whole macro smells, but performs better than serial inserts
 (defmacro indexed-orgdb--insert-en-masse (db table-sym n-cols)
   "Insert into DB the values of list named TABLE-SYM.
-Insert into a table inside DB of the same name.
+Assume there exists a table of same name in DB.
 
-N-COLS must be the expected number of columns, and the list named
-TABLE-SYM must only contain lists of exactly that many items."
+N-COLS must be the expected number of columns, and the value of
+TABLE-SYM must be a list of lists of exactly N-COLS items."
   (let ((template-row (concat "(" (string-join (make-list n-cols "?")
                                                ", ")
                               ")")))

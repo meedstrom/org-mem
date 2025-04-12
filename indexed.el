@@ -629,7 +629,8 @@ While `indexed-updater-mode' attempts to keep the table up-to-date,
 do not treat it as guaranteed when important.")
 
 (defun indexed--abbr-truename (file)
-  "From wild file path FILE, get the abbreviated truename."
+  "From wild file path FILE, get the abbreviated truename.
+May look up a cached value."
   (or (gethash file indexed--abbr-truenames)
       (and (file-exists-p file)
            (not (indexed--tramp-file-p file))
@@ -652,7 +653,8 @@ do not treat it as guaranteed when important.")
                    (org-id-alist-to-hash org-id-locations))))))
 
 (defun indexed--maybe-snitch-to-org-id (entry)
-  "Add applicable ENTRY data to `org-id-locations'."
+  "Add applicable ENTRY data to `org-id-locations'.
+No-op if Org has not loaded."
   (when (and indexed-sync-with-org-id
              (indexed-id entry)
              (featurep 'org-id)
@@ -670,12 +672,17 @@ If user option `indexed-sync-with-org-id' is t,
 also include files from `org-id-locations'.
 
 Return abbreviated truenames, to be directly comparable with
-`buffer-file-truename' and any file name references in indexed objects.
+`buffer-file-truename' and any file name references in Indexed objects.
 
 Note that `org-id-locations' is not guaranteed to hold abbreviated
 truenames, so this function transforms them.  That means it is possible,
-though unlikely, that some file paths cannot be found in
-`org-id-locations' even though they came from there."
+though unlikely, that some resulting file paths cannot be
+cross-referenced with `org-id-locations' even though that is where this
+function found out about the files.
+
+For greater reliability in cross-referencing, consider setting user
+option `find-file-visit-truename', quitting Emacs, deleting
+`org-id-locations-file', and restarting."
   (clrhash indexed--temp-tbl)
   (setq indexed--raw-file-ctr 0)
   (let ((file-name-handler-alist nil))
@@ -690,7 +697,8 @@ though unlikely, that some file paths cannot be found in
     (when (> indexed--raw-file-ctr (* 10 (hash-table-count indexed--temp-tbl)))
       (message "%d files in `indexed-org-dirs' but only %d Org, expected?"
                indexed--raw-file-ctr (hash-table-count indexed--temp-tbl)))
-    ;; Maybe check org-id-locations.  I wish for Christmas, a better org-id API.
+    ;; Maybe check org-id-locations.
+    ;; I wish for Christmas: a better org-id API...
     ;; Must be why org-roam decided to wrap around org-id rather than fight it.
     (if (and indexed-sync-with-org-id
              (featurep 'org))
