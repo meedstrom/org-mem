@@ -114,18 +114,21 @@
 (defun indexed-list-dead-id-links ()
   "List links that lead to no known ID."
   (interactive)
-  (let ((dead-links
-         (cl-loop for dest being each hash-key of indexed--dest<>links
-                  using (hash-values links)
-                  unless (gethash dest indexed--id<>entry)
-                  append (cl-loop for link in links
-                                  when (equal "id" (indexed-type link))
-                                  collect (cons dest link)))))
+  (let* ((dead-links
+          (cl-loop for dest being each hash-key of indexed--dest<>links
+                   using (hash-values links)
+                   unless (gethash dest indexed--id<>entry)
+                   append (cl-loop for link in links
+                                   when (equal "id" (indexed-type link))
+                                   collect (cons dest link))))
+         (longest
+          (cl-loop for (_ . link) in dead-links
+                   maximize (length (indexed-org-link-dest link)))))
     (message "%d dead links found" (length dead-links))
     (when dead-links
       (indexed-list--pop-to-tabulated-buffer
        :buffer "*dead links*"
-       :format [("Location" 40 t) ("Unknown ID reference" 40 t)]
+       :format `[("Unknown ID reference" ,(1+ longest) t) ("Location" 0 t)]
        :reverter #'indexed-list-dead-id-links
        :entries
        (cl-loop
@@ -134,11 +137,11 @@
         as entry = (indexed-entry-by-id origin-id)
         collect
         (list (sxhash link)
-              (vector (buttonize (indexed-title entry)
+              (vector dest
+                      (buttonize (indexed-title entry)
                                  #'indexed-list--goto-file-pos
                                  (cons (indexed-file-name entry)
-                                       (indexed-pos link)))
-                      dest)))))))
+                                       (indexed-pos link))))))))))
 
 ;; TODO: Maybe generalize: track a list of open DBs and explore any of them
 (defun indexed-list-db-contents (&optional db)
