@@ -632,8 +632,8 @@ do not treat it as guaranteed when important.")
   "From wild file path FILE, get the abbreviated truename.
 May look up a cached value."
   (or (gethash file indexed--abbr-truenames)
-      (and (file-exists-p file)
-           (not (indexed--tramp-file-p file))
+      (and (not (indexed--tramp-file-p file))
+           (file-exists-p file)
            (puthash file
                     (indexed--fast-abbrev-file-names (file-truename file))
                     indexed--abbr-truenames))))
