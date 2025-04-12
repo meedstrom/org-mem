@@ -55,8 +55,8 @@ See also user option `indexed-roam-overwrite'."
 ;;; Aliases and refs support
 
 (defvar indexed-roam--work-buf nil)
-(defvar indexed-roam--ref<>id (make-hash-table :test 'equal))
 (defvar indexed-roam--id<>refs (make-hash-table :test 'equal))
+(defvar indexed-roam--ref<>id (make-hash-table :test 'equal))
 (defvar indexed-roam--ref<>type (make-hash-table :test 'equal)) ;; REVIEW: weird
 
 ;; This one works without the rest
@@ -84,7 +84,8 @@ See also user option `indexed-roam-overwrite'."
   (clrhash indexed-roam--id<>refs))
 
 (defun indexed-roam--record-aliases-and-refs (entry)
-  "Add any ENTRY aliases to `indexed--title<>id'."
+  "Add any ROAM_ALIASES in ENTRY to table `indexed--title<>id'.
+Also add any ROAM_REFS to `indexed--ref<>id'."
   (when-let* ((id (indexed-id entry)))
     (dolist (alias (indexed-roam-aliases entry))
       ;; Include aliases in the collision-checks

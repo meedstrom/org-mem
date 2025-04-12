@@ -33,8 +33,10 @@
 
 ;;; Code:
 
-(require 'indexed)
+(require 'cl-lib)
+(require 'subr-x)
 (require 'sqlite)
+(require 'indexed)
 
 (defvar indexed-orgdb--connection nil
   "A SQLite handle.")

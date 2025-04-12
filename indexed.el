@@ -700,8 +700,7 @@ option `find-file-visit-truename', quitting Emacs, deleting
     ;; Maybe check org-id-locations.
     ;; I wish for Christmas: a better org-id API...
     ;; Must be why org-roam decided to wrap around org-id rather than fight it.
-    (if (and indexed-sync-with-org-id
-             (featurep 'org))
+    (if (and indexed-sync-with-org-id (featurep 'org))
         (progn
           (require 'org-id)
           (unless (bound-and-true-p org-id-track-globally)
