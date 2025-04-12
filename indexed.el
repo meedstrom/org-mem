@@ -470,10 +470,10 @@ the string DEST begins with \"@\".
     (cancel-timer indexed-x--timer)))
 
 (defvar indexed--next-message nil)
-(defun indexed-reset (&optional interactive)
-  "Reset cache, and if INERACTIVE, print statistics."
+(defun indexed-reset (&optional interactively)
+  "Reset cache, and if called INTERACTIVELY, print statistics."
   (interactive "p")
-  (when interactive
+  (when interactively
     (setq indexed--next-message t))
   (indexed--scan-full))
 
@@ -492,7 +492,7 @@ the string DEST begins with \"@\".
                :funcall-per-input #'indexed-org-parser--parse-file
                :callback #'indexed--finalize-full))
       (if indexed-sync-with-org-id
-          (message "No org-ids found.  If you know you have IDs, try M-x %S."
+          (message "No org-ids found.  If you know they exist, try M-x %S."
                    (if (fboundp 'org-roam-update-org-id-locations)
                        'org-roam-update-org-id-locations
                      'org-id-update-id-locations))
@@ -560,10 +560,11 @@ Set some variables it expects."
     (with-temp-buffer
       (insert
        (format
-        "Indexed %d files (%d with ID),
-        %d subtrees (%d with ID),
-        %d links (%d ID-links%s),
-        in %.2fs"
+        "Indexed in %.2fs:  %d files (%d with ID)
+  %d subtrees (%d with ID)
+  %d links (%d ID-links%s)
+"
+        (float-time (time-since start-time))
         (hash-table-count indexed--file<>data)
         (- (hash-table-count indexed--id<>entry) n-subtrees-w-id)
         n-subtrees
@@ -575,9 +576,8 @@ Set some variables it expects."
                     (cl-loop
                      for ref being each hash-key of indexed-roam--ref<>id
                      sum (length (gethash ref indexed--dest<>links))))
-          "")
-        (float-time (time-since start-time))))
-      (align-regexp 1 (point-max) "\\(\\s-*\\)(")
+          "")))
+      (align-regexp 1 (point-max) "\\( \\) [1234567890]")
       (buffer-string))))
 
 (defun indexed--record-link (link)

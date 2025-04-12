@@ -239,7 +239,7 @@ If passed any DEPRECATED-ARGS, signal an error."
                   (concat indexed--next-message
                           (format " + %.2fs writing %s"
                                   (float-time (time-since T))
-                                  (or name "SQLite DB")))))
+                                  (or name "indexed-roam DB")))))
           conn))
     (error "`indexed-roam' requires \"emacsql\"")))
 

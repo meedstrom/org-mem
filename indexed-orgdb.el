@@ -86,7 +86,7 @@ Create tables and pre-populate them with data.
 Normally, this creates a diskless database.  With optional file path
 LOC, write the database as a file to LOC."
   (let ((T (current-time))
-        (name (or loc "SQLite DB"))
+        (name (or loc "indexed-orgdb DB"))
         (db (sqlite-open loc)))
     (indexed-orgdb--configure db)
     (indexed-orgdb--populate db (indexed-orgdb--mk-rows))
