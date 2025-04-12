@@ -88,14 +88,14 @@ If not running, start it."
 ;;                 (cl-remove-if #'indexed--tramp-file-p)
 ;;                 ;; REVIEW: May not apply right to oldname?
 ;;                 (mapcar #'file-truename)
-;;                 (indexed--abbrev-file-names))))
+;;                 (indexed--fast-abbrev-file-names))))
 
 (defun indexed-x--handle-delete (file &optional _trash)
   "Arrange to forget nodes and links in FILE."
   (when indexed-updater-mode
     (when (string-suffix-p ".org" file)
       (unless (indexed--tramp-file-p file)
-        (setq file (indexed--abbrev-file-names file))
+        (setq file (indexed--fast-abbrev-file-names file))
         ;; Used to just hand the file to `indexed-x--scan-targeted' which will
         ;; have the same effect if the file is gone, but sometimes it is not
         ;; gone, thanks to `delete-by-moving-to-trash'.

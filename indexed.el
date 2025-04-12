@@ -635,7 +635,7 @@ May look up a cached value."
       (and (file-exists-p file)
            (not (indexed--tramp-file-p file))
            (puthash file
-                    (indexed--abbrev-file-names (file-truename file))
+                    (indexed--fast-abbrev-file-names (file-truename file))
                     indexed--abbr-truenames))))
 
 (defun indexed--tramp-file-p (file)
@@ -687,7 +687,7 @@ option `find-file-visit-truename', quitting Emacs, deleting
   (setq indexed--raw-file-ctr 0)
   (let ((file-name-handler-alist nil))
     (cl-loop
-     for file in (indexed--abbrev-file-names
+     for file in (indexed--fast-abbrev-file-names
                   (cl-loop
                    for dir in (delete-dups
                                (mapcar #'file-truename indexed-org-dirs))
@@ -761,7 +761,7 @@ Does not modify the match data."
 
 ;; See also `consult--fast-abbreviate-file-name'.  This is faster (2024-04-16).
 (defvar indexed--userhome nil)
-(defun indexed--abbrev-file-names (paths)
+(defun indexed--fast-abbrev-file-names (paths)
   "Abbreviate all file paths in PATHS.
 Much faster than `abbreviate-file-name', noticeably if you would have to
 call it on many file paths at once.
@@ -870,6 +870,7 @@ Make it target only LINK-TYPES instead of all the cars of
 (define-obsolete-function-alias 'indexed-links #'indexed-org-links "2025-03-18")
 (define-obsolete-function-alias 'indexed-todo #'indexed-todo-state "2025-03-18")
 (define-obsolete-function-alias 'indexed-file #'indexed-file-name "2025-03-18")
+(define-obsolete-function-alias 'indexed--abbrev-file-names #'indexed--fast-abbrev-file-names "2025-04-12")
 
 (unless (featurep 'indexed)
   (when (fboundp 'el-job--unhide-buffer) ;; indicates <2.4.1
