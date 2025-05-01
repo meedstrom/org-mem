@@ -261,25 +261,26 @@ Also set some variables, including global variables."
             (insert-file-contents FILE))
 
           (let* ((DIR (file-name-directory FILE))
-                 (DIR-LOCALS
-                  (cdr (or (assoc DIR indexed-org-parser--all-dir-locals)
-                           ;; HACK: Oh boy.
-                           (let* ((default-directory DIR)
-                                  (buffer-file-name FILE)
-                                  (major-mode 'org-mode)
-                                  (enable-local-variables :safe)
-                                  (new (hack-dir-local--get-variables nil)))
-                             (if new
-                                 (push new indexed-org-parser--all-dir-locals)
-                               (push (cons DIR nil) indexed-org-parser--all-dir-locals))
-                             new))))
+                 (default-directory DIR)
+                 (buffer-file-name FILE)
+                 (major-mode 'org-mode)
+                 (enable-local-variables :safe)
                  (FILE-LOCALS (append (hack-local-variables--find-variables)
                                       (hack-local-variables-prop-line)))
-                 (LOCAL-USE-TAG-INHERITANCE (or (assq 'org-use-tag-inheritance FILE-LOCALS)
-                                                (assq 'org-use-tag-inheritance DIR-LOCALS))))
-            (setq USE-TAG-INHERITANCE (if LOCAL-USE-TAG-INHERITANCE
-                                          (cdr LOCAL-USE-TAG-INHERITANCE)
-                                        $use-tag-inheritance)))
+                 (enable-dir-variables t)
+                 (dir-or-cache (dir-locals-find-file default-directory))
+                 (class (cond
+                         ((stringp dir-or-cache)
+                          (dir-locals-read-from-dir dir-or-cache))
+                         ((consp dir-or-cache)
+                          (nth 1 dir-or-cache))))
+                 (DIR-LOCALS (cdr (assq major-mode (dir-locals-get-class-variables class)))))
+            (setq USE-TAG-INHERITANCE (cond
+                                       ((assq 'org-use-tag-inheritance FILE-LOCALS)
+                                        (cdr (assq 'org-use-tag-inheritance FILE-LOCALS)))
+                                       ((assq 'org-use-tag-inheritance DIR-LOCALS)
+                                        (cdr (assq 'org-use-tag-inheritance DIR-LOCALS)))
+                                       (t $use-tag-inheritance))))
 
           (goto-char 1)
           ;; If the very first line of file is a heading, don't try to scan any
@@ -561,7 +562,7 @@ Also set some variables, including global variables."
 
           (aset file-data 3 LNUM)
           (aset file-data 5 (point)))
-      
+
       ;; Don't crash when there is an error signal, just report it.
       ;; Could allow for plural problems here, but one per file is plenty
       (( t error )
