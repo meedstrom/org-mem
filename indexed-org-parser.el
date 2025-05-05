@@ -228,7 +228,6 @@ Also set some variables, including global variables."
   (unless (eq indexed-org-parser--buf (current-buffer))
     (indexed-org-parser--init-buf-and-switch))
   (setq indexed-org-parser--found-links nil)
-  ;; TODO: Upcase all or downcase all the let-bindings, no longer semantic
   (let ((file-todo-option-re
          (rx bol (* space) (or "#+todo: " "#+seq_todo: " "#+typ_todo: ")))
         missing-file
@@ -260,27 +259,26 @@ Also set some variables, including global variables."
             (erase-buffer)
             (insert-file-contents FILE))
 
-          (let* ((DIR (file-name-directory FILE))
-                 (default-directory DIR)
-                 (buffer-file-name FILE)
-                 (major-mode 'org-mode)
-                 (enable-local-variables :safe)
-                 (FILE-LOCALS (append (hack-local-variables--find-variables)
+          ;; Try to apply dir-locals and file-locals that matter to us.
+          (let* ((file-locals (append (hack-local-variables--find-variables)
                                       (hack-local-variables-prop-line)))
-                 (enable-dir-variables t)
-                 (dir-or-cache (dir-locals-find-file default-directory))
-                 (class (cond
-                         ((stringp dir-or-cache)
-                          (dir-locals-read-from-dir dir-or-cache))
-                         ((consp dir-or-cache)
-                          (nth 1 dir-or-cache))))
-                 (DIR-LOCALS (cdr (assq major-mode (dir-locals-get-class-variables class)))))
-            (setq USE-TAG-INHERITANCE (cond
-                                       ((assq 'org-use-tag-inheritance FILE-LOCALS)
-                                        (cdr (assq 'org-use-tag-inheritance FILE-LOCALS)))
-                                       ((assq 'org-use-tag-inheritance DIR-LOCALS)
-                                        (cdr (assq 'org-use-tag-inheritance DIR-LOCALS)))
-                                       (t $use-tag-inheritance))))
+                 ;; Reimplement `hack-dir-local--get-variables' bc of bugs.
+                 ;; https://github.com/meedstrom/indexed/issues/6
+                 (dir-or-cache (dir-locals-find-file FILE))
+                 (class-vars (dir-locals-get-class-variables
+                              (if (listp dir-or-cache)
+                                  (nth 1 dir-or-cache)
+                                (dir-locals-read-from-dir
+                                 (file-name-directory FILE)))))
+                 (dir-locals
+                  (append (cdr (assq 'org-mode class-vars))
+                          (cdr (assq 'text-mode class-vars))
+                          (cdr (assq nil class-vars)))))
+            ;; REVIEW: Any other relevant variables?
+            (if-let* ((x (or (assq 'org-use-tag-inheritance file-locals)
+                             (assq 'org-use-tag-inheritance dir-locals))))
+                (setq USE-TAG-INHERITANCE (cdr x))
+              (setq USE-TAG-INHERITANCE $use-tag-inheritance)))
 
           (goto-char 1)
           ;; If the very first line of file is a heading, don't try to scan any
@@ -529,7 +527,7 @@ Also set some variables, including global variables."
                             TODO-STATE)
                     found-entries)
 
-              ;; Heading analyzed, now collect links in entry body!
+              ;; Heading and properties analyzed, now seek links in entry text.
 
               (setq ID-HERE
                     (or ID
@@ -537,9 +535,10 @@ Also set some variables, including global variables."
                         FILE-ID
                         (throw 'entry-done t)))
               (setq HERE (point))
-              ;; Don't count org-super-links backlinks.
+              ;; Ignore backlinks drawer, it would lead to double-counting.
               ;; TODO: Generalize this mechanism, use configurable lists
-              ;; `$structures-to-ignore' and `$drawers-to-ignore'
+              ;;       `$structures-to-ignore' and `$drawers-to-ignore'.
+              ;;       Maybe use `org-node--map-matches-skip-some-regions'.
               (setq DRAWER-BEG (re-search-forward "^[	 ]*:BACKLINKS:" nil t))
               (setq DRAWER-END
                     (and DRAWER-BEG
@@ -557,14 +556,16 @@ Also set some variables, including global variables."
               (goto-char (or DRAWER-END HERE))
               (indexed-org-parser--collect-links-until (point-max) ID-HERE FILE))
             (goto-char (point-max))
-            (setq LNUM (+ (- LNUM 1) (line-number-at-pos)))
+            ;; NOTE: Famously slow `line-number-at-pos' is fast inside narrow.
+            (setq LNUM (+ LNUM -1 (line-number-at-pos)))
             (widen))
 
+          ;; Done analyzing this file.
+          (cl-assert (eobp))
           (aset file-data 3 LNUM)
           (aset file-data 5 (point)))
 
-      ;; Don't crash when there is an error signal, just report it.
-      ;; Could allow for plural problems here, but one per file is plenty
+      ;; Don't crash on error signal, just report it and move on to next file.
       (( t error )
        (setq problem (list (format-time-string "%H:%M") FILE (point) err))))
 
