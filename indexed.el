@@ -543,7 +543,7 @@ Set some variables it expects."
       (message "Indexing had problems, see M-x indexed-list-problems"))))
 
 (defun indexed--format-stats (start-time)
-  (let ((n-subtrees
+  (let* ((n-subtrees
          (cl-loop for entries being each hash-value of indexed--file<>entries
                   sum (length (if (= 0 (indexed-heading-lvl (car entries)))
                                   (cdr entries)
@@ -556,17 +556,21 @@ Set some variables it expects."
                   sum (length (gethash id indexed--dest<>links))))
         (n-links
          (cl-loop for links being each hash-value of indexed--dest<>links
-                  sum (length links))))
+                  sum (length links)))
+        (n-toplvl-ids
+         (- (hash-table-count indexed--id<>entry) n-subtrees-w-id)))
     (with-temp-buffer
       (insert
        (format
-        "Indexed in %.2fs:  %d files (%d with ID)
+        "Indexed in %.2fs:  %d Org files%s
   %d subtrees (%d with ID)
   %d links (%d ID-links%s)
 "
         (float-time (time-since start-time))
         (hash-table-count indexed--file<>data)
-        (- (hash-table-count indexed--id<>entry) n-subtrees-w-id)
+        (if (= 0 n-toplvl-ids)
+            ""
+          (format " (%d with top-level ID)" n-toplvl-ids))
         n-subtrees
         n-subtrees-w-id
         n-links
