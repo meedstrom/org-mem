@@ -1,4 +1,4 @@
-;;; indexed-x.el --- Incremental indexing -*- lexical-binding: t; -*-
+;;; org-mem-x.el --- Incremental indexing -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Free Software Foundation, Inc.
 
@@ -18,7 +18,7 @@
 ;;; Commentary:
 
 ;; Optional mechanisms to update the tables in just-in-time fashion,
-;; reducing our need to do `indexed--full-scan' so often.
+;; reducing our need to do `org-mem--full-scan' so often.
 
 ;; Technically, repeating a full scan is never needed *IF* we use these hooks
 ;; correctly.  However, that is hard and humans are fallible.
@@ -33,8 +33,8 @@
 (require 'subr-x)
 (require 'seq)
 (require 'llama)
-(require 'indexed)
-(require 'indexed-org-parser)
+(require 'org-mem)
+(require 'org-mem-parser)
 (defvar org-use-tag-inheritance)
 (defvar org-trust-scanner-tags)
 (defvar org-id-track-globally)
@@ -52,174 +52,145 @@
 (declare-function org-get-todo-state "org")
 (declare-function org-link-display-format "ol")
 
-(defvar indexed-x--timer (timer-create))
-(defun indexed-x--activate-timer (&rest _)
-  "Adjust `indexed-x--timer' based on duration of last indexing.
-If not running, start it."
-  (let ((new-delay (* 20 (1+ indexed--time-elapsed))))
-    (when (or (not (member indexed-x--timer timer-idle-list))
+(defvar org-mem-x--timer (timer-create)
+  "Timer for intermittently running `org-mem--scan-full'.")
+
+(defun org-mem-x--activate-timer (&rest _)
+  "Adjust `org-mem-x--timer' based on duration of last full scan.
+If timer not running, start it."
+  (let ((new-delay (* 20 (1+ org-mem--time-elapsed))))
+    (when (or (not (member org-mem-x--timer timer-idle-list))
               ;; Don't enter an infinite loop -- idle timers can be a footgun.
               (not (> (float-time (or (current-idle-time) 0))
                       new-delay)))
-      (cancel-timer indexed-x--timer)
-      (setq indexed-x--timer
-            (run-with-idle-timer new-delay t #'indexed--scan-full)))))
-
-(defun indexed-x--handle-save ()
-  "Arrange to re-scan nodes and links in current buffer."
-  (when indexed-updater-mode
-    (let ((% buffer-file-truename))
-      (when (and (string-suffix-p ".org" %)
-                 (not (backup-file-name-p %))
-                 (not (indexed--tramp-file-p %)))
-        (indexed-x--scan-targeted %)))))
+      (cancel-timer org-mem-x--timer)
+      (setq org-mem-x--timer
+            (run-with-idle-timer new-delay t #'org-mem--scan-full)))))
 
 ;; NOTE: When setting `delete-by-moving-to-trash' is t, `delete-file' calls
-;;       `move-file-to-trash' which calls `rename-file'.  Good to know.
-;;       ... And it appears that `rename-file' can also call `delete-file'.
-;;       Happy coding!
+;;       `move-file-to-trash' which calls `rename-file'.  And it appears that
+;;       `rename-file' can also call `delete-file'.  Happy coding!
 
-;; (defun indexed-x--handle-rename (file newname &rest _)
-;;   "Arrange to scan NEWNAME for nodes and links, and forget FILE."
-;;   (indexed-x--scan-targeted
-;;    (thread-last (list file newname)
-;;                 (cl-remove-if-not (##string-suffix-p ".org" %))
-;;                 (cl-remove-if #'backup-file-name-p)
-;;                 (cl-remove-if #'indexed--tramp-file-p)
-;;                 ;; REVIEW: May not apply right to oldname?
-;;                 (mapcar #'file-truename)
-;;                 (indexed--fast-abbrev-file-names))))
+(defun org-mem-x--handle-rename (file newname &rest _)
+  "Arrange to scan NEWNAME for entries and links, and forget FILE."
+  (org-mem-x--handle-delete file)
+  (cl-assert newname)
+  (org-mem-x--handle-save newname))
 
-(defun indexed-x--handle-delete (file &optional _trash)
-  "Arrange to forget nodes and links in FILE."
-  (when indexed-updater-mode
-    (when (string-suffix-p ".org" file)
-      (unless (indexed--tramp-file-p file)
-        (setq file (indexed--fast-abbrev-file-names file))
-        ;; Used to just hand the file to `indexed-x--scan-targeted' which will
-        ;; have the same effect if the file is gone, but sometimes it is not
-        ;; gone, thanks to `delete-by-moving-to-trash'.
-        (indexed-x--forget-files (list file))
-        (indexed-x--forget-links-from
-         (mapcar #'indexed-id (indexed-entries-in file)))))))
+(defun org-mem-x--handle-save (&optional file)
+  "Arrange to scan entries and links in FILE or current buffer file."
+  (unless file (setq file buffer-file-truename))
+  (when (and (string-suffix-p ".org" file)
+             (not (backup-file-name-p file))
+             (not (org-mem--tramp-file-p file)))
+    (org-mem-x--scan-targeted file)))
 
-(defun indexed-x--scan-targeted (files)
+(defun org-mem-x--handle-delete (file &optional _trash)
+  "Forget entries and links in FILE.
+
+If FILE differs from the name by which the actual file is listed in our
+tables, because a parent directory is a symlink or the abbreviation
+differs, try to discover the known name variant and operate on that.
+Do not do so when FILE satisfies `file-symlink-p'."
+  (when (string-suffix-p ".org" file)
+    (let ((bad (list file))
+          (cached-true (gethash file org-mem--wild-filename<>truename)))
+      (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
+      (when (and cached-true (not (file-symlink-p file)))
+        (push (org-mem--fast-abbrev-file-name cached-true) bad))
+      (org-mem-x--forget-file-contents bad)
+      (org-mem--invalidate-file-names bad))))
+
+(defun org-mem-x--scan-targeted (files)
   "Arrange to scan FILES."
   (when files
-    (el-job-launch :id 'indexed-x
-                   :inject-vars (indexed--mk-work-vars)
-                   :load-features '(indexed-org-parser)
+    (el-job-launch :id 'org-mem-x
+                   :inject-vars (org-mem--mk-work-vars)
+                   :load-features '(org-mem-parser)
                    :inputs (ensure-list files)
-                   :funcall-per-input #'indexed-org-parser--parse-file
-                   :callback #'indexed-x--finalize-targeted)))
+                   :funcall-per-input #'org-mem-parser--parse-file
+                   :callback #'org-mem-x--finalize-targeted)))
 
-(defun indexed-x--finalize-targeted (results _job)
-  "Use RESULTS to update tables.
-Argument JOB is the el-job object."
-  (run-hook-with-args 'indexed-pre-incremental-update-functions results)
-  (seq-let (missing-files file-data entries links problems) results
-    (indexed-x--forget-files missing-files)
-    (indexed-x--forget-links-from (mapcar #'indexed-id entries))
-    (dolist (fdata file-data)
-      (puthash (indexed-file-name fdata) fdata indexed--file<>data)
-      (run-hook-with-args 'indexed-record-file-functions fdata))
+(defun org-mem-x--finalize-targeted (parse-results _job)
+  "Handle PARSE-RESULTS from `org-mem-x--scan-targeted'."
+  (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
+  (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
+  (seq-let (bad-paths file-data entries links problems) parse-results
+    (when bad-paths
+      (org-mem-x--forget-file-contents bad-paths)
+      (org-mem--invalidate-file-names bad-paths))
+    (dolist (datum file-data)
+      (puthash (car datum) datum org-mem--file<>metadata)
+      (run-hook-with-args 'org-mem-record-file-functions datum))
     (dolist (entry entries)
-      (indexed--record-entry entry)
-      (run-hook-with-args 'indexed-record-entry-functions entry))
+      (org-mem--record-entry entry)
+      (run-hook-with-args 'org-mem-record-entry-functions entry))
     (dolist (link links)
-      (indexed--record-link link)
-      (run-hook-with-args 'indexed-record-link-functions link))
+      (org-mem--record-link link)
+      (run-hook-with-args 'org-mem-record-link-functions link))
     (dolist (prob problems)
-      (push prob indexed--problems))
-    (run-hook-with-args 'indexed-post-incremental-update-functions results)
+      (push prob org-mem--problems))
+    (run-hook-with-args 'org-mem-post-targeted-scan-functions parse-results)
+    (when bad-paths
+      (let ((good-paths (seq-keep #'org-mem--abbr-truename-safe bad-paths)))
+        (org-mem-x--scan-targeted (seq-difference good-paths bad-paths))))
     (when problems
-      (message "Scan had problems, see M-x indexed-list-problems"))))
+      (message "Scan had problems, see M-x org-mem-list-problems"))))
 
-(defun indexed-x--forget-files (goners)
-  "Remove from cache, most info about entries in file list GONERS.
+;; XXX Test. Verify links still get forgotten: check for backlink duplicates
+(defvar org-mem-x-forgotten-links nil)
+(defun org-mem-x--forget-file-contents (files)
+  "Delete from tables, most info relating to FILES and their contents.
+You should also run `org-mem--invalidate-file-names'.
 
-For a thorough cleanup, you should also run
-`indexed-x--forget-links-from'."
-  (when (setq goners (ensure-list goners))
-    (let (files)
-      ;; Low priority: clean `indexed--abbr-truenames' just in case.
-      (maphash (lambda (file truename)
-                 (when (member truename goners)
-                   (remhash file indexed--abbr-truenames)
-                   (push file files)))
-               indexed--abbr-truenames)
-      (when (and indexed-sync-with-org-id
-                 (indexed--try-ensure-org-id-table-p))
-        ;; REVIEW: This can possibly be simplified to the same thing we do with
-        ;;         table `indexed--id<>entry' below, but need to think
-        ;;         carefully about that.
-        (maphash (lambda (id file)
-                   (when (member file files)
-                     (remhash id org-id-locations)))
-                 org-id-locations)))
-    (dolist (entry (indexed-org-entries))
-      (when (member (indexed-file-name entry) goners)
-        (remhash (indexed-id entry) indexed--id<>entry)
-        (remhash (indexed-title entry) indexed--title<>id)
-        (run-hook-with-args 'indexed-forget-entry-functions entry)))
-    (dolist (goner goners)
-      (remhash goner indexed--file<>data)
-      (remhash goner indexed--file<>entries)
-      (run-hook-with-args 'indexed-forget-file-functions goner))))
-
-;; TODO: Explain why this is separate from above.
-;;       Tried to merge once, realized there was a reason to separate, now
-;;       forgot the reason.
-(defvar indexed-x-last-removed-links nil)
-(defun indexed-x--forget-links-from (dead-ids)
-  "Forget links with :nearby-id matching any of DEAD-IDS.
-Put the forgotten links into `indexed-x-last-removed-links'."
-  (let ((dests-to-update
-         (cl-loop
-          for origin being each hash-key of indexed--origin<>links
-          using (hash-values link-set)
-          when (member origin dead-ids)
-          append (mapcar #'indexed-dest link-set))))
-    (dolist (id dead-ids)
-      (remhash id indexed--origin<>links))
-    (setq indexed-x-last-removed-links nil)
-    (cl-loop
-     for dest being each hash-key of indexed--dest<>links
-     using (hash-values link-set)
-     when (member dest dests-to-update)
-     do (puthash dest
-                 (cl-loop for link in link-set
-                          if (member (indexed-origin link) dead-ids)
-                          do (push link indexed-x-last-removed-links)
-                          else collect link)
-                 indexed--dest<>links))
-    (dolist (link indexed-x-last-removed-links)
-      (run-hook-with-args 'indexed-forget-link-functions link))))
+For downstream use, a list of deleted `org-mem-link' records is put in
+variable `org-mem-x-forgotten-links' until next time.  These are the
+same links that were passed to `org-mem-forget-link-functions'."
+  (setq files (ensure-list files))
+  (when files
+    (dolist (file files)
+      (dolist (entry (org-mem-entries-in-file file))
+        (remhash (org-mem-entry-id entry) org-mem--id<>entry)
+        (remhash (org-mem-entry-title entry) org-mem--title<>id)
+        (remhash (org-mem-entry-internal-id entry)
+                 org-mem--internal-entry-id<>links)
+        (run-hook-with-args 'org-mem-forget-entry-functions entry))
+      (remhash file org-mem--file<>entries)
+      (remhash file org-mem--file<>metadata)
+      (run-hook-with-args 'org-mem-forget-file-functions file))
+    (setq org-mem-x-forgotten-links nil)
+    (maphash (lambda (dest links)
+               (let (reduced-link-set)
+                 (dolist (link links)
+                   (if (member (org-mem-link-file link) files)
+                       (push link org-mem-x-forgotten-links)
+                     (push link reduced-link-set)))
+                 (puthash dest reduced-link-set org-mem--dest<>links)))
+             org-mem--dest<>links)
+    (dolist (link org-mem-x-forgotten-links)
+      (run-hook-with-args 'org-mem-forget-link-functions link))))
 
 
-;;; Helper API for weird situations
+;;; Instant placeholders
 
-(defun indexed-x-ensure-buffer-file-known ()
-  "Ensure file data is in cache right now.
-Use this if you cannot wait for `indexed-updater-mode'
-to pick it up."
+(defun org-mem-x-ensure-buffer-file-known ()
+  "Record basic file metadata if not already known.
+Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
   (require 'org)
   (when (and buffer-file-truename
              (derived-mode-p 'org-mode)
-             (not (gethash buffer-file-truename indexed--file<>data))
+             (not (gethash buffer-file-truename org-mem--file<>metadata))
              (file-exists-p buffer-file-truename))
-    ;; Satisfice w/ incomplete data for now
     (puthash buffer-file-truename
-             (indexed-file-data--make-obj
-              :file-name buffer-file-truename
-              :file-title (org-get-title)
-              ;; :max-lines (line-number-at-pos (point-max)) ;; Slow
-              :max-lines 0
-              :ptmax (point-max)
-              :toplvl-id nil)
-             indexed--file<>data)))
+             (list buffer-file-truename
+                   (file-attributes buffer-file-truename)
+                   (line-number-at-pos (point-max))
+                   (point-max))
+             org-mem--file<>metadata)))
 
-(defun indexed-x-ensure-link-at-point-known (&rest _)
+(defun org-mem-x-ensure-link-at-point-known (&rest _)
+  "Record the link at point.
+Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
   (require 'org)
   (require 'org-element)
   (when (and buffer-file-truename
@@ -227,35 +198,31 @@ to pick it up."
     (when-let* ((el (org-element-context))
                 (dest (org-element-property :path el))
                 (type (org-element-property :type el)))
-      (indexed-x-ensure-buffer-file-known)
-      (indexed--record-link
-       (indexed-org-link--make-obj
-        :nearby-id (org-entry-get-with-inheritance "ID")
+      (org-mem-x-ensure-buffer-file-known)
+      (org-mem--record-link
+       (org-mem-link--make-obj
+        :file buffer-file-truename
         :pos (point)
+        :citation-p nil ;; HACK
         :type type
         :dest dest
-        :file-name buffer-file-truename)))))
+        :nearby-id (org-entry-get-with-inheritance "ID"))))))
 
-(defun indexed-x-ensure-entry-at-point-known ()
+(defun org-mem-x-ensure-entry-at-point-known ()
   "Record the entry at point.
-Use this if you cannot wait for `indexed-updater-mode'
-to pick it up.
-
-Unlike `indexed-x-ensure-buffer-file-known', this will re-record no
-matter what, which is useful in the context that a heading title has
-changed."
+Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
   (require 'org)
   (require 'ol)
   (when (and buffer-file-truename
              (derived-mode-p 'org-mode))
-    (indexed-x-ensure-buffer-file-known)
+    (org-mem-x-ensure-buffer-file-known)
     (let ((id (org-entry-get-with-inheritance "ID"))
           (case-fold-search t))
       (save-excursion
         (without-restriction
           (when id
             (goto-char (point-min))
-            (re-search-forward (concat "^[\t\s]*:id: +" (regexp-quote id))))
+            (re-search-forward (concat "^[ \t]*:id: +" (regexp-quote id))))
           (let ((props (org-entry-properties))
                 (heading (org-get-heading t t t t))
                 (ftitle (org-get-title)))
@@ -265,45 +232,31 @@ changed."
             (when ftitle
               (setq ftitle (org-link-display-format
                             (substring-no-properties ftitle))))
-            (indexed--record-entry
-             (indexed-org-entry--make-obj
+            (org-mem--record-entry
+             (org-mem-entry--make-obj
               :id id
               :title (or heading ftitle)
-              :file-name buffer-file-truename
+              :file buffer-file-truename
               :pos (if heading (org-entry-beginning-position) 1)
               ;; NOTE: Don't use `org-reduced-level' since
-              ;;       indexed-org-parser.el also does not.
-              :heading-lvl (or (org-current-level) 0)
-              :olpath (org-get-outline-path)
+              ;;       org-mem-parser.el also does not.
+              :level (or (org-current-level) 0)
               :lnum (if heading (line-number-at-pos
                                  (org-entry-beginning-position) t)
                       1)
+              ;; HACK
+              :crumbs
+              (cons (list 0 0 0 ftitle nil nil)
+                    (nreverse
+                     (cl-loop for heading in (org-get-outline-path t t)
+                              collect (list 0 0 0 heading nil nil))))
               :priority nil ;; HACK
               :properties props
               :tags-local (org-get-tags nil t)
-              :tags-inherited (indexed-x--tags-at-point-inherited-only)
               :todo-state (when heading (org-get-todo-state))
               :deadline (cdr (assoc "DEADLINE" props))
               :scheduled (cdr (assoc "SCHEDULED" props))))))))))
 
-(defun indexed-x--tags-at-point-inherited-only ()
-  "Like `org-get-tags', but get only the inherited tags."
-  (require 'org)
-  (let ((all-tags (if org-use-tag-inheritance
-                      ;; NOTE: Above option can have complex rules.
-                      ;; This handles them correctly, but it's moot as
-                      ;; `indexed-org-parser--parse-file' does not.
-                      (org-get-tags)
-                    (let ((org-use-tag-inheritance t)
-                          (org-trust-scanner-tags nil))
-                      (org-get-tags)))))
-    (cl-loop for tag in all-tags
-             when (get-text-property 0 'inherited tag)
-             collect (substring-no-properties tag))))
+(provide 'org-mem-x)
 
-(defun indexed-x-snitch-to-org-id ()
-  (declare (obsolete "baked into `indexed-sync-with-org-id'" "2025-03-26")))
-
-(provide 'indexed-x)
-
-;;; indexed-x.el ends here
+;;; org-mem-x.el ends here

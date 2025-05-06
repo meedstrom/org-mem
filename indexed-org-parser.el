@@ -1,4 +1,4 @@
-;;; indexed-org-parser.el --- Gotta go fast -*- lexical-binding: t; -*-
+;;; org-mem-parser.el --- Gotta go fast -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024-2025 Free Software Foundation, Inc.
 ;;
@@ -17,16 +17,10 @@
 
 ;;; Commentary:
 
-;; This file is worker code meant for child processes.  It should load no
-;; libraries at runtime.
+;; This file is worker code meant for child processes.
+;; It should load no libraries at runtime nor enable any major mode.
 
 ;;; Code:
-
-;; TODO: Drop the @ from @citations (needs change in several places)
-
-;; REVIEW: Should all regexp char classes including \n (newline) also include
-;; \r (carriage return)?  Looking at quite a bit of Org code, they don't seem
-;; to bother.  The regexp engine translates anyway in DOS-coded buffers?
 
 (eval-when-compile
   (require 'cl-lib)
@@ -43,13 +37,13 @@
 (defvar $structures-to-ignore) ; TODO: implement
 (defvar $drawers-to-ignore) ; TODO: implement
 
-(defvar indexed-org-parser--found-links nil
+(defvar org-mem-parser--found-links nil
   "Link objects found so far.")
 
-(defvar indexed-org-parser--all-dir-locals nil
+(defvar org-mem-parser--all-dir-locals nil
   "Dir-local variables found so far.")
 
-(defun indexed-org-parser--make-todo-regexp (keywords-string)
+(defun org-mem-parser--make-todo-regexp (keywords-string)
   "Build a regexp from KEYWORDS-STRING.
 KEYWORDS-STRING is expected to be the sort of thing you see after
 a #+todo: or #+seq_todo: or #+typ_todo: setting in an Org file.
@@ -63,8 +57,15 @@ the custom TODO words thus defined."
                (split-string)
                (regexp-opt)))
 
-;; Should we also use equiv of `org-link-escape'?
-(defun indexed-org-parser--org-link-display-format (s)
+(defun org-mem-parser--mk-id (file-name pos)
+  "Reduce FILE-NAME and POS into an `eq'-safe probably-unique fixnum."
+  (+ (string-to-number (substring (secure-hash 'md5 file-name)
+                                  -7)
+                       16)
+     pos))
+
+;; REVIEW: Should we also use an equivalent of `org-link-escape'?
+(defun org-mem-parser--org-link-display-format (s)
   "Copy of `org-link-display-format'.
 Format string S for display - this means replace every link inside S
 with only their description if they have one, and in any case strip the
@@ -76,14 +77,18 @@ brackets."
 
 ;; REVIEW: I wonder what's the most handy way to search on dates/times with
 ;;         SQL?  Do people separate date and time into different columns?  Or
-;;         store as integers and use some SQL function to operate on them?
-(defconst indexed-org-parser--org-ts-regexp0
-  "\\(\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)\\( +[^]+0-9>\r\n -]+\\)?\\( +\\([0-9]\\{1,2\\}\\):\\([0-9]\\{2\\}\\)\\)?\\)")
-(defun indexed-org-parser--stamp-to-iso8601 (s)
-  "Parse first Org timestamp in string S and return ISO8601 string."
+;;         store as numbers and use some SQL functions to compare them?
+;;         Just mirroring the data format of org-roam now.
+
+(defconst org-mem-parser--org-ts-regexp0
+  "\\(\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)\\( +[^]+0-9>\r\n -]+\\)?\\( +\\([0-9]\\{1,2\\}\\):\\([0-9]\\{2\\}\\)\\)?\\)"
+  "Copy of `org-ts-regexp0'.")
+
+(defun org-mem-parser--stamp-to-iso8601 (s)
+  "Parse the first Org timestamp in string S and return as ISO8601."
   (let ((time
          ;; Code from `org-parse-time-string', which claims to be fast.
-         (if (not (string-match indexed-org-parser--org-ts-regexp0 s))
+         (if (not (string-match org-mem-parser--org-ts-regexp0 s))
              (error "Not an Org time string: %s" s)
            (list 0
 	         (cond ((match-beginning 8)
@@ -99,16 +104,16 @@ brackets."
     (when time
       (format-time-string "%FT%H:%M" (encode-time time)))))
 
-(defvar indexed-org-parser--heading-re (rx bol (repeat 1 14 "*") " "))
-(defun indexed-org-parser--next-heading ()
+(defvar org-mem-parser--heading-re (rx bol (repeat 1 14 "*") " "))
+(defun org-mem-parser--next-heading ()
   "Similar to `outline-next-heading'."
   (if (and (bolp) (not (eobp)))
       ;; Prevent matching the same line forever
       (forward-char))
-  (if (re-search-forward indexed-org-parser--heading-re nil 'move)
+  (if (re-search-forward org-mem-parser--heading-re nil 'move)
       (goto-char (pos-bol))))
 
-(defun indexed-org-parser--collect-links-until (end id-here file)
+(defun org-mem-parser--collect-links-until (end id-here file internal-entry-id)
   "From here to buffer position END, look for forward-links.
 
 Argument ID-HERE is the ID of the subtree where this function is being
@@ -117,42 +122,67 @@ none), to be included in each link's metadata.  FILE likewise.
 
 It is important that END does not extend past any sub-heading, as
 the subheading potentially has an ID of its own."
+  ;; (save-restriction
+  ;;   (narrow-to-region (point) end)
+  ;;   ;; TODO: now do this on every link to store its lnum
+  ;;   ;; lets see if that slows our scan with 10k links...
+  ;;    ;; not to metnion new base lnum ~3 times per entry.
+  ;;   (setq LNUM (+ base-lnum -1 (line-number-at-pos))))
+  ;;   But maybe easily solved by more successive save-restrictions, cool
+  ;;   technique to use as a matter of course
   (let ((beg (point))
-        link-type path link-pos)
+        LINK-TYPE PATH LINK-POS)
     ;; Here it may help to know that:
     ;; - `$plain-re' will be morally the same as `org-link-plain-re'
     ;; - `$merged-re' merges the above with `org-link-bracket-re'
     (while (re-search-forward $merged-re end t)
-      ;; Record same position that `org-roam-db-map-links' would
-      (setq link-pos (- (match-end 0) 1))
-      (if (setq path (match-string 1))
+      ;; Record same position that `org-roam-db-map-links' does.
+      (setq LINK-POS (- (match-end 0) 1))
+      (setq PATH (match-string 1))
+      (if PATH
           ;; Link is the [[bracketed]] kind.  Is there an URI: style link
           ;; inside?  Here is the magic that allows links to have spaces, it is
-          ;; not possible with $plain-re alone.
-          (if (string-match $plain-re path)
-              (setq link-type (match-string 1 path)
-                    path (string-trim-left path ".*?:"))
-            ;; Nothing of interest between the brackets
-            (setq link-type nil))
+          ;; not possible with `$plain-re' alone.
+
+          ;; XXX test: new version
+          (if-let* ((colon-pos (string-search ":" PATH))
+                    ;; Bail if first colon is actually double; link is untyped.
+                    (_ (not (eq colon-pos (string-search "::" PATH)))))
+              (setq LINK-TYPE (substring PATH 0 colon-pos)
+                    PATH (substring PATH (1+ colon-pos)))
+            (setq LINK-TYPE nil))
+
+        ;; XXX old known-working version
+        ;; (if (string-match $plain-re PATH)
+        ;;     (setq LINK-TYPE (match-string 1 PATH)
+        ;;           PATH (string-trim-left PATH ".*?:"))
+        ;;   ;; Nothing of interest between the brackets
+        ;;   (setq LINK-TYPE nil))
+
         ;; Link is the unbracketed kind
-        (setq link-type (match-string 3)
-              path (match-string 4)))
-      (when link-type
-        (unless (save-excursion
-                  ;; If point is on a # comment line, skip
-                  (goto-char (pos-bol))
-                  (looking-at-p "[\t\s]*# "))
-          ;; Special case: Org 9.7 `org-id-link-use-context'...
-          (when (and (equal link-type "id"))
-            (let ((chop (string-search "::" path)))
-              (when chop (setq path (substring path 0 chop)))))
-          (push (record 'indexed-org-link
-                        (string-replace "%20" " " path)
-                        file
-                        id-here
-                        link-pos
-                        link-type)
-                indexed-org-parser--found-links))))
+        (setq LINK-TYPE (match-string 3)
+              PATH (match-string 4)))
+
+      (unless (save-excursion
+                ;; If point is in a # comment line, skip
+                (goto-char (pos-bol))
+                (looking-at-p "[\s\t]*# "))
+        ;; Handle a special case opened by Org 9.7 `org-id-link-use-context'
+        (when (and (equal LINK-TYPE "id"))
+          (let ((chop (string-search "::" PATH)))
+            (when chop (setq PATH (substring PATH 0 chop)))))
+        (push (record 'org-mem-link
+                      file
+                      LINK-POS
+                      nil
+                      LINK-TYPE
+                      (string-replace "%20" " " PATH) ; nicety, but will regret
+                      id-here
+                      internal-entry-id)
+              org-mem-parser--found-links)
+        ;; TODO: Fish any org-ref v3 &citekeys out of PATH and make a new link
+        ;;       object for each.  Then stop including &citekeys in below step.
+        ))
 
     ;; Start over and look for @citekeys
     (goto-char beg)
@@ -163,134 +193,140 @@ the subheading potentially has an ID of its own."
             (while (re-search-forward "[&@][!#-+./:<>-@^-`{-~[:word:]-]+"
                                       closing-bracket
                                       t)
-              ;; Record same position that `org-roam-db-map-citations' would
-              (setq link-pos (1+ (match-beginning 0)))
+              ;; Record same position that `org-roam-db-map-citations' does
+              (setq LINK-POS (1+ (match-beginning 0)))
               (if (save-excursion
                     (goto-char (pos-bol))
-                    (looking-at-p "[\t\s]*# "))
+                    (looking-at-p "[\s\t]*# "))
                   ;; On a # comment, skip citation
                   (goto-char closing-bracket)
-                (push (record 'indexed-org-link
-                              ;; Replace & with @
-                              (concat "@" (substring (match-string 0) 1))
+                (push (record 'org-mem-link
                               file
+                              LINK-POS
+                              t
+                              "cite"
+                              (match-string 0)
                               id-here
-                              link-pos
-                              nil)
-                      indexed-org-parser--found-links)))
+                              internal-entry-id)
+                      org-mem-parser--found-links)))
           (error "No closing bracket to [cite:")))))
   (goto-char (or end (point-max))))
 
-(defun indexed-org-parser--collect-properties (beg end)
-  "Collect Org properties between BEG and END into a plist.
+(defun org-mem-parser--collect-properties (beg end)
+  "Collect Org properties between BEG and END into an alist.
 Assumes BEG and END are buffer positions delimiting a region in
 between buffer substrings \":PROPERTIES:\" and \":END:\"."
-  (let (result pos-start pos-eol)
+  (let (result POS-START POS-EOL)
     (goto-char beg)
     (while (< (point) end)
-      (skip-chars-forward "\t\s")
+      (skip-chars-forward "\s\t")
       (unless (looking-at-p ":")
         (error "Possibly malformed property drawer"))
       (forward-char)
-      (setq pos-start (point))
-      (setq pos-eol (pos-eol))
-      (or (search-forward ":" pos-eol t)
-          (error "Possibly malformed property drawer"))
-      (unless (= pos-eol (point))
-        ;; Let's just not collect property lines like
-        ;; :header-args:emacs-lisp+: :results silent :noweb yes :var end=9
-        (when (looking-at-p " ")
-          (push (cons (upcase (buffer-substring pos-start (1- (point))))
-                      (string-trim (buffer-substring (point) pos-eol)))
-                result)))
+      (when (eolp)
+        (error "Possibly malformed property drawer"))
+      (setq POS-START (point))
+      (setq POS-EOL (pos-eol))
+      ;; XXX test
+      ;; Some properties have :MULTIPLE:COLONS:IN:NAME:.
+      (while (progn (or (search-forward ":" POS-EOL t)
+                        (error "Possibly malformed property drawer"))
+                    (not (looking-at-p "[\s\n]"))))
+      (push (cons (upcase (buffer-substring POS-START (1- (point))))
+                  (string-trim (buffer-substring (point) POS-EOL)))
+            result)
       (forward-line 1))
     result))
 
 
 ;;; Main
 
-(defvar indexed-org-parser--buf nil)
-(defun indexed-org-parser--init-buf-and-switch ()
+(defvar org-mem-parser--buf nil)
+(defun org-mem-parser--init-buf-and-switch ()
   "Setup a throwaway buffer in which to work and make it current.
 Also set some variables, including global variables."
-  (switch-to-buffer (get-buffer-create " *indexed-org-parser*" t))
-  (setq indexed-org-parser--buf (current-buffer))
+  (switch-to-buffer (get-buffer-create " *org-mem-parser*" t))
   (setq buffer-read-only t)
   (setq case-fold-search t)
   (setq file-name-handler-alist nil)
   (when $inlinetask-min-level
-    (setq indexed-org-parser--heading-re
+    (setq org-mem-parser--heading-re
           (rx-to-string
-           `(seq bol (repeat 1 ,(1- $inlinetask-min-level) "*") " ")))))
+           `(seq bol (repeat 1 ,(1- $inlinetask-min-level) "*") " "))))
+  (current-buffer))
 
-(defun indexed-org-parser--parse-file (FILE)
+(defun org-mem-parser--parse-file (file)
   "Gather entries, links and other data in FILE."
-  (unless (eq indexed-org-parser--buf (current-buffer))
-    (indexed-org-parser--init-buf-and-switch))
-  (setq indexed-org-parser--found-links nil)
+  (unless (eq org-mem-parser--buf (current-buffer))
+    (setq org-mem-parser--buf (org-mem-parser--init-buf-and-switch)))
+  (setq org-mem-parser--found-links nil)
   (let ((file-todo-option-re
          (rx bol (* space) (or "#+todo: " "#+seq_todo: " "#+typ_todo: ")))
-        missing-file
+        bad-path
         found-entries
         file-data
         problem
-        USE-TAG-INHERITANCE
-        HEADING-POS HERE FAR END ID-HERE ID FILE-ID CRUMBS
-        DRAWER-BEG DRAWER-END
-        TITLE FILE-TITLE LNUM
+        attrs
+        ;; Upcased names change value a lot, so take care to keep correct.
+        ID ID-HERE INTERNAL-ENTRY-ID
+        TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
+        TITLE HEADING-POS LNUM CRUMBS
         TODO-STATE TODO-RE FILE-TODO-SETTINGS
-        TAGS FILE-TAGS HERITABLE-TAGS
-        SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS)
+        SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
+        ;; Arbitrarily-named buffer positions
+        HERE FAR END DRAWER-BEG DRAWER-END)
     (condition-case err
-        (catch 'file-done
-          (when (not (file-readable-p FILE))
-            ;; FILE does not exist, user probably deleted or renamed a file.
-            (setq missing-file FILE)
-            (throw 'file-done t))
-          ;; Skip symlinks, they cause duplicates if the true file is also in
-          ;; the file list.  Note that symlinks should not be treated how we
-          ;; treat missing files.
-          (when (file-symlink-p FILE)
-            (throw 'file-done t))
+        (progn
+          (when (not (file-exists-p file))
+            (setq bad-path file)
+            (signal 'skip-file t))
+          ;; NOTE: Don't declare it bad, that'd delist it from
+          ;;       org-id-locations, which the user may not want.
+          (when (not (file-readable-p file))
+            (error "File not readable"))
+          (when (file-symlink-p file)
+            (setq bad-path file)
+            ;; Uncomment to reveal how many symlinks you actually run into:
+            ;; (error "File is a symlink")
+            (signal 'skip-file t))
           ;; NOTE: Don't use `insert-file-contents-literally'!  It sets
           ;; `coding-system-for-read' to `no-conversion', which results in
-          ;; wrong values for HEADING-POS when the file contains any Unicode.
+          ;; wrong values for HEADING-POS when the file contains any multibyte.
           (let ((inhibit-read-only t))
             (erase-buffer)
-            (insert-file-contents FILE))
+            (insert-file-contents file))
+          (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file 0))
+          (setq TODO-RE $default-todo-re)
+          (setq attrs (file-attributes file))
+          ;; To amend later if we make it to the end.
+          (setq file-data (list file attrs -1 -1))
 
-          ;; Try to apply dir-locals and file-locals that matter to us.
-          (let* ((file-locals (append (hack-local-variables--find-variables)
-                                      (hack-local-variables-prop-line)))
-                 ;; Reimplement `hack-dir-local--get-variables' bc of bugs.
-                 ;; https://github.com/meedstrom/indexed/issues/6
-                 (dir-or-cache (dir-locals-find-file FILE))
-                 (class-vars (dir-locals-get-class-variables
-                              (if (listp dir-or-cache)
-                                  (nth 1 dir-or-cache)
-                                (dir-locals-read-from-dir
-                                 (file-name-directory FILE)))))
-                 (dir-locals
-                  (append (cdr (assq 'org-mode class-vars))
-                          (cdr (assq 'text-mode class-vars))
-                          (cdr (assq nil class-vars)))))
-            ;; REVIEW: Any other relevant variables?
-            (if-let* ((x (or (assq 'org-use-tag-inheritance file-locals)
-                             (assq 'org-use-tag-inheritance dir-locals))))
-                (setq USE-TAG-INHERITANCE (cdr x))
-              (setq USE-TAG-INHERITANCE $use-tag-inheritance)))
+          ;; Apply relevant dir-locals and file-locals.
+          (let* ((dir-or-cache (dir-locals-find-file file))
+                 (dir-class-vars (dir-locals-get-class-variables
+                                  (if (listp dir-or-cache)
+                                      (nth 1 dir-or-cache)
+                                    (dir-locals-read-from-dir
+                                     (file-name-directory file)))))
+                 (locals (append (hack-local-variables--find-variables)
+                                 (hack-local-variables-prop-line)
+                                 (cdr (assq 'org-mode dir-class-vars))
+                                 (cdr (assq 'text-mode dir-class-vars))
+                                 (cdr (assq nil dir-class-vars)))))
+            (let ((x (assq 'org-use-tag-inheritance locals)))
+              (setq USE-TAG-INHERITANCE (if x (cdr x)
+                                          $use-tag-inheritance)))
+            (let ((x (assq 'org-tags-exclude-from-inheritance locals)))
+              (setq NONHERITABLE-TAGS (if x (cdr x)
+                                        $nonheritable-tags))))
 
           (goto-char 1)
-          ;; If the very first line of file is a heading, don't try to scan any
-          ;; file-level front matter.  Our usage of
-          ;; `indexed-org-parser--next-heading' cannot handle that edge-case.
-          (if (looking-at-p "\\*")
-              (progn
-                (setq FILE-ID nil)
-                (setq FILE-TITLE nil)
-                (setq TODO-RE $default-todo-re))
+          ;; If the very first line of file is a heading, don't try to scan
+          ;; content before it.  Our usage of `org-mem-parser--next-heading'
+          ;; cannot handle that edge-case.
+          (unless (looking-at-p "\\*")
             ;; Narrow until first heading
-            (when (indexed-org-parser--next-heading)
+            (when (org-mem-parser--next-heading)
               (narrow-to-region 1 (point))
               (goto-char 1))
             ;; Rough equivalent of `org-end-of-meta-data' for the file
@@ -301,18 +337,18 @@ Also set some variables, including global variables."
                         (point-max)))
             (goto-char 1)
             (setq PROPS
-                  (if (re-search-forward "^[\t\s]*:properties:" FAR t)
+                  (if (re-search-forward "^[\s\t]*:PROPERTIES:" FAR t)
                       (progn
                         (forward-line 1)
-                        (indexed-org-parser--collect-properties
+                        (org-mem-parser--collect-properties
                          (point)
-                         (if (re-search-forward "^[\t\s]*:end:" FAR t)
+                         (if (re-search-forward "^[\s\t]*:END:" FAR t)
                              (pos-bol)
                            (error "Couldn't find :END: of drawer"))))
                     nil))
             (setq HERE (point))
-            (setq FILE-TAGS
-                  (if (re-search-forward "^#\\+filetags: " FAR t)
+            (setq TAGS
+                  (if (re-search-forward "^#\\+FILETAGS: " FAR t)
                       (split-string
                        (buffer-substring (point) (pos-eol))
                        ":" t)
@@ -328,75 +364,65 @@ Also set some variables, including global variables."
                                        FILE-TODO-SETTINGS)
                                  (re-search-forward
                                   file-todo-option-re FAR t)))
-                        (indexed-org-parser--make-todo-regexp
+                        (org-mem-parser--make-todo-regexp
                          (string-join FILE-TODO-SETTINGS " ")))
                     $default-todo-re))
             (goto-char HERE)
-            (setq FILE-TITLE (when (re-search-forward "^#\\+title: +" FAR t)
-                               (string-trim-right
-                                (indexed-org-parser--org-link-display-format
-                                 (buffer-substring (point) (pos-eol))))))
-            (setq FILE-ID (cdr (assoc "ID" PROPS)))
+            (setq TITLE (when (re-search-forward "^#\\+TITLE: +" FAR t)
+                          (string-trim-right
+                           (org-mem-parser--org-link-display-format
+                            (buffer-substring (point) (pos-eol))))))
+            (setq ID (cdr (assoc "ID" PROPS)))
             (goto-char HERE)
             ;; Don't count org-super-links backlinks as forward links
             ;; TODO: Rewrite more readably
-            (if (re-search-forward "^[	 ]*:BACKLINKS:" nil t)
+            (if (re-search-forward "^[\s\t]*:BACKLINKS:" nil t)
                 (progn
                   (setq END (point))
-                  (unless (search-forward ":end:" nil t)
+                  (unless (search-forward ":END:" nil t)
                     (error "Couldn't find :END: of drawer"))
                   ;; Collect from end of backlinks drawer to first heading
-                  (indexed-org-parser--collect-links-until nil FILE-ID FILE))
+                  (org-mem-parser--collect-links-until nil ID file INTERNAL-ENTRY-ID))
               (setq END (point-max)))
             (goto-char HERE)
-            (indexed-org-parser--collect-links-until END FILE-ID FILE)
-            (push (record 'indexed-org-entry
-                          nil
-                          nil
-                          FILE
-                          0
-                          FILE-ID
-                          1
-                          nil
-                          1
-                          nil
-                          PROPS
-                          nil
-                          nil
-                          FILE-TAGS
-                          (or FILE-TITLE (file-name-nondirectory FILE))
-                          nil)
-                  found-entries)
+            (org-mem-parser--collect-links-until END ID file INTERNAL-ENTRY-ID)
             (goto-char (point-max))
             ;; We should now be at the first heading
             (widen))
+          (push (record 'org-mem-entry
+                        file
+                        1
+                        1
+                        TITLE
+                        0
+                        ID
+                        nil
+                        nil
+                        nil
+                        nil
+                        PROPS
+                        nil
+                        TAGS
+                        nil
+                        INTERNAL-ENTRY-ID)
+                found-entries)
 
-          (setq file-data
-                (record 'indexed-file-data
-                        FILE
-                        FILE-TITLE
-                        -1 ;; to amend at the end
-                        (ceiling (float-time
-                                  (file-attribute-modification-time
-                                   (file-attributes FILE))))
-                        -1 ;; to amend at the end
-                        FILE-ID))
-
-          ;; Prep
-          (setq LNUM (line-number-at-pos))
-          (setq CRUMBS nil)
-          (setq FILE-TAGS (and USE-TAG-INHERITANCE
-                               (cl-loop for tag in FILE-TAGS
-                                        unless (member tag $nonheritable-tags)
-                                        collect tag)))
+          (let ((heritable-tags
+                 (and USE-TAG-INHERITANCE
+                      (cl-loop for tag in TAGS
+                               unless (member tag NONHERITABLE-TAGS)
+                               collect tag))))
+            (push (list 0 1 1 TITLE ID heritable-tags)
+                  CRUMBS))
 
           ;; Loop over the file's headings
+          (setq LNUM (line-number-at-pos))
           (while (not (eobp))
             (catch 'entry-done
               ;; Narrow til next heading
               (narrow-to-region (point)
                                 (save-excursion
-                                  (or (indexed-org-parser--next-heading)
+                                  (or (org-mem-parser--next-heading)
                                       (point-max))))
               (setq HEADING-POS (point))
               (setq LEVEL (skip-chars-forward "*"))
@@ -426,11 +452,11 @@ Also set some variables, including global variables."
                     (goto-char (match-beginning 0))
                     (setq TAGS (split-string (match-string 0) ":" t " *"))
                     (setq TITLE (string-trim-right
-                                 (indexed-org-parser--org-link-display-format
+                                 (org-mem-parser--org-link-display-format
                                   (buffer-substring HERE (point))))))
                 (setq TAGS nil)
                 (setq TITLE (string-trim-right
-                             (indexed-org-parser--org-link-display-format
+                             (org-mem-parser--org-link-display-format
                               (buffer-substring HERE (pos-eol))))))
               ;; REVIEW: This is possibly overkill, and could be
               ;;         written in a way easier to follow.
@@ -441,27 +467,27 @@ Also set some variables, including global variables."
               (setq HERE (point))
               (setq FAR (pos-eol))
               (setq SCHED
-                    (if (re-search-forward "[\t\s]*SCHEDULED: +" FAR t)
+                    (if (re-search-forward "[\s\t]*SCHEDULED: +" FAR t)
                         (prog1
-                            (indexed-org-parser--stamp-to-iso8601
+                            (org-mem-parser--stamp-to-iso8601
                              (buffer-substring
                               (point)
                               (+ (point) (skip-chars-forward "^]>\n"))))
                           (goto-char HERE))
                       nil))
               (setq DEADLINE
-                    (if (re-search-forward "[\t\s]*DEADLINE: +" FAR t)
+                    (if (re-search-forward "[\s\t]*DEADLINE: +" FAR t)
                         (prog1
-                            (indexed-org-parser--stamp-to-iso8601
+                            (org-mem-parser--stamp-to-iso8601
                              (buffer-substring
                               (point)
                               (+ (point) (skip-chars-forward "^]>\n"))))
                           (goto-char HERE))
                       nil))
               (setq CLOSED
-                    (if (re-search-forward "[\t\s]*CLOSED: +" FAR t)
+                    (if (re-search-forward "[\s\t]*CLOSED: +" FAR t)
                         (prog1
-                            (indexed-org-parser--stamp-to-iso8601
+                            (org-mem-parser--stamp-to-iso8601
                              (buffer-substring
                               (point)
                               (+ (point) (skip-chars-forward "^]>\n"))))
@@ -472,109 +498,105 @@ Also set some variables, including global variables."
                 ;; :PROPERTIES: are not on this line but the next.
                 (forward-line 1)
                 (setq FAR (pos-eol)))
-              (skip-chars-forward "\t\s")
+              (skip-chars-forward "\s\t")
               (setq PROPS
-                    (if (looking-at-p ":properties:")
+                    (if (looking-at-p ":PROPERTIES:")
                         (progn
                           (forward-line 1)
-                          (indexed-org-parser--collect-properties
+                          (org-mem-parser--collect-properties
                            (point)
-                           (if (re-search-forward "^[\t\s]*:end:" nil t)
+                           (if (re-search-forward "^[\s\t]*:END:" nil t)
                                (pos-bol)
                              (error "Couldn't find :END: of drawer"))))
                       nil))
               (setq ID (cdr (assoc "ID" PROPS)))
-              (setq HERITABLE-TAGS
-                    (and USE-TAG-INHERITANCE
-                         (cl-loop for tag in TAGS
-                                  unless (member tag $nonheritable-tags)
-                                  collect tag)))
-              ;; CRUMBS is a list that can look like
-              ;;    ((3 "Heading" "id1234" ("noexport" "work" "urgent"))
-              ;;     (2 "Another heading" "id6532" ("work"))
+              (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
+              ;; TODO: Document this elsewhere
+              ;; CRUMBS is a kind of state machine; a list that can look like
+              ;;    ((3 23 500 "Heading" "id1234" ("noexport" "work" "urgent"))
+              ;;     (2 10 122 "Another heading" "id6532" ("work"))
               ;;     (... ... ... ...))
-              ;; if the previous heading looked like
+              ;; if the previous heading (on line 23, char 500) looked like
               ;;    *** Heading  :noexport:work:urgent:
               ;;       :PROPERTIES:
               ;;       :ID: id1234
               ;;       :END:
               ;; It lets us track context so we know the outline path to the
               ;; current entry and what tags it should be able to inherit.
-              ;; Update the list.
-              (cl-loop until (> LEVEL (or (caar CRUMBS) 0))
-                       do (pop CRUMBS)
-                       finally do
-                       (push (list LEVEL TITLE ID HERITABLE-TAGS)
-                             CRUMBS))
-              (push (record 'indexed-org-entry
-                            CLOSED
-                            DEADLINE
-                            FILE
+              (let ((heritable-tags
+                     (and USE-TAG-INHERITANCE
+                          (cl-loop for tag in TAGS
+                                   unless (member tag NONHERITABLE-TAGS)
+                                   collect tag))))
+                (cl-loop until (> LEVEL (caar CRUMBS)) do (pop CRUMBS))
+                (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags)
+                      CRUMBS))
+              (push (record 'org-mem-entry
+                            file
+                            LNUM
+                            HEADING-POS
+                            TITLE
                             LEVEL
                             ID
-                            LNUM
-                            (nreverse (mapcar #'cadr (cdr CRUMBS)))
-                            HEADING-POS
+                            CLOSED
+                            CRUMBS
+                            DEADLINE
                             PRIORITY
                             PROPS
                             SCHED
-                            (delete-dups
-                             (apply #'append
-                                    FILE-TAGS
-                                    (mapcar #'cadddr (cdr CRUMBS))))
                             TAGS
-                            TITLE
-                            TODO-STATE)
+                            TODO-STATE
+                            INTERNAL-ENTRY-ID)
                     found-entries)
 
               ;; Heading and properties analyzed, now seek links in entry text.
 
               (setq ID-HERE
-                    (or ID
-                        (cl-loop for crumb in CRUMBS thereis (caddr crumb))
-                        FILE-ID
+                    (or (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb))
                         (throw 'entry-done t)))
               (setq HERE (point))
               ;; Ignore backlinks drawer, it would lead to double-counting.
-              ;; TODO: Generalize this mechanism, use configurable lists
+              ;; TODO: Generalize this mechanism to use configurable lists
               ;;       `$structures-to-ignore' and `$drawers-to-ignore'.
-              ;;       Maybe use `org-node--map-matches-skip-some-regions'.
-              (setq DRAWER-BEG (re-search-forward "^[	 ]*:BACKLINKS:" nil t))
+              ;;       Maybe via `org-node--map-matches-skip-some-regions'.
+              (setq DRAWER-BEG (re-search-forward "^[\s\t]*:BACKLINKS:" nil t))
               (setq DRAWER-END
                     (and DRAWER-BEG
-                         (or (search-forward ":end:" nil t)
+                         (or (search-forward ":END:" nil t)
                              (error "Couldn't find :END: of drawer"))))
 
               ;; Collect links inside the heading
               (goto-char HEADING-POS)
-              (indexed-org-parser--collect-links-until (pos-eol) ID-HERE FILE)
+              (org-mem-parser--collect-links-until (pos-eol) ID-HERE file INTERNAL-ENTRY-ID)
               ;; Collect links between property drawer and backlinks drawer
               (goto-char HERE)
               (when DRAWER-BEG
-                (indexed-org-parser--collect-links-until DRAWER-BEG ID-HERE FILE))
+                (org-mem-parser--collect-links-until DRAWER-BEG ID-HERE file INTERNAL-ENTRY-ID))
               ;; Collect links until next heading
               (goto-char (or DRAWER-END HERE))
-              (indexed-org-parser--collect-links-until (point-max) ID-HERE FILE))
+              (org-mem-parser--collect-links-until (point-max) ID-HERE file INTERNAL-ENTRY-ID))
+
             (goto-char (point-max))
-            ;; NOTE: Famously slow `line-number-at-pos' is fast inside narrow.
+            ;; NOTE: Famously slow `line-number-at-pos' is fast in narrow.
             (setq LNUM (+ LNUM -1 (line-number-at-pos)))
             (widen))
 
           ;; Done analyzing this file.
           (cl-assert (eobp))
-          (aset file-data 3 LNUM)
-          (aset file-data 5 (point)))
+          (setq file-data (list file attrs LNUM (point))))
 
-      ;; Don't crash on error signal, just report it and move on to next file.
-      (( t error )
-       (setq problem (list (format-time-string "%H:%M") FILE (point) err))))
+      ;; Don't crash on error signal, just report and move on to next file.
+      (( error )
+       (setq problem (list (format-time-string "%H:%M") file (point) err)))
+      ;; Catch fake `skip-file' signal and report nothing.
+      (t))
 
-    (list (if missing-file (list missing-file))
+    (list (if bad-path (list bad-path))
           (if file-data (list file-data))
           found-entries
-          indexed-org-parser--found-links
+          org-mem-parser--found-links
           (if problem (list problem)))))
 
-(provide 'indexed-org-parser)
+(provide 'org-mem-parser)
 
-;;; indexed-org-parser.el ends here
+;;; org-mem-parser.el ends here

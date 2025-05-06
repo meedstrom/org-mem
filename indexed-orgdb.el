@@ -1,4 +1,4 @@
-;;; indexed-orgdb.el --- Our own SQL database -*- lexical-binding: t; -*-
+;;; org-mem-db1.el --- Our own SQL database -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Free Software Foundation, Inc.
 
@@ -21,14 +21,17 @@
 ;; decides for theirs.
 
 ;; Notable differences:
+
 ;; - Probably not usable by EmacSQL.
 ;;   - Made with built-in `sqlite-select' in mind.
-;; - In cases where we want to store a Lisp list literally (as of 2025-03-20,
-;;   that's only the `indexed-olpath'), we use `prin1', but we do not `prin1'
-;;   things that are already strings.
+
+;; - In cases where we want to store a Lisp list literally, we use `prin1',
+;;   but we do not `prin1' things that are already strings.
 ;;   - That means you don't have to contend with backslash-escaped quote
 ;;     characters.
+
 ;; - New table "properties".
+
 ;; - No "refs" or "aliases" tables.
 
 ;;; Code:
@@ -36,65 +39,65 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sqlite)
-(require 'indexed)
+(require 'org-mem)
 
-(defvar indexed-orgdb--connection nil
+(defvar org-mem-db1--connection nil
   "A SQLite handle.")
 
-(defun indexed-orgdb--re-make-db (&rest _)
-  "Close current `indexed-orgdb--connection' and populate a new one."
-  (ignore-errors (sqlite-close indexed-orgdb--connection))
-  (indexed-orgdb))
+(defun org-mem-db1--re-make-db (&rest _)
+  "Close current `org-mem-db1--connection' and populate a new one."
+  (ignore-errors (sqlite-close org-mem-db1--connection))
+  (org-mem-db1))
 
 ;;;###autoload
-(define-minor-mode indexed-orgdb-mode
-  "Make available the `indexed-orgdb' database."
+(define-minor-mode org-mem-db1-mode
+  "Make available the `org-mem-db1' database."
   :global t
-  :group 'indexed
-  (if indexed-orgdb-mode
+  :group 'org-mem
+  (if org-mem-db1-mode
       (progn
         (add-hook
-         'indexed-post-full-reset-functions #'indexed-orgdb--re-make-db)
+         'org-mem-post-full-scan-functions #'org-mem-db1--re-make-db)
         ;; (add-hook
-        ;;  'indexed-post-incremental-update-functions #'indexed-orgdb--update-db)
-        (indexed--scan-full))
+        ;;  'org-mem-post-targeted-scan-functions #'org-mem-db1--update-db)
+        (org-mem--scan-full))
     (remove-hook
-     'indexed-post-full-reset-functions #'indexed-orgdb--re-make-db)
+     'org-mem-post-full-scan-functions #'org-mem-db1--re-make-db)
     ;; (remove-hook
-    ;;  'indexed-post-incremental-update-functions #'indexed-orgdb--update-db)
+    ;;  'org-mem-post-targeted-scan-functions #'org-mem-db1--update-db)
     ))
 
 
 ;;; Database
 
 ;;;###autoload
-(defun indexed-orgdb (&optional sql &rest args)
+(defun org-mem-db1 (&optional sql &rest args)
   "Return the SQLite handle.
 Each call checks if it is alive, and renews if not.
 
 If arguments SQL and ARGS provided, pass to `sqlite-select'."
-  (unless indexed-orgdb-mode
-    (error "Enable `indexed-orgdb-mode' to use `indexed-orgdb'"))
-  (or (ignore-errors (sqlite-pragma indexed-orgdb--connection "im_still_here"))
-      (setq indexed-orgdb--connection (indexed-orgdb--open-new-db)))
+  (unless org-mem-db1-mode
+    (error "Enable `org-mem-db1-mode' to use `org-mem-db1'"))
+  (or (ignore-errors (sqlite-pragma org-mem-db1--connection "im_still_here"))
+      (setq org-mem-db1--connection (org-mem-db1--open-new-db)))
   (if sql
-      (sqlite-select indexed-orgdb--connection sql args)
-    indexed-orgdb--connection))
+      (sqlite-select org-mem-db1--connection sql args)
+    org-mem-db1--connection))
 
-(defun indexed-orgdb--open-new-db (&optional loc)
+(defun org-mem-db1--open-new-db (&optional loc)
   "Generate a new database and return a connection-handle to it.
 Create tables and pre-populate them with data.
 
 Normally, this creates a diskless database.  With optional file path
 LOC, write the database as a file to LOC."
   (let ((T (current-time))
-        (name (or loc "indexed-orgdb DB"))
+        (name (or loc "org-mem-db1 DB"))
         (db (sqlite-open loc)))
-    (indexed-orgdb--configure db)
-    (indexed-orgdb--populate db (indexed-orgdb--mk-rows))
-    (when indexed--next-message
-      (setq indexed--next-message
-            (concat indexed--next-message
+    (org-mem-db1--configure db)
+    (org-mem-db1--populate db (org-mem-db1--mk-rows))
+    (when org-mem--next-message
+      (setq org-mem--next-message
+            (concat org-mem--next-message
                     (format " +%.2fs writing %s"
                             (float-time (time-since T)) name))))
     db))
@@ -102,11 +105,11 @@ LOC, write the database as a file to LOC."
 ;; This needs more eyes, very sure the schemata can be much better designed
 ;; than this.
 
-;; One thing I got in pipeline is auto-creating tables for each Org
+;; One thing in pipeline is auto-creating tables for each Org
 ;; property discovered, so we'd automatically get equivalents of org-roam's
 ;; aliases and refs tables, for example.
 
-(defun indexed-orgdb--configure (db)
+(defun org-mem-db1--configure (db)
   "Set up tables, schemata and PRAGMA settings in DB."
   (sqlite-execute db "PRAGMA user_version = 1;")
   (sqlite-execute db "PRAGMA foreign_keys = on;")
@@ -171,7 +174,7 @@ LOC, write the database as a file to LOC."
   db)
 
 ;; This whole macro smells, but performs better than serial inserts
-(defmacro indexed-orgdb--insert-en-masse (db table-sym n-cols)
+(defmacro org-mem-db1--insert-en-masse (db table-sym n-cols)
   "Insert into DB the values of list named TABLE-SYM.
 Assume there exists a table of same name in DB.
 
@@ -188,22 +191,22 @@ TABLE-SYM must be a list of lists of exactly N-COLS items."
                                ", "))
           (apply #'nconc ,table-sym)))))
 
-(defun indexed-orgdb--populate (db row-sets)
-  "Populate DB with ROW-SETS, an output of `indexed-orgdb--mk-rows'."
+(defun org-mem-db1--populate (db row-sets)
+  "Populate DB with ROW-SETS, an output of `org-mem-db1--mk-rows'."
   (seq-let (files entries citations tags links properties) row-sets
     (with-sqlite-transaction db
-      (indexed-orgdb--insert-en-masse db files 6)
-      (indexed-orgdb--insert-en-masse db entries 10)
-      (indexed-orgdb--insert-en-masse db citations 4)
-      (indexed-orgdb--insert-en-masse db tags 2)
-      (indexed-orgdb--insert-en-masse db links 5)
-      (indexed-orgdb--insert-en-masse db properties 3))))
+      (org-mem-db1--insert-en-masse db files 6)
+      (org-mem-db1--insert-en-masse db entries 10)
+      (org-mem-db1--insert-en-masse db citations 4)
+      (org-mem-db1--insert-en-masse db tags 2)
+      (org-mem-db1--insert-en-masse db links 5)
+      (org-mem-db1--insert-en-masse db properties 3))))
 
-(defun indexed-orgdb--mk-rows (&optional specific-files)
-  "Return rows of data suitable for inserting into `indexed-orgdb' DB.
+(defun org-mem-db1--mk-rows (&optional specific-files)
+  "Return rows of data suitable for inserting into `org-mem-db1' DB.
 
 Specifically, return seven lists of rows, one for each SQL table
-defined by `indexed-orgdb--configure'.
+defined by `org-mem-db1--configure'.
 
 With SPECIFIC-FILES, only return data that involves those files."
   (let (file-rows
@@ -215,45 +218,46 @@ With SPECIFIC-FILES, only return data that involves those files."
 
     (cl-loop
      with seen-files = (make-hash-table :test 'equal)
-     for entry in (indexed-org-id-nodes)
-     as file = (indexed-file-name entry)
-     as id = (indexed-id entry)
+     for entry in (org-mem-all-id-nodes)
+     as file = (org-mem-entry-file entry)
+     as id = (org-mem-entry-id entry)
      when (or (not specific-files) (member file specific-files))
      do (progn
           (unless (gethash file seen-files)
             (puthash file t seen-files)
-            (push (indexed-orgdb--mk-file-row file) file-rows))
-          (cl-loop for tag in (indexed-tags entry) do
+            (push (org-mem-db1--mk-file-row file) file-rows))
+          (cl-loop for tag in (org-mem-entry-tags entry) do
                    (push (list id tag) tag-rows))
           (push (list id
-                      (indexed-file-name entry)
-                      (indexed-heading-lvl entry)
-                      (indexed-pos entry)
-                      (indexed-todo-state entry)
-                      (indexed-priority entry)
-                      (indexed-scheduled entry)
-                      (indexed-deadline entry)
-                      (indexed-title entry)
-                      (prin1-to-string (indexed-olpath entry) nil '((length))))
+                      (org-mem-entry-file entry)
+                      (org-mem-entry-level entry)
+                      (org-mem-entry-pos entry)
+                      (org-mem-entry-todo-state entry)
+                      (org-mem-entry-priority entry)
+                      (org-mem-entry-scheduled entry)
+                      (org-mem-entry-deadline entry)
+                      (org-mem-entry-title entry)
+                      (prin1-to-string (org-mem-entry-olpath entry) nil '((length))))
                 entry-rows)
-          (cl-loop for (prop . val) in (indexed-properties entry)
+          (cl-loop for (prop . val) in (org-mem-entry-properties entry)
                    do (push (list id prop val) prop-rows))))
     
-    (cl-loop for link in (indexed-org-links)
-             as file = (indexed-org-link-file-name link)
-             when (or (not specific-files) (member file specific-files))
-             do (if (indexed-type link)
-                    (push (list (indexed-pos link)
-                                (indexed-nearby-id link)
-                                (indexed-dest link)
-                                (indexed-type link)
-                                file)
+    (cl-loop for link in (org-mem-all-links)
+             as file-name = (org-mem-link-file link)
+             when (or (not specific-files)
+                      (member file-name specific-files))
+             do (if (org-mem-link-type link)
+                    (push (list (org-mem-link-pos link)
+                                (org-mem-link-nearby-id link)
+                                (org-mem-link-dest link)
+                                (org-mem-link-type link)
+                                file-name)
                           link-rows)
-                  (when (indexed-nearby-id link)
-                    (push (list (indexed-nearby-id link)
-                                (substring (indexed-dest link) 1)
-                                (indexed-pos link)
-                                file)
+                  (when (org-mem-link-nearby-id link)
+                    (push (list (org-mem-link-nearby-id link)
+                                (substring (org-mem-link-dest link) 1)
+                                (org-mem-link-pos link)
+                                file-name)
                           citation-rows))))
 
     (list file-rows
@@ -263,16 +267,15 @@ With SPECIFIC-FILES, only return data that involves those files."
           link-rows
           prop-rows)))
 
-(defun indexed-orgdb--mk-file-row (file)
-  "Return a row representing FILE for the files-table."
-  (let ((data (indexed-file-data file)))
-    (list file
-          (indexed-file-data-file-title data)
-          (indexed-file-data-max-lines data)
-          (indexed-file-data-mtime data)
-          (indexed-file-data-ptmax data)
-          (indexed-file-data-toplvl-id data))))
+(defun org-mem-db1--mk-file-row (file)
+  "Return a row of meta-data about FILE, for the files-table."
+  (list file
+        (org-mem-file-title-strict file)
+        (org-mem-file-line-count file)
+        (org-mem-file-mtime-int file)
+        (org-mem-file-ptmax file)
+        (org-mem-file-id-strict file)))
 
-(provide 'indexed-orgdb)
+(provide 'org-mem-db1)
 
-;;; indexed-orgdb.el ends here
+;;; org-mem-db1.el ends here

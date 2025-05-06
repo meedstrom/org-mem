@@ -1,4 +1,4 @@
-;;; indexed-test.el ---  -*- lexical-binding: t; -*-
+;;; org-mem-test.el ---  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Free Software Foundation, Inc.
 
@@ -19,16 +19,16 @@
 (require 'seq)
 (require 'find-func)
 (require 'llama)
-(require 'indexed)
-(require 'indexed-roam)
-(require 'indexed-x)
+(require 'org-mem)
+(require 'org-mem-roamy)
+(require 'org-mem-x)
 
 ;; FIXME
 (ert-deftest test-split-refs-field ()
   (let ((result
-         (with-current-buffer (setq indexed-roam--work-buf
-                                    (get-buffer-create " *indexed-roam*" t))
-           (indexed-roam-split-refs-field
+         (with-current-buffer (setq org-mem-roamy--work-buf
+                                    (get-buffer-create " *org-mem-roamy*" t))
+           (org-mem--split-roam-refs-field
             (concat " \"[cite:@citekey abcd ; @citekey2 cdefgh;@citekey3]\""
                     " \"[[citep:&citekey4 abcd ; &citekey5 cdefgh;&citekey6]]\""
                     " \"[[https://gnu.org/A Link With Spaces/index2.htm]]\""
@@ -46,12 +46,12 @@
                         "//gnu.org/A Link With Spaces/index2.htm"
                         "//gnu.org")))
     (should (equal "https" (cdr (assoc "//gnu.org/A Link With Spaces/index.htm"
-                                       indexed-roam--ref<>type))))
+                                       org-mem--roam-ref<>type))))
     (should (equal "https" (cdr (assoc "//gnu.org"
-                                       indexed-roam--ref<>type))))
+                                       org-mem--roam-ref<>type))))
     (should (equal nil (cdr (assoc "@citekey"
-                                   indexed-roam--ref<>type))))
+                                   org-mem--roam-ref<>type))))
     (should (equal nil (cdr (assoc "citekey"
-                                   indexed-roam--ref<>type))))))
+                                   org-mem--roam-ref<>type))))))
 
-;;; indexed-test.el ends here
+;;; org-mem-test.el ends here

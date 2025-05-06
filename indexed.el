@@ -1,4 +1,4 @@
-;;; indexed.el --- Cache metadata on all Org files -*- lexical-binding: t; -*-
+;;; org-mem.el --- Fast info from a large number of Org file contents -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Free Software Foundation, Inc.
 
@@ -19,113 +19,116 @@
 ;; URL:      https://github.com/meedstrom/org-node
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.6.3
-;; Package-Requires: ((emacs "29.1") (el-job "2.4.2") (emacsql "4.2.0") (llama "0.5.0"))
+;; Package-Version: 0.6.3.50-git
+;; Package-Requires: ((emacs "29.1") (el-job "2.4.2") (llama "0.5.0"))
 
 ;;; Commentary:
 
-;; An efficient cache of metadata about all your Org files.
+;; A cache of metadata about the structure of all your Org files - headings,
+;; links and so on.
 
-;; Builds fast.
+;; Builds quickly, so that there is no need to persist data
+;; across sessions.
 
-;; Provides two APIs:
-;;  - regular elisp accessors such as `indexed-olpath', `indexed-pos' etc
-;;  - an in-memory SQLite database that mimics the org-roam database
+;; Provides two independent APIs:
+
+;;  - Emacs Lisp: regularly named accessors such as `org-mem-entry-olpath',
+;;                `org-mem-link-pos', `org-mem-all-id-nodes' etc
+
+;;  - SQL: an in-memory SQLite database that can be queried like
+;;         (emacsql (org-mem-roamy-db) [:select * :from links])
 
 ;;; Code:
-
-;; TODO: Awareness of CUSTOM_ID, not just ID
-
-;; TODO: Collect links even if there is no nearby-id (aka "origin"),
-;;       bc file + pos can still locate it.
-
-;; TODO: Collect internal Org [[links]] without type: prefix?  Would have to
-;;       distinguish them from citations, which we currently encode as link
-;;       objects with TYPE nil.
-
-;; TODO: Replace olpath in the struct with a list CRUMBS with more info,
-;;       then calc olpath like
-;; (defun indexed-olpath (entry)
-;;   (mapcar #'caddr (indexed-crumbs entry)))
-
-;; TODO: Collect clocks so you can check for dangling clocks at init
-;;       without slowing down init
 
 (require 'cl-lib)
 (require 'subr-x)
 (require 'seq)
-(require 'indexed-org-parser)
+(require 'llama)
 (require 'el-job)
+(require 'org-mem-parser)
 
 (defvar org-id-locations)
 (defvar org-id-track-globally)
 (defvar org-id-locations-file)
 (defvar org-id-extra-files)
-(defvar indexed-x--timer)
-(defvar indexed-roam-mode)
-(defvar indexed-roam--ref<>id)
+(defvar org-mem-x--timer)
+(defvar org-mem-roamy-db-mode)
 (declare-function org-id-locations-load "org-id")
 (declare-function org-id-alist-to-hash "org-id")
-(declare-function indexed-x-ensure-link-at-point-known "indexed-x")
-(declare-function indexed-x--handle-save "indexed-x")
-(declare-function indexed-x--handle-rename "indexed-x")
-(declare-function indexed-x--handle-delete "indexed-x")
-(declare-function indexed-x--activate-timer "indexed-x")
+(declare-function org-id-hash-to-alist "org-id")
+(declare-function org-mem-x-ensure-link-at-point-known "org-mem-x")
+(declare-function org-mem-x--handle-save "org-mem-x")
+(declare-function org-mem-x--handle-rename "org-mem-x")
+(declare-function org-mem-x--handle-delete "org-mem-x")
+(declare-function org-mem-x--activate-timer "org-mem-x")
 (declare-function tramp-tramp-file-p "tramp")
-(define-obsolete-variable-alias
-  'indexed-check-org-id-locations
-  'indexed-sync-with-org-id "2025-03-26")
 
-(defgroup indexed nil "Cache metadata on all Org files."
+;; REVIEW: I wonder if we should mass-rename all uses of "dest" to "path"?  Or
+;;         "target"?  If we ever cache link descriptions and shorten them to
+;;         "desc", it'll get confusing...
+;;         Bonus with "target" is it's a full word!
+;;         Any drawback?
+
+(defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'text)
 
-(defcustom indexed-warn-title-collisions t
-  "Whether to print message when two org-ID nodes have the same title."
+(defcustom org-mem-do-warn-title-collisions t
+  "Whether to print a message when two ID-nodes have the same title.
+
+To check manually, type \\[org-mem-list-title-collisions]."
   :type 'boolean
-  :package-version '(indexed . "0.2.0"))
+  :package-version '(org-mem . "0.2.0"))
 
-(defcustom indexed-seek-link-types
-  '("http" "https" "id")
-  "Performance knob.
-Users of org-ref would extend this to ~70 types, which may double
-or triple the time it takes to run `indexed-reset'."
-  :type '(repeat string)
-  :package-version '(indexed . "0.2.0"))
+(defcustom org-mem-do-sync-with-org-id nil
+  "Whether to exchange data with `org-id-locations'.
 
-(defcustom indexed-org-dirs nil
-  "List of directories to index.
+Benefits:
+- Org-mem gets to know about files outside `org-mem-watch-dirs', so long
+  as they contain some ID and can thus be found in `org-id-locations'.
+- Help ensure that ID-links to somewhere inside `org-mem-watch-dirs'
+  always work, so they never trigger a fallback attempt to run
+  `org-id-update-id-locations' when clicked, which can take a while.
+
+No effect until after Org has loaded.
+Only updates `org-id-locations', never runs `org-id-locations-save'."
+  :type 'boolean
+  :package-version '(org-mem . "0.6.0"))
+
+(defcustom org-mem-watch-dirs nil
+  "List of directories in which to look for Org files.
 Each directory is checked recursively \(looking in subdirectories,
-sub-subdirectories etc\) for files that end in \".org\".
+sub-subdirectories etc\).
 
 Exceptions:
 
 - Subdirectories starting with underscore or dot, such as \".emacs.d\".
   To check such a directory, add its full path explicitly.
 - Subdirectories that are symlinks.
-- Anything matching `indexed-org-dirs-exclude'.
+- Anything matching `org-mem-watch-dirs-exclude'.
 
-Can left at nil if `indexed-sync-with-org-id' is t.
+Can be left at nil, if `org-mem-do-sync-with-org-id' is t.
 Benefits of configuring it anyway:
 
 - Awareness of files that contain no ID at all.
-- Notice when files are missing or renamed in these directories.
-  - Particularly useful if this Emacs session is not the only thing that
-    edits the files.
-- Avert many situations that trigger `org-id-update-id-locations'."
+- React when new files appear in these directories.
+  - Useful if this Emacs session is not the only program
+    that may create, move or rename files.
+- Avert many situations that would otherwise trigger an execution of
+  `org-id-update-id-locations', which can take a while."
   :type '(repeat directory)
-  :package-version '(indexed . "0.5.0"))
+  :package-version '(org-mem . "0.5.0"))
 
-(defcustom indexed-org-dirs-exclude
+(defcustom org-mem-watch-dirs-exclude
   '("/logseq/bak/"
     "/logseq/version-files/"
     "/node_modules/"
     ".sync-conflict-"
     ".#"
     "/backup")
-  "Path substrings of files that should not be indexed.
+  "Path substrings of files that should not be scanned.
 
 It is not necessary to add rules here covering autosaves that end in ~
-or # or .bak, since the workhorse `indexed--relist-org-files' only
+or # or .bak, since the workhorse `org-mem--list-files-from-fs' only
 considers files that end in precisely \".org\" anyway.
 
 You can eke out a performance boost by excluding directories with a
@@ -134,676 +137,595 @@ if they contain no Org files.  However, directories that start with a
 period or underscore are always ignored, so no need to add rules for
 e.g. \"/.local/\", \"/.git/\" or \"/_site/\" for that reason."
   :type '(repeat string)
-  :package-version '(indexed . "0.2.0"))
+  :package-version '(org-mem . "0.2.0"))
 
-(defcustom indexed-sync-with-org-id nil
-  "Whether to exchange data with `org-id-locations'.
-
-Benefits:
-- Will index files even outside `indexed-org-dirs',
-  so long as they contain some ID.
-- Help ensure that ID-links to somewhere in `indexed-org-dirs'
-  always work and never trigger a recovery response to run
-  `org-id-update-id-locations'.
-
-No effect until after Org has loaded.
-Only updates `org-id-locations', no other variable.
-Never runs `org-id-locations-save'."
-  :type 'boolean
-  :package-version '(indexed . "0.6.0"))
+(defcustom org-mem-seek-link-types
+  '("http" "https" "id" "file")
+  "Performance knob.
+Users of org-ref would extend this to ~70 types, which may double
+or triple the time it takes to run `org-mem-reset'."
+  :type '(repeat string)
+  :package-version '(org-mem . "0.2.0"))
 
 
-;;; Lisp API
+;;; Basics
 
-(defvar indexed--title<>id     (make-hash-table :test 'equal))
-(defvar indexed--id<>entry     (make-hash-table :test 'equal))
-(defvar indexed--file<>data    (make-hash-table :test 'equal))
-(defvar indexed--file<>entries (make-hash-table :test 'equal))
-(defvar indexed--dest<>links   (make-hash-table :test 'equal))
-(defvar indexed--origin<>links (make-hash-table :test 'equal))
+(defvar org-mem--title<>id (make-hash-table :test 'equal)
+  "1:1 table mapping a heading, file-title or alias to an ID.")
 
-(cl-defstruct (indexed-file-data (:constructor indexed-file-data--make-obj)
-                                 (:copier nil))
-  (file-name  () :read-only t :type string)
-  (file-title () :read-only t :type string)
-  (max-lines  () :read-only t :type integer)
-  (mtime      () :read-only t :type integer)
-  (ptmax      () :read-only t :type integer)
-  (toplvl-id  () :read-only t :type string))
+(defvar org-mem--id<>entry (make-hash-table :test 'equal)
+  "1:1 table mapping an ID to an `org-mem-entry' record.")
 
-(cl-defstruct (indexed-org-link (:constructor indexed-org-link--make-obj)
-                                (:copier nil))
-  (dest      () :read-only t :type string)
-  (file-name () :read-only t :type string)
-  (nearby-id () :read-only t :type string)
-  (pos       () :read-only t :type integer)
-  (type      () :read-only t :type string))
+(defvar org-mem--file<>entries (make-hash-table :test 'equal)
+  "1:N table mapping a file name to a sorted list of `org-mem-entry' records.
+Sorted by field `org-mem-entry-pos'.")
 
-(cl-defstruct (indexed-org-entry (:constructor indexed-org-entry--make-obj)
-                                 (:copier nil))
-  (closed         () :read-only t :type string)
-  (deadline       () :read-only t :type string)
-  (file-name      () :read-only t :type string)
-  (heading-lvl    () :read-only t :type integer)
-  (id             () :read-only t :type string)
+(defvar org-mem--dest<>links (make-hash-table :test 'equal)
+  "1:N table mapping a destination to a list of `org-mem-link' records.
+
+A destination is a citekey or the path component of a valid Org link.
+In practice, it is often an org-id like
+\"57707152-9c05-43f5-9f88-5d4f3a0d019a\", an URI path like
+\"//www.gnu.org\", or a citekey like \"@ioannidis2005\".
+
+NOTE! A future version may omit the sigil @ in citekeys.")
+
+(defvar org-mem--internal-entry-id<>links (make-hash-table :test 'eq)
+  "May become deprecated!
+1:N table mapping internal entry ID to a list of `org-mem-link' records.
+User should query via `org-mem-links-in-entry'.")
+
+(defvar org-mem--key<>subtable (make-hash-table :test 'eq)
+  "Big bag of memoized values, smelling faintly of cabbage.")
+
+(define-inline org-mem--table (key subkey)
+  "In a table identified by KEY, access value at SUBKEY.
+Store all tables in `org-mem--key<>subtable'.  Note: often wiped."
+  (inline-quote
+   (gethash ,subkey (or (gethash ,key org-mem--key<>subtable)
+                        (puthash ,key (make-hash-table :test 'equal)
+                                 org-mem--key<>subtable)))))
+
+(cl-defstruct (org-mem-link (:constructor org-mem-link--make-obj)
+                            (:copier nil))
+  (file              () :read-only t :type string)
+  (pos               () :read-only t :type integer)
+  (citation-p        () :read-only t :type boolean)
+  (type              () :read-only t :type string)
+  (dest              () :read-only t :type string)
+  (nearby-id         () :read-only t :type string)
+  (internal-entry-id () :read-only t :type integer))
+
+(cl-defstruct (org-mem-entry (:constructor org-mem-entry--make-obj)
+                             (:copier nil))
+  (file           () :read-only t :type string)
   (lnum           () :read-only t :type integer)
-  (olpath         () :read-only t :type list)
   (pos            () :read-only t :type integer)
+  (title          () :read-only t :type string)
+  (level          () :read-only t :type integer)
+  (id             () :read-only t :type string)
+  (closed         () :read-only t :type string)
+  (crumbs         () :read-only t :type list)
+  (deadline       () :read-only t :type string)
   (priority       () :read-only t :type string)
   (properties     () :read-only t :type list)
   (scheduled      () :read-only t :type string)
-  (tags-inherited () :read-only t :type list)
   (tags-local     () :read-only t :type list)
-  (title          () :read-only t :type string)
-  (todo-state     () :read-only t :type string))
+  (todo-state     () :read-only t :type string)
+  (internal-id    () :read-only t :type integer))
 
-(cl-defgeneric indexed-pos (entry/link)
-  "Char position of ENTRY/LINK."
-  (:method ((x indexed-org-entry)) (indexed-org-entry-pos x))
-  (:method ((x indexed-org-link)) (indexed-org-link-pos x)))
+
+;;; To find the objects to operate on
 
-(cl-defgeneric indexed-file-name (thing)
-  "Name of file where THING is, or of file that identifies THING."
-  (:method ((x indexed-org-link)) (indexed-org-link-file-name x))
-  (:method ((x indexed-org-entry)) (indexed-org-entry-file-name x))
-  (:method ((x indexed-file-data)) (indexed-file-data-file-name x)))
+(defun org-mem-all-ids ()
+  (hash-table-keys org-mem--id<>entry))
 
-(cl-defgeneric indexed-file-data (thing)
-  "Return file-data object for wherever THING is.
-If THING is a file name, return the object for that file name."
-  (:method ((x string))
-           (or (gethash x indexed--file<>data)
-               (error "File not indexed: %s" x)))
-  (:method ((x indexed-org-entry))
-           (or (gethash (indexed-org-entry-file-name x) indexed--file<>data)
-               (error "File not indexed: %s" (indexed-org-entry-file-name x))))
-  (:method ((x indexed-org-link))
-           (or (gethash (indexed-org-link-file-name x) indexed--file<>data)
-               (error "File not indexed: %s" (indexed-org-link-file-name x))))
-  (:method ((x indexed-file-data)) x))
+(defun org-mem-all-files ()
+  "All Org files that have been found."
+  (hash-table-keys org-mem--file<>metadata))
 
-;; Short...
-;; Could become generics if supporting other file types than Org.
-(defalias 'indexed-title          #'indexed-org-entry-title)
-(defalias 'indexed-olpath         #'indexed-org-entry-olpath)
-(defalias 'indexed-deadline       #'indexed-org-entry-deadline)
-(defalias 'indexed-heading-lvl    #'indexed-org-entry-heading-lvl)
-(defalias 'indexed-priority       #'indexed-org-entry-priority)
-(defalias 'indexed-properties     #'indexed-org-entry-properties)
-(defalias 'indexed-lnum           #'indexed-org-entry-lnum)
-(defalias 'indexed-id             #'indexed-org-entry-id)
-(defalias 'indexed-scheduled      #'indexed-org-entry-scheduled)
-(defalias 'indexed-tags-inherited #'indexed-org-entry-tags-inherited)
-(defalias 'indexed-tags-local     #'indexed-org-entry-tags-local)
-(defalias 'indexed-todo-state     #'indexed-org-entry-todo-state)
-(defalias 'indexed-dest           #'indexed-org-link-dest)
-(defalias 'indexed-origin         #'indexed-org-link-nearby-id) ;;XXX see readme
-(defalias 'indexed-nearby-id      #'indexed-org-link-nearby-id)
-(defalias 'indexed-type           #'indexed-org-link-type)
-
-(defun indexed-entry-by-id (id)
-  "The entry with ID."
-  (gethash id indexed--id<>entry))
-
-;; TODO: How to seek nearest ancestor with an id?
-;;       Need to add a CRUMBS field or sth, to the entry struct.
-(defun indexed-entry-near-lnum-in-file (lnum file)
-  "The entry around line-number LNUM in FILE."
-  (cl-loop
-   with last
-   for entry in (gethash file indexed--file<>entries)
-   if (<= lnum (indexed-lnum entry)) return (or last entry)
-   else do (setq last entry)))
-
-(defun indexed-entry-near-pos-in-file (pos file)
-  "The entry around char-position POS in FILE."
-  (cl-loop
-   with last
-   for entry in (gethash file indexed--file<>entries)
-   if (<= pos (indexed-pos entry)) return (or last entry)
-   else do (setq last entry)))
-
-(defun indexed-entries-in (files)
-  "All entries in FILES."
-  (cl-loop for file in (ensure-list files)
-           append (gethash file indexed--file<>entries)))
-
-(defun indexed-file-by-id (id)
-  "The file that contains ID."
-  (let ((entry (gethash id indexed--id<>entry)))
-    (and entry (indexed-org-entry-file-name entry))))
-
-(defalias 'indexed-mtime
-  (defun indexed-file-mtime (thing)
-    (indexed-file-data-mtime (indexed-file-data thing))))
-
-(defun indexed-file-title (thing)
-  "From file where THING is, return value of #+title."
-  (indexed-file-data-file-title (indexed-file-data thing)))
-
-(defun indexed-file-title-or-basename (thing)
-  "The #+title, fall back on file basename, where THING is."
-  (or (indexed-file-title thing)
-      (file-name-nondirectory (indexed-file-name thing))))
-
-(defun indexed-heading-above (link)
-  "Heading of entry where LINK is."
-  (let ((entry (indexed-entry-near-pos-in-file (indexed-file-name link)
-                                               (indexed-pos link))))
-    (unless (= 0 (indexed-heading-lvl entry))
-      (indexed-title entry))))
-
-(defun indexed-id-nodes-in (files)
-  "All ID-nodes in FILES."
-  (setq files (ensure-list files))
-  (cl-loop for entry being each hash-value of indexed--id<>entry
-           when (member (indexed-file-name entry) files)
-           collect entry))
-
-(defun indexed-id-by-title (title)
-  "The ID that currently corresponds to TITLE."
-  (gethash title indexed--title<>id))
-
-(defun indexed-id-links-to (entry)
-  "All ID-links that point to ENTRY."
-  (gethash (indexed-id entry) indexed--dest<>links))
-
-(defun indexed-id-node-by-title (title)
-  "Among entries that have ID, find the one titled TITLE."
-  (gethash (gethash title indexed--title<>id)
-           indexed--id<>entry))
-
-(defun indexed-links-from (id)
-  "All links found under the entry with ID."
-  (gethash id indexed--origin<>links))
-
-(defun indexed-olpath-with-self (entry)
-  "Outline path, including ENTRY\\='s own heading."
-  (declare (pure t) (side-effect-free t))
-  (append (indexed-olpath entry)
-          (list (indexed-title entry))))
-
-(defalias 'indexed-olpath-with-title-with-self
-  (defun indexed-olpath-with-self-with-title (entry &optional filename-fallback)
-    "Outline path, including file #+title, and ENTRY\\='s own heading.
-With FILENAME-FALLBACK, use file basename if there is no #+title."
-    (declare (pure t) (side-effect-free t))
-    (append (indexed-olpath-with-title entry filename-fallback)
-            (list (indexed-title entry)))))
-
-(defun indexed-olpath-with-title (entry &optional filename-fallback)
-  "Outline path to ENTRY, including file #+title.
-With FILENAME-FALLBACK, use file basename if there is no #+title."
-  (if (/= 0 (indexed-heading-lvl entry))
-      (let ((top (if filename-fallback
-                     (indexed-file-title-or-basename entry)
-                   (indexed-file-title entry))))
-        (if top
-            (cons top (indexed-olpath entry))
-          (indexed-olpath entry)))
-    nil))
-
-(defun indexed-org-entries ()
+(defun org-mem-all-entries ()
   "All entries."
-  (apply #'append (hash-table-values indexed--file<>entries)))
+  (with-memoization (org-mem--table 21 'org-mem-all-entries)
+    (apply #'append (hash-table-values org-mem--file<>entries))))
 
-(defun indexed-org-files ()
-  "All Org files that have been indexed."
-  (hash-table-keys indexed--file<>data))
+(defun org-mem-all-id-nodes ()
+  "All ID-nodes.
+An ID-node is an entry that has an ID property."
+  (hash-table-values org-mem--id<>entry))
 
-(defun indexed-org-id-nodes ()
-  "All org-ID nodes.
-An org-ID node is an entry with an ID."
-  (hash-table-values indexed--id<>entry))
-
-(defun indexed-org-links ()
-  "All links."
-  (cl-loop for links being each hash-value of indexed--dest<>links
-           nconc (cl-loop for link in links
-                          unless (null (indexed-org-link-type link))
-                          collect link)))
-
-(defun indexed-org-id-links ()
-  "All ID-links."
-  (cl-loop for links being each hash-value of indexed--dest<>links
-           nconc (cl-loop for link in links
-                          when (equal "id" (indexed-org-link-type link))
-                          collect link)))
-
-(defun indexed-org-links-and-citations ()
+(defun org-mem-all-links ()
   "All links and citations.
-Citations are `indexed-org-link' objects where TYPE is nil and
+Citations are `org-mem-link' objects where TYPE is nil and
 the string DEST begins with \"@\".
 2025-03-18: This may change in the future!"
-  (apply #'append (hash-table-values indexed--dest<>links)))
+  (with-memoization (org-mem--table 22 'org-mem-all-links)
+    (apply #'append (hash-table-values org-mem--dest<>links))))
 
-;; PROP used to be a keyword, so you could write (indexed-property :ID entry),
-;; but decided to make `indexed-properties' consistent with
-;; `org-entry-properties', so now it's (indexed-property "ID" entry).
-(defun indexed-property (prop entry)
+(defun org-mem-all-id-links ()
+  "All ID-links."
+  (with-memoization (org-mem--table 23 'org-mem-all-id-links)
+    (org-mem-links-of-type "id")))
+
+(defun org-mem-entry-by-id (id)
+  "The entry with unique :ID: property equal to ID."
+  (and id (gethash id org-mem--id<>entry)))
+
+(defun org-mem-entry-at-lnum-in-file (lnum file)
+  "The entry that is current at line-number LNUM in FILE."
+  (with-memoization (org-mem--table 11 (list lnum file))
+    (cl-loop
+     for (prev next) on (org-mem-entries-in-file file)
+     if (or (not next) (<= lnum (org-mem-entry-lnum next))) return prev)))
+
+(defun org-mem-entry-at-pos-in-file (pos file)
+  "The entry that is current at char-position POS in FILE."
+  (with-memoization (org-mem--table 12 (list pos file))
+    (cl-loop
+     for (prev next) on (org-mem-entries-in-file file)
+     if (or (not next) (<= pos (org-mem-entry-pos next))) return prev)))
+
+(defun org-mem-entries-in-file (file)
+  "List of entries in same order as they appear in FILE, if FILE known.
+The list always contains at least one entry, which
+represents the content before the first heading."
+  (cl-assert (stringp file))
+  (gethash file org-mem--file<>entries))
+
+(defun org-mem-entries-in-files (files)
+  "Combined list of entries from all of FILES."
+  (with-memoization (org-mem--table 13 files)
+    (seq-mapcat #'org-mem-entries-in-file files)))
+
+
+(defun org-mem-file-by-id (id)
+  "The file that contains an :ID: property matching ID."
+  (let ((entry (and id (gethash id org-mem--id<>entry))))
+    (and entry (org-mem-entry-file entry))))
+
+(defun org-mem-entry-that-contains-link (link)
+  "The entry where LINK was found."
+  (org-mem-entry-at-pos-in-file (org-mem-link-file link)
+                                (org-mem-link-pos link)))
+
+(defun org-mem-id-nodes-in-files (files)
+  "All ID-nodes in FILES."
+  (with-memoization (org-mem--table 15 files)
+    (setq files (ensure-list files))
+    (seq-filter (##member (org-mem-entry-file %) files)
+                (org-mem-all-id-nodes))))
+
+(defun org-mem-links-with-type-and-path (type path)
+  "Links with components TYPE and PATH, see `org-link-plain-re'."
+  (cl-loop for link in (gethash path org-mem--dest<>links)
+           when (equal type (org-mem-link-type link))
+           collect link))
+
+(defun org-mem-id-links-to-entry (entry)
+  "All ID-links that point to ENTRY."
+  (and entry (gethash (org-mem-entry-id entry) org-mem--dest<>links)))
+
+(defun org-mem-id-node-by-title (title)
+  "The ID-node titled TITLE."
+  (and title (gethash (org-mem-id-by-title title) org-mem--id<>entry)))
+
+(defun org-mem-id-by-title (title)
+  "The ID that currently corresponds to TITLE.
+TITLE is either a heading, a file title, or an alias.
+
+Assumes unique titles.  If two IDs exist with same title, it is
+undefined which ID is returned.  User can prevent this from becoming a
+problem with the help of option `org-mem-do-warn-title-collisions'."
+  (and title (gethash title org-mem--title<>id)))
+
+(defun org-mem-links-from-id (id)
+  "Links from context where local or inherited ID property is ID."
+  (with-memoization (org-mem--table 16 id)
+    (seq-filter (##equal (org-mem-link-nearby-id %) id)
+                (org-mem-all-links))))
+
+;; TODO
+(defun org-mem-links-to-file (file)
+  ;; (let ((dests-for-file (org-mem-entries-in-file))))
+  ;; (cl-loop for link in (org-mem-all-links)
+  ;;          collect nil)
+  (error "Unimplemented"))
+
+(defun org-mem-id-links-from-id (id)
+  "ID-links from context where local or inherited ID property is ID."
+  (with-memoization (org-mem--table 17 id)
+    (seq-filter (##equal (org-mem-link-nearby-id %) id)
+                (org-mem-all-id-links))))
+
+(defun org-mem-links-of-type (type)
+  "All links of type TYPE."
+  (with-memoization (org-mem--table 18 type)
+    (seq-filter (##equal (org-mem-link-type %) type)
+                (org-mem-all-links))))
+
+(defun org-mem-links-in-file (file)
+  (with-memoization (org-mem--table 19 file)
+    (seq-mapcat #'org-mem-links-in-entry (org-mem-entries-in-file file))))
+
+(defun org-mem-links-in-entry (entry)
+  "All links found inside ENTRY, ignoring descendant entries."
+  (and entry (gethash (org-mem-entry-internal-id entry)
+                      org-mem--internal-entry-id<>links)))
+
+(defun org-mem-next-entry (entry)
+  "The next entry after ENTRY in the same file, if any."
+  (with-memoization (org-mem--table 20 entry)
+    (let ((entries (gethash (org-mem-entry-file entry) org-mem--file<>entries)))
+      (while (not (= (org-mem-entry-internal-id (car entries))
+                     (org-mem-entry-internal-id entry)))
+        (pop entries))
+      (pop entries)
+      (car entries))))
+
+
+;;; Entry info
+
+(defun org-mem-entry-subtree-p (entry)
+  "Non-nil if ENTRY is a subtree, nil if a \"file-level node\"."
+  (not (= 0 (org-mem-entry-level entry))))
+
+;; REVIEW: To make `org-mem-entry' objects take less visual space when
+;;         printed, we could stop putting ancestor titles in CRUMBS, just look
+;;         them up here live, via cross-ref with the char positions.
+(defun org-mem-entry-olpath (entry)
+  "Outline path to ENTRY."
+  (with-memoization (org-mem--table 14 entry)
+    (mapcar #'cl-fourth (cdr (reverse (cdr (org-mem-entry-crumbs entry)))))))
+
+(defun org-mem-entry-olpath-with-self (entry)
+  "Outline path, including ENTRY\\='s own heading."
+  (with-memoization (org-mem--table 25 entry)
+    (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))))
+
+(defalias 'org-mem-entry-olpath-with-title-with-self
+  (defun org-mem-entry-olpath-with-self-with-title
+      (entry &optional filename-fallback)
+    "Outline path, including file #+title, and ENTRY\\='s own heading.
+With FILENAME-FALLBACK, use file basename if there is no #+title."
+    (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry)))))
+      (when (null (car olp))
+        (pop olp)
+        (when filename-fallback
+          (push (file-name-nondirectory (org-mem-entry-file entry)) olp)))
+      olp)))
+
+(defun org-mem-entry-olpath-with-title (entry &optional filename-fallback)
+  "Outline path to ENTRY, including file #+title.
+With FILENAME-FALLBACK, use file basename if there is no #+title."
+  (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry))))))
+    (when (null (car olp))
+      (pop olp)
+      (when filename-fallback
+        (push (file-name-nondirectory (org-mem-entry-file entry)) olp)))
+    olp))
+
+(defun org-mem-entry-property (prop entry)
   "Value of property PROP in ENTRY."
-  ;; (declare (pure t) (side-effect-free t)) ;; uncomment after deprec
-  (if (stringp prop)
-      (cdr (assoc prop (indexed-properties entry)))
-    (message "Deprecation notice: call `indexed-property' with a string %s, not keyword"
-             prop)
-    (cdr (assoc (substring (symbol-name prop) 1) (indexed-properties entry)))))
+  (cdr (assoc (upcase prop) (org-mem-entry-properties entry))))
 
-(defun indexed-property-assert (prop entry)
-  "Value of property PROP in ENTRY, throw error if nil."
-  (or (indexed-property prop entry)
-      (error "No property %s in entry %s" prop entry)))
+(defun org-mem-entry-tags (entry)
+  "ENTRY tags, with inheritance if allowed for ENTRY."
+  (delete-dups (append (org-mem-entry-tags-local entry)
+                       (org-mem-entry-tags-inherited entry))))
 
-(defun indexed-root-heading-to (entry)
-  "Root heading in tree that contains ENTRY."
-  (declare (pure t) (side-effect-free t))
-  (car (indexed-olpath entry)))
+(defun org-mem-entry-tags-inherited (entry)
+  "Tags inherited by ENTRY."
+  (with-memoization (org-mem--table 24 entry)
+    (delete-dups
+     (flatten-tree (mapcar #'cl-sixth (cdr (org-mem-entry-crumbs entry)))))))
 
-(defun indexed-tags (entry)
-  "ENTRY tags, with inheritance."
-  (declare (pure t) (side-effect-free t))
-  (delete-dups (append (indexed-tags-local entry)
-                       (indexed-tags-inherited entry))))
+
+;;; File data
 
-(defun indexed-toptitle (file)
-  "File #+title or topmost heading in FILE."
-  (indexed-title (car (indexed-entries-in file))))
+(defvar org-mem--file<>metadata (make-hash-table :test 'equal)
+  "1:1 table mapping a file name to a list of assorted data.
+
+Users have no reason to inspect this table, prefer stable API
+in `org-mem-file-mtime' and friends.")
+
+(defun org-mem--get-file-metadata (file/entry/link)
+  "Return (FILE ATTRS LINES PTMAX) if FILE/ENTRY/LINK known, else error."
+  (let ((wild-file (if (stringp file/entry/link)
+                       file/entry/link
+                     (if (org-mem-entry-p file/entry/link)
+                         (org-mem-entry-file file/entry/link)
+                       (org-mem-link-file file/entry/link)))))
+    (or (gethash wild-file org-mem--file<>metadata)
+        (gethash (org-mem--abbr-truename wild-file) org-mem--file<>metadata)
+        (error "org-mem: File seems not yet scanned: %s" wild-file))))
+
+(defun org-mem-file-attributes (file/entry/link)
+  "The `file-attributes' list for file at FILE/ENTRY/LINK."
+  (nth 1 (org-mem--get-file-metadata file/entry/link)))
+
+;; REVIEW: Somehow uncomfortable with the name
+(defun org-mem-file-line-count (file/entry/link)
+  "Count of lines in whole file at FILE/ENTRY/LINK."
+  (let ((x (nth 2 (org-mem--get-file-metadata file/entry/link))))
+    (if (>= x 0) x
+      (error "org-mem-file-line-count: Value not yet stored for file %s%s"
+             file/entry/link
+             "\nLikely due to scan errors, type M-x org-mem-list-problems"))))
+
+(defun org-mem-file-ptmax (file/entry/link)
+  "Count of characters in whole file at FILE/ENTRY/LINK.
+Often close to but not exactly the size in bytes due to text encoding."
+  (let ((x (nth 3 (org-mem--get-file-metadata file/entry/link))))
+    (if (>= x 0) x
+      (error "org-mem-file-ptmax: Value not yet stored for file %s%s"
+             file/entry/link
+             "\nLikely due to scan errors, type M-x org-mem-list-problems"))))
+
+(defun org-mem-file-mtime (file/entry/link)
+  "Modification time for file at FILE/ENTRY/LINK."
+  (file-attribute-modification-time (org-mem-file-attributes file/entry/link)))
+
+(defun org-mem-file-mtime-int (file/entry/link)
+  "Modification time for file at FILE/ENTRY/LINK, rounded-up integer."
+  (ceiling (float-time (org-mem-file-mtime file/entry/link))))
+
+;; Above getters accept a link as input, and the below could too
+;; but extra LoC, so yolo.  Mainly wanted equivalents to
+;; `org-roam-node-file-title' and `org-roam-node-file-mtime', and got 'em.
+
+(defun org-mem-file-title-or-basename (file/entry)
+  "Value of #+title in file at FILE/ENTRY; fall back on file basename.
+Unlike `org-mem-entry-file-title' which may return nil,
+this always returns a string."
+  (or (org-mem-file-title-strict file/entry)
+      (file-name-nondirectory
+       (if (stringp file/entry) file/entry (org-mem-entry-file file/entry)))))
+
+(defun org-mem-file-title-topmost (file/entry)
+  "Topmost title in file at FILE/ENTRY, be that a heading or a #+title.
+Can refer to a different entry than `org-mem-file-id-topmost', in the
+case that there exists a file-level ID but no #+title:, or vice versa."
+  ;; docstrings are hard
+  ;; "Value of #+title in file at FILE/ENTRY; fall back on topmost heading."
+  (let ((entries (org-mem-entries-in-file
+                  (if (stringp file/entry) file/entry
+                     (org-mem-entry-file file/entry)))))
+    (or (org-mem-entry-title (car entries))
+        (ignore-errors (org-mem-entry-title (cadr entries))))))
+
+(defun org-mem-file-title-strict (file/entry)
+  "Value of #+title setting in FILE, if any."
+  (org-mem-entry-title (car (org-mem-entries-in-file
+                             (if (stringp file/entry) file/entry
+                               (org-mem-entry-file file/entry))))))
+
+(defun org-mem-file-id-topmost (file/entry)
+  "ID from file properties or topmost subtree in file at FILE/ENTRY."
+  (let ((entries (org-mem-entries-in-file
+                  (if (stringp file/entry) file/entry
+                    (org-mem-entry-file file/entry)))))
+    (or (org-mem-entry-id (car entries))
+        (ignore-errors (org-mem-entry-id (cadr entries))))))
+
+(defun org-mem-file-id-strict (file/entry)
+  "File-level ID property in FILE, if any."
+  (org-mem-entry-id (car (org-mem-entries-in-file
+                          (if (stringp file/entry) file/entry
+                            (org-mem-entry-file file/entry))))))
 
 
 ;;; Core logic
 
-(defvar indexed-pre-full-reset-functions nil
-  "Hook passed the list of parse-results, before a reset.")
+(defvar org-mem-pre-full-scan-functions nil
+  "Hook passed the list of parse-results, before a full reset.")
 
-(defvar indexed-post-full-reset-functions nil
-  "Hook passed the list of parse-results, after a reset.")
+(defvar org-mem-post-full-scan-functions nil
+  "Hook passed the list of parse-results, after a full reset.")
 
-(defvar indexed-record-file-functions nil
-  "Hook passed one `indexed-file-data' object after recording it.")
+(defvar org-mem-record-file-functions nil
+  "Hook passed (FILE ATTRS LINES PTMAX) after adding that info to tables.")
 
-(defvar indexed-record-entry-functions nil
-  "Hook passed one `indexed-org-entry' object after recording it.")
+(defvar org-mem-record-entry-functions nil
+  "Hook passed one `org-mem-entry' object after adding it to tables.")
 
-(defvar indexed-record-link-functions nil
-  "Hook passed one `indexed-org-link' object after recording it.")
+(defvar org-mem-record-link-functions nil
+  "Hook passed one `org-mem-link' object after adding it to tables.")
 
-(defvar indexed-pre-incremental-update-functions nil
-  "Hook passed the list of parse-results, before an incremental update.")
+(defvar org-mem-pre-targeted-scan-functions nil
+  "Hook passed the list of parse-results, before a partial reset.")
 
-(defvar indexed-post-incremental-update-functions nil
-  "Hook passed the list of parse-results, after an incremental update.")
+(defvar org-mem-post-targeted-scan-functions nil
+  "Hook passed the list of parse-results, after a partial reset.")
 
-(defvar indexed-forget-file-functions nil
-    "Hook passed one `indexed-file-data' object after forgetting it.")
+(defvar org-mem-forget-file-functions nil
+  "Hook passed (FILE ATTRS LINES PTMAX) after removing that info from tables.")
 
-(defvar indexed-forget-entry-functions nil
-    "Hook passed one `indexed-org-entry' object after forgetting it.")
+(defvar org-mem-forget-entry-functions nil
+  "Hook passed one forgotten `org-mem-entry' object.")
 
-(defvar indexed-forget-link-functions nil
-    "Hook passed one `indexed-org-link' object after forgetting it.")
+(defvar org-mem-forget-link-functions nil
+  "Hook passed one forgotten `org-mem-link' object.")
 
-(defvar indexed--problems nil)
-(defvar indexed--title-collisions nil)
-(defvar indexed--id-collisions nil)
-(defvar indexed--time-elapsed 1.0)
+(defvar org-mem--problems nil)
+(defvar org-mem--title-collisions nil)
+(defvar org-mem--id-collisions nil)
+(defvar org-mem--time-elapsed 1.0)
 
-;; This mode keeps most logic in "indexed-x" because it's not necessary, you
-;; could just call `indexed-reset' every 30 seconds or something equally
-;; simplistic.
+;; This mode keeps most logic in "org-mem-x" to keep track of what is enough
+;; for the core functionality of making a cache, vs. the added complication of
+;; keeping it up to date.
+;; REVIEW: ... maybe call it org-mem-updater.el?
 ;;;###autoload
-(define-minor-mode indexed-updater-mode
-  "Keep cache up to date."
+(define-minor-mode org-mem-updater-mode
+  "Keep Org-mem cache up to date."
   :global t
-  (require 'indexed-x)
-  (if indexed-updater-mode
+  (require 'org-mem-x)
+  (if org-mem-updater-mode
       (progn
-        (add-hook 'after-save-hook #'indexed-x--handle-save)
-        ;; (advice-add 'rename-file :after #'indexed-x--handle-rename)
-        (advice-add 'delete-file :after #'indexed-x--handle-delete)
-        (advice-add 'org-insert-link :after #'indexed-x-ensure-link-at-point-known)
-        (indexed-x--activate-timer)
-        (indexed--scan-full))
-    (remove-hook 'after-save-hook #'indexed-x--handle-save)
-    ;; (advice-remove 'rename-file #'indexed-x--handle-rename)
-    (advice-remove 'delete-file #'indexed-x--handle-delete)
-    (advice-remove 'org-insert-link #'indexed-x-ensure-link-at-point-known)
-    (cancel-timer indexed-x--timer)))
+        (add-hook 'after-save-hook #'org-mem-x--handle-save)
+        (advice-add 'rename-file :after #'org-mem-x--handle-rename)
+        (advice-add 'delete-file :after #'org-mem-x--handle-delete)
+        (advice-add 'org-insert-link :after #'org-mem-x-ensure-link-at-point-known)
+        (org-mem-x--activate-timer)
+        (org-mem--scan-full))
+    (remove-hook 'after-save-hook #'org-mem-x--handle-save)
+    (advice-remove 'rename-file #'org-mem-x--handle-rename)
+    (advice-remove 'delete-file #'org-mem-x--handle-delete)
+    (advice-remove 'org-insert-link #'org-mem-x-ensure-link-at-point-known)
+    (cancel-timer org-mem-x--timer)))
 
-(defvar indexed--next-message nil)
-(defun indexed-reset (&optional interactively)
+(defvar org-mem--next-message nil)
+(defun org-mem-reset (&optional interactively)
   "Reset cache, and if called INTERACTIVELY, print statistics."
   (interactive "p")
   (when interactively
-    (setq indexed--next-message t))
-  (indexed--scan-full))
+    (setq org-mem--next-message t))
+  (org-mem--scan-full))
 
-(defvar indexed--time-at-begin-full-scan nil)
-(defun indexed--scan-full ()
+(defvar org-mem--time-at-begin-full-scan nil)
+(defun org-mem--scan-full ()
   "Arrange a full scan."
-  (unless (el-job-is-busy 'indexed)
-    (indexed--warn-deprec)
-    (setq indexed--time-at-begin-full-scan (current-time))
-    (when (eq 'inputs-were-empty
-              (el-job-launch
-               :id 'indexed
-               :inject-vars (indexed--mk-work-vars)
-               :load-features '(indexed-org-parser)
-               :inputs #'indexed--relist-org-files
-               :funcall-per-input #'indexed-org-parser--parse-file
-               :callback #'indexed--finalize-full))
-      (if indexed-sync-with-org-id
-          (message "No org-ids found.  If you know they exist, try M-x %S."
-                   (if (fboundp 'org-roam-update-org-id-locations)
-                       'org-roam-update-org-id-locations
-                     'org-id-update-id-locations))
-        (message "No files found under `indexed-org-dirs'")))))
+  (unless (el-job-is-busy 'org-mem)
+    (setq org-mem--time-at-begin-full-scan (current-time))
+    (let ((result (el-job-launch
+                   :id 'org-mem
+                   :inject-vars (org-mem--mk-work-vars)
+                   :load-features '(org-mem-parser)
+                   :inputs #'org-mem--list-files-from-fs
+                   :funcall-per-input #'org-mem-parser--parse-file
+                   :callback #'org-mem--finalize-full)))
+      (when (eq result 'inputs-were-empty)
+        (if org-mem-do-sync-with-org-id
+            (message "No org-ids found.  If you know they exist, try M-x %S."
+                     (if (fboundp 'org-roam-update-org-id-locations)
+                         'org-roam-update-org-id-locations
+                       'org-id-update-id-locations))
+          (message "No files found under `org-mem-watch-dirs'"))))))
 
-;; To debug, do M-x edebug-defun on `indexed-org-parser--parse-file',
-;; then eval:  (indexed--debug-parse-file "~/org/some-file.org")
-(defun indexed--debug-parse-file (file)
-  "Run `indexed-org-parser--parse-file' on FILE.
-Set some variables it expects."
-  (dolist (var (indexed--mk-work-vars))
+(defun org-mem--debug-parse-file (file)
+  "Debug wrapper for `org-mem-parser--parse-file'.
+To use, first go to the source of that definition and type \\[edebug-defun].
+Then eval this expression, substituting the input for some file of yours:
+\(org-mem--debug-parse-file \"~/org/some-file.org\")
+
+Affects global state!  If you are not prepared to restart the current
+Emacs session, read source of `org-mem-parser--init-buf-and-switch' to
+see what you may want to revert."
+  (dolist (var (org-mem--mk-work-vars))
     (set (car var) (cdr var)))
-  (indexed-org-parser--parse-file file))
+  (org-mem-parser--parse-file file))
 
-(defun indexed--finalize-full (parse-results _job)
-  "Handle PARSE-RESULTS from `indexed--scan-full'."
-  (run-hook-with-args 'indexed-pre-full-reset-functions parse-results)
-  (clrhash indexed--title<>id)
-  (clrhash indexed--id<>entry)
-  (clrhash indexed--file<>data)
-  (clrhash indexed--file<>entries)
-  (clrhash indexed--origin<>links)
-  (clrhash indexed--dest<>links)
-  (setq indexed--title-collisions nil)
-  (seq-let (_missing-files file-data entries links problems) parse-results
+(defvar org-mem--caused-retry nil)
+(defun org-mem--finalize-full (parse-results _job)
+  "Handle PARSE-RESULTS from `org-mem--scan-full'."
+  (run-hook-with-args 'org-mem-pre-full-scan-functions parse-results)
+  (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
+  (clrhash org-mem--title<>id)
+  (clrhash org-mem--id<>entry)
+  (clrhash org-mem--file<>metadata)
+  (clrhash org-mem--file<>entries)
+  (clrhash org-mem--internal-entry-id<>links)
+  (clrhash org-mem--dest<>links)
+  (setq org-mem--title-collisions nil)
+  (seq-let (bad-paths file-data entries links problems) parse-results
+    (when bad-paths
+      (org-mem--invalidate-file-names bad-paths))
     (dolist (fdata file-data)
-      (puthash (indexed-file-name fdata) fdata indexed--file<>data)
-      (run-hook-with-args 'indexed-record-file-functions fdata))
+      (puthash (car fdata) fdata org-mem--file<>metadata)
+      (run-hook-with-args 'org-mem-record-file-functions fdata))
     (dolist (entry entries)
-      (indexed--record-entry entry)
-      (run-hook-with-args 'indexed-record-entry-functions entry))
+      (org-mem--record-entry entry)
+      (run-hook-with-args 'org-mem-record-entry-functions entry))
     (dolist (link links)
-      (indexed--record-link link)
-      (run-hook-with-args 'indexed-record-link-functions link))
-    (when indexed--next-message
-      (setq indexed--next-message (indexed--format-stats
-                                   indexed--time-at-begin-full-scan)))
-    (run-hook-with-args 'indexed-post-full-reset-functions parse-results)
-    (message "%s" indexed--next-message)
-    (setq indexed--time-elapsed
-          (float-time (time-since indexed--time-at-begin-full-scan)))
-    (setq indexed--next-message nil)
-    ;; (when indexed--id-collisions
-    ;;   (message "Saw same ID twice, see M-x indexed-list-id-collisions"))
-    (when (and indexed--title-collisions indexed-warn-title-collisions)
-      (message "Some IDs share title, see M-x indexed-list-title-collisions"))
-    (when (setq indexed--problems problems)
-      (message "Indexing had problems, see M-x indexed-list-problems"))))
+      (org-mem--record-link link)
+      (run-hook-with-args 'org-mem-record-link-functions link))
+    (setq org-mem--time-elapsed
+          (float-time (time-since org-mem--time-at-begin-full-scan)))
+    (when org-mem--next-message
+      (setq org-mem--next-message
+            (format
+             "Org-mem saw %d ID-nodes and %d ID-links in %d files, %d subtrees, %d links in %.2fs"
+             (length (org-mem-all-id-nodes))
+             (length (org-mem-all-id-links))
+             (length (org-mem-all-files))
+             (seq-count #'org-mem-entry-subtree-p (org-mem-all-entries))
+             (length (org-mem-all-links))
+             org-mem--time-at-begin-full-scan)))
+    (run-hook-with-args 'org-mem-post-full-scan-functions parse-results)
+    (message "%s" org-mem--next-message)
+    (setq org-mem--next-message nil)
+    (when bad-paths
+      ;; Scan again to catch relocated files, but guard against repeating.
+      (unless (seq-intersection bad-paths org-mem--caused-retry)
+        (setq org-mem--caused-retry (append bad-paths org-mem--caused-retry))
+        (org-mem--scan-full)))
+    (when (and org-mem--title-collisions org-mem-do-warn-title-collisions)
+      (message "Some IDs share title, see M-x org-mem-list-title-collisions"))
+    (when problems
+      (when (and org-mem--problems
+                 (string< (caar problems)
+                          (caar org-mem--problems)))
+        ;; Daily cleanup; last problem's HH:MM looks like the future.
+        (setq org-mem--problems nil))
+      (setq org-mem--problems (append problems org-mem--problems))
+      (message "Scan had problems, see M-x org-mem-list-problems"))))
 
-(defun indexed--format-stats (start-time)
-  (let* ((n-subtrees
-         (cl-loop for entries being each hash-value of indexed--file<>entries
-                  sum (length (if (= 0 (indexed-heading-lvl (car entries)))
-                                  (cdr entries)
-                                entries))))
-        (n-subtrees-w-id
-         (cl-loop for id-node being each hash-value of indexed--id<>entry
-                  count (/= 0 (indexed-heading-lvl id-node))))
-        (n-id-links
-         (cl-loop for id being each hash-key of indexed--id<>entry
-                  sum (length (gethash id indexed--dest<>links))))
-        (n-links
-         (cl-loop for links being each hash-value of indexed--dest<>links
-                  sum (length links)))
-        (n-toplvl-ids
-         (- (hash-table-count indexed--id<>entry) n-subtrees-w-id)))
-    (with-temp-buffer
-      (insert
-       (format
-        "Indexed in %.2fs:  %d Org files%s
-  %d subtrees (%d with ID)
-  %d links (%d ID-links%s)
-"
-        (float-time (time-since start-time))
-        (hash-table-count indexed--file<>data)
-        (if (= 0 n-toplvl-ids)
-            ""
-          (format " (%d with top-level ID)" n-toplvl-ids))
-        n-subtrees
-        n-subtrees-w-id
-        n-links
-        n-id-links
-        (if indexed-roam-mode
-            (format ", %d reflinks"
-                    (cl-loop
-                     for ref being each hash-key of indexed-roam--ref<>id
-                     sum (length (gethash ref indexed--dest<>links))))
-          "")))
-      (align-regexp 1 (point-max) "\\( \\) [1234567890]")
-      (buffer-string))))
-
-(defun indexed--record-link (link)
+(defun org-mem--record-link (link)
   "Add info related to LINK to various tables."
-  (push link (gethash (indexed-origin link) indexed--origin<>links))
-  (push link (gethash (indexed-dest link)   indexed--dest<>links)))
+  (push link (gethash (org-mem-link-dest link) org-mem--dest<>links))
+  (push link (gethash (org-mem-link-internal-entry-id link)
+                      org-mem--internal-entry-id<>links)))
 
-(defun indexed--record-entry (entry)
+(defun org-mem--record-entry (entry)
   "Add info related to ENTRY to various tables."
-  (let ((id   (indexed-id entry))
-        (file (indexed-file-name entry))
-        (title (indexed-title entry)))
-    (push entry (gethash file indexed--file<>entries))
+  (let ((id    (org-mem-entry-id entry))
+        (file  (org-mem-entry-file entry))
+        (title (org-mem-entry-title entry)))
+    ;; NOTE: Puts entries in correct order because we're called by
+    ;; `org-mem--finalize-full' looping over entries in reverse order.
+    (push entry (gethash file org-mem--file<>entries))
     (when id
-      (indexed--maybe-snitch-to-org-id entry)
-      (let ((other-id (gethash title indexed--title<>id)))
+      (org-mem--maybe-snitch-to-org-id entry)
+      (let ((other-id (gethash title org-mem--title<>id)))
         (when (and other-id (not (string= id other-id)))
           (push (list (format-time-string "%H:%M") title id other-id)
-                indexed--title-collisions)))
-      ;; NOTE: Too often false alarm, unused for now
-      ;; (when-let* ((other-entry (gethash id indexed--id<>entry)))
-      ;;   (push (list (format-time-string "%H:%M")
-      ;;               id
-      ;;               (indexed-title entry)
-      ;;               (indexed-title other-entry))
-      ;;         indexed--id-collisions))
-      (puthash id entry indexed--id<>entry)
-      (puthash title id indexed--title<>id))))
+                org-mem--title-collisions)))
+      (puthash id entry org-mem--id<>entry)
+      (puthash title id org-mem--title<>id))))
 
-
-;;; Subroutines
+(defun org-mem--maybe-snitch-to-org-id (entry)
+  "Add applicable ENTRY data to `org-id-locations'.
+No-op if Org has not loaded."
+  (when (and org-mem-do-sync-with-org-id
+             (org-mem-entry-id entry)
+             (featurep 'org-id)
+             (org-mem--try-ensure-org-id-table-p))
+    (puthash (org-mem-entry-id entry)
+             (org-mem-entry-file entry)
+             org-id-locations)))
 
-;; REVIEW: Consider wiping this table on every full reset.
-;;         Resulting latency can be considered acceptable on modern machines,
-;;         esp. if full resets only occur after some idle, but some users have
-;;         terrible filesystem perf due to bad virtualization (Termux?), plus
-;;         we might one day support TRAMP, where this sort of cache is handy.
-(defvar indexed--abbr-truenames (make-hash-table :test 'equal)
-  "Table mapping seen file names to abbreviated truenames.
-
-Can be used to avoid the performance overhead of
-`abbreviate-file-name' and `file-truename'.
-
-Currently only populated if `indexed-sync-with-org-id' t.
-
-Be mindful that a given path is rarely re-checked, and it is possible
-that a given path or a parent directory has become a symlink since.
-While `indexed-updater-mode' attempts to keep the table up-to-date,
-do not treat it as guaranteed when important.")
-
-(defun indexed--abbr-truename (file)
-  "From wild file path FILE, get the abbreviated truename.
-May look up a cached value."
-  (or (gethash file indexed--abbr-truenames)
-      (and (not (indexed--tramp-file-p file))
-           (file-exists-p file)
-           (puthash file
-                    (indexed--fast-abbrev-file-names (file-truename file))
-                    indexed--abbr-truenames))))
-
-(defun indexed--tramp-file-p (file)
-  "Pass FILE to `tramp-tramp-file-p' if Tramp loaded, else return nil."
-  (when (featurep 'tramp)
-    (tramp-tramp-file-p file)))
-
-(defun indexed--try-ensure-org-id-table-p ()
-  "Coerce `org-id-locations' into a hash table, return nil on fail."
+(defun org-mem--try-ensure-org-id-table-p ()
+  "Coerce `org-id-locations' into hash table form, return nil on fail."
   (require 'org-id)
   (and org-id-track-globally
        (or (hash-table-p org-id-locations)
+           ;; Guard against strange bugs in org-id
            (ignore-errors
              (setq org-id-locations
-                   (org-id-alist-to-hash org-id-locations))))))
+                   (org-id-alist-to-hash org-id-locations)))
+           (progn (message "Shit's bugged")
+                  nil))))
 
-(defun indexed--maybe-snitch-to-org-id (entry)
-  "Add applicable ENTRY data to `org-id-locations'.
-No-op if Org has not loaded."
-  (when (and indexed-sync-with-org-id
-             (indexed-id entry)
-             (featurep 'org-id)
-             (indexed--try-ensure-org-id-table-p))
-    (puthash (indexed-id entry) (indexed-file-name entry) org-id-locations)))
-
-;; (benchmark-call #'indexed--relist-org-files)  => 0.006 s
-;; (benchmark-call #'org-roam-list-files)        => 4.141 s
-(defvar indexed--raw-file-ctr 0)
-(defvar indexed--temp-tbl (make-hash-table :test 'equal))
-(defun indexed--relist-org-files ()
-  "Query filesystem for Org files under `indexed-org-dirs'.
-
-If user option `indexed-sync-with-org-id' is t,
-also include files from `org-id-locations'.
-
-Return abbreviated truenames, to be directly comparable with
-`buffer-file-truename' and any file name references in Indexed objects.
-
-Note that `org-id-locations' is not guaranteed to hold abbreviated
-truenames, so this function transforms them.  That means it is possible,
-though unlikely, that some resulting file paths cannot be
-cross-referenced with `org-id-locations' even though that is where this
-function found out about the files.
-
-For greater reliability in cross-referencing, consider setting user
-option `find-file-visit-truename', quitting Emacs, deleting
-`org-id-locations-file', and restarting."
-  (clrhash indexed--temp-tbl)
-  (setq indexed--raw-file-ctr 0)
-  (let ((file-name-handler-alist nil))
-    (cl-loop
-     for file in (indexed--fast-abbrev-file-names
-                  (cl-loop
-                   for dir in (delete-dups
-                               (mapcar #'file-truename indexed-org-dirs))
-                   nconc (indexed--dir-files-recursive
-                          dir ".org" indexed-org-dirs-exclude)))
-     do (puthash file t indexed--temp-tbl))
-    (when (> indexed--raw-file-ctr (* 10 (hash-table-count indexed--temp-tbl)))
-      (message "%d files in `indexed-org-dirs' but only %d Org, expected?"
-               indexed--raw-file-ctr (hash-table-count indexed--temp-tbl)))
-    ;; Maybe check org-id-locations.
-    ;; I wish for Christmas: a better org-id API...
-    ;; Must be why org-roam decided to wrap around org-id rather than fight it.
-    (if (and indexed-sync-with-org-id (featurep 'org))
-        (progn
-          (require 'org-id)
-          (unless (bound-and-true-p org-id-track-globally)
-            (error "If `indexed-sync-with-org-id' is t, `org-id-track-globally' must be t"))
-          (when (and org-id-locations-file (null org-id-locations))
-            (org-id-locations-load))
-          (dolist (file (if (symbolp org-id-extra-files)
-                            (symbol-value org-id-extra-files)
-                          org-id-extra-files))
-            (let ((abtrue (indexed--abbr-truename file)))
-              (when abtrue
-                (puthash abtrue t indexed--temp-tbl))))
-          (if (indexed--try-ensure-org-id-table-p)
-              (cl-loop
-               for file being each hash-value of org-id-locations
-               as abtrue = (indexed--abbr-truename file)
-               when abtrue do (puthash abtrue t indexed--temp-tbl))
-            (message "indexed: Could not check org-id-locations")))
-      (unless indexed-org-dirs
-        (error "At least one setting must be non-nil: `indexed-org-dirs' or `indexed-sync-with-org-id'"))))
-  (hash-table-keys indexed--temp-tbl))
-
-;; TODO: Make it possible to list only the files in ~/.emacs.d/ but exclude
-;;       subdirs ~/.emacs.d/*/ categorically.
-(defun indexed--dir-files-recursive (dir suffix excludes)
-  "Faster, purpose-made variant of `directory-files-recursively'.
-Return a list of all files under directory DIR, its
-sub-directories, sub-sub-directories and so on, with provisos:
-
-- Don\\='t follow symlinks to other directories.
-- Don\\='t enter directories whose name start with dot or underscore.
-- Don\\='t enter directories where some substring of the path
-  matches one of strings EXCLUDES literally.
-- Don\\='t collect any file where some substring of the basename
-  matches one of strings EXCLUDES literally.
-- Collect only files that end in SUFFIX literally.
-- Don\\='t sort final results in any particular order.
-
-Does not modify the match data."
-  (let (result)
-    (dolist (file (file-name-all-completions "" dir))
-      (if (directory-name-p file)
-          (unless (or (string-prefix-p "." file)
-                      (string-prefix-p "_" file))
-            (setq file (file-name-concat dir file))
-            (unless (or (cl-loop for substr in excludes
-                                 thereis (string-search substr file))
-                        (file-symlink-p (directory-file-name file)))
-              (setq result (nconc result (indexed--dir-files-recursive
-        		                  file suffix excludes)))))
-        (cl-incf indexed--raw-file-ctr)
-        (when (string-suffix-p suffix file)
-          (unless (cl-loop for substr in excludes
-                           thereis (string-search substr file))
-            (push (file-name-concat dir file) result)))))
-    result))
-
-;; See also `consult--fast-abbreviate-file-name'.  This is faster (2024-04-16).
-(defvar indexed--userhome nil)
-(defun indexed--fast-abbrev-file-names (paths)
-  "Abbreviate all file paths in PATHS.
-Much faster than `abbreviate-file-name', noticeably if you would have to
-call it on many file paths at once.
-
-May in some corner-cases give different results.  For instance, it
-disregards file name handlers, affecting TRAMP.
-
-PATHS can be a single path or a list, and are presumed to be absolute.
-
-Tip: the inexactly named buffer-local variable `buffer-file-truename'
-already contains an abbreviated truename."
-  (unless indexed--userhome
-    (setq indexed--userhome (file-name-as-directory (expand-file-name "~"))))
-  ;; Assume a case-sensitive filesystem.
-  ;; REVIEW: Not sure if it fails gracefully on NTFS/FAT/HFS+/APFS.
-  (let ((case-fold-search nil))
-    (if (listp paths)
-        (cl-loop
-         for path in paths
-         do (setq path (directory-abbrev-apply path))
-         if (string-prefix-p indexed--userhome path)
-         ;; REVIEW: Sane in single-user mode Linux?
-         collect (concat "~" (substring path (1- (length indexed--userhome))))
-         else collect path)
-      (setq paths (directory-abbrev-apply paths))
-      (if (string-prefix-p indexed--userhome paths)
-          (concat "~" (substring paths (1- (length indexed--userhome))))
-        paths))))
-
-(defun indexed--mk-work-vars ()
-  "Make alist of variables needed by `indexed-org-parser--parse-file'."
+(defun org-mem--mk-work-vars ()
+  "Make alist of variables needed by `org-mem-parser--parse-file'."
   (let ((org-link-bracket-re
-         ;; Copy-pasta. Mmm.
+         ;; Mmm, copy-pasta.
          "\\[\\[\\(\\(?:[^][\\]\\|\\\\\\(?:\\\\\\\\\\)*[][]\\|\\\\+[^][]\\)+\\)]\\(?:\\[\\([^z-a]+?\\)]\\)?]")
-        (reduced-plain-re (indexed--mk-plain-re indexed-seek-link-types)))
+        (custom-plain-re (org-mem--mk-plain-re org-mem-seek-link-types)))
     (list
      (cons '$bracket-re org-link-bracket-re)
-     (cons '$plain-re reduced-plain-re)
-     (cons '$merged-re (concat org-link-bracket-re "\\|" reduced-plain-re))
+     (cons '$plain-re custom-plain-re)
+     (cons '$merged-re (concat org-link-bracket-re "\\|" custom-plain-re))
      (cons '$inlinetask-min-level (bound-and-true-p org-inlinetask-min-level))
      (cons '$nonheritable-tags (bound-and-true-p org-tags-exclude-from-inheritance))
      (cons '$use-tag-inheritance
@@ -814,7 +736,7 @@ already contains an abbreviated truename."
            (let ((default (if (boundp 'org-todo-keywords)
                               (default-value 'org-todo-keywords)
                             '((sequence "TODO" "DONE")))))
-             (indexed-org-parser--make-todo-regexp
+             (org-mem-parser--make-todo-regexp
               (string-join (if (stringp (car default))
                                default
                              (apply #'append (mapcar #'cdr default)))
@@ -830,12 +752,10 @@ already contains an abbreviated truename."
                   "BACKLINKS"
                   "LOGBOOK"))))))
 
-;; TODO: PR?
+;; TODO: PR? It's useful.
 ;; Copied from part of `org-link-make-regexps'
-(defun indexed--mk-plain-re (link-types)
-  "Build a moral equivalent to `org-link-plain-re'.
-Make it target only LINK-TYPES instead of all the cars of
-`org-link-parameters'."
+(defun org-mem--mk-plain-re (link-types)
+  "Build a moral equivalent to `org-link-plain-re', to match LINK-TYPES."
   (let* ((non-space-bracket "[^][ \t\n()<>]")
          (parenthesis
 	  `(seq (any "<([")
@@ -854,31 +774,388 @@ Make it target only LINK-TYPES instead of all the cars of
 	    (or (regexp "[^[:punct:][:space:]\n]")
                 ?- ?/ ,parenthesis))))))
 
-(defun indexed--warn-deprec ()
-  "Warn about use of deprecated variable names, and unintern them."
-  (dolist (old-var (seq-filter #'boundp
-                               '(indexed-pre-reset-functions
-                                 indexed-post-reset-functions
-                                 indexed-x-pre-update-functions
-                                 indexed-x-post-update-functions
-                                 indexed-x-forget-file-functions
-                                 indexed-x-forget-entry-functions
-                                 indexed-x-forget-link-functions)))
-    (lwarn 'indexed :warning "Deprecated: %s" old-var)
-    (makunbound old-var)))
+
+;;; File-name subroutines
 
-(define-obsolete-function-alias 'indexed-id-nodes #'indexed-org-id-nodes "2025-03-18")
-(define-obsolete-function-alias 'indexed-entries #'indexed-org-entries "2025-03-18")
-(define-obsolete-function-alias 'indexed-files #'indexed-org-files "2025-03-18")
-(define-obsolete-function-alias 'indexed-links #'indexed-org-links "2025-03-18")
-(define-obsolete-function-alias 'indexed-todo #'indexed-todo-state "2025-03-18")
-(define-obsolete-function-alias 'indexed-file #'indexed-file-name "2025-03-18")
-(define-obsolete-function-alias 'indexed--abbrev-file-names #'indexed--fast-abbrev-file-names "2025-04-12")
+(defvar org-mem--wild-filename<>truename (make-hash-table :test 'equal)
+  "1:1 table mapping a wild file name to its truename.
+See helper `org-mem--abbr-truename'.")
 
-(unless (featurep 'indexed)
-  (when (fboundp 'el-job--unhide-buffer) ;; indicates <2.4.1
-    (message "Update to el-job 2.4.1 for some better errors in indexed.el")))
+;; TODO: Ugh, should it return nil or error? Pros/cons, pros/cons...
+;; We'll see with experience I guess.
+(defun org-mem--abbr-truename (wild-file)
+  "For WILD-FILE, return its abbreviated truename."
+  (or (org-mem--abbr-truename-safe wild-file)
+      (error "org-mem: File not on disk, or is a TRAMP path: %s" wild-file)))
 
-(provide 'indexed)
+(defun org-mem--abbr-truename-safe (wild-file)
+  "For WILD-FILE, return its abbreviated truename, or nil."
+  (let* ((file-name-handler-alist nil)
+         (truename (org-mem--truename wild-file)))
+    (and truename (org-mem--fast-abbrev-file-name truename))))
 
-;;; indexed.el ends here
+(defun org-mem--truename (wild-file)
+  "Return the truename for unknown file name WILD-FILE.
+Return nil if WILD-FILE does not exist or looks like a TRAMP path.
+Cache any non-nil result."
+  (and wild-file
+       (or (gethash wild-file org-mem--wild-filename<>truename)
+           (and (not (org-mem--tramp-file-p wild-file))
+                (if (file-exists-p wild-file)
+                    (puthash wild-file
+                             (file-truename wild-file)
+                             org-mem--wild-filename<>truename)
+                  (remhash wild-file org-mem--wild-filename<>truename))))))
+
+(defun org-mem--tramp-file-p (file)
+  "Pass FILE to `tramp-tramp-file-p' if Tramp loaded, else return nil."
+  (and (featurep 'tramp)
+       (tramp-tramp-file-p file)))
+
+(defvar org-mem--userhome nil)
+(defun org-mem--fast-abbrev-file-name (file-name)
+  "Abbreviate the absolute file name FILE-NAME.
+Faster than `abbreviate-file-name', but may give different results."
+  (unless org-mem--userhome
+    ;; PERF HACK: No `directory-abbrev-make-regexp', to avoid `string-match'.
+    (setq org-mem--userhome (file-name-as-directory (expand-file-name "~"))))
+  (let ((case-fold-search nil))
+    (setq file-name (directory-abbrev-apply file-name))
+    (if (string-prefix-p org-mem--userhome file-name)
+        (concat "~" (substring file-name (1- (length org-mem--userhome))))
+      file-name)))
+
+(defun org-mem--invalidate-file-names (bad)
+  "Scrub bad file names BAD in the tables that can pollute a reset.
+Notably, invalidate the cache used by `org-mem--abbr-truename'.
+If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
+  (dolist (bad bad)
+    (remhash bad org-mem--wild-filename<>truename))
+  ;; Example situation: File WILD is a symlink that changed destination.
+  ;; So cached TRUE led to a nonexistent file in the last scan.
+  ;; Now invalidate it so we cache a correct TRUE next time.
+  (maphash (lambda (wild true)
+             (when (member true bad)
+               (push wild bad)
+               (remhash wild org-mem--wild-filename<>truename)))
+           org-mem--wild-filename<>truename)
+  (when (and org-mem-do-sync-with-org-id
+             (org-mem--try-ensure-org-id-table-p))
+    (setq org-id-locations
+          (org-id-alist-to-hash
+           (cl-loop for cell in (org-id-hash-to-alist org-id-locations)
+                    unless (member (car cell) bad)
+                    collect cell)))))
+
+
+;;; File discovery
+
+;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.006 s
+;; (benchmark-call #'org-roam-list-files)          => 4.141 s
+(defvar org-mem--dedup-tbl (make-hash-table :test 'equal))
+(defun org-mem--list-files-from-fs ()
+  "Look for Org files in `org-mem-watch-dirs'.
+
+If user option `org-mem-do-sync-with-org-id' is t,
+include files from `org-id-locations' in the result.
+
+Return abbreviated truenames, to be directly comparable with
+local variable `buffer-file-truename' and \(in most cases\)
+the file names in `org-id-locations'.
+
+Note that `org-id-locations' is not guaranteed to hold abbreviated
+truenames, so this function transforms them to be sure.  That means it
+is possible, though unlikely, that some resulting file names cannot be
+cross-referenced with `org-id-locations' even though that is where this
+function found out about the files.
+
+If you have experienced such issues, it may help to set user option
+`find-file-visit-truename', quit Emacs, delete `org-id-locations-file',
+and restart.  Or make frequent use of `org-mem--abbr-truename'."
+  (unless (or org-mem-watch-dirs org-mem-do-sync-with-org-id)
+    (error "At least one setting must be non-nil: `org-mem-watch-dirs' or `org-mem-do-sync-with-org-id'"))
+  (clrhash org-mem--dedup-tbl)
+  (let ((file-name-handler-alist nil))
+    (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
+      (dolist (file (org-mem--dir-files-recursive
+                     dir ".org" org-mem-watch-dirs-exclude))
+        (puthash (org-mem--truename file) t org-mem--dedup-tbl)))
+    ;; Maybe check org-id-locations.
+    ;; I wish for Christmas: a better org-id API...
+    ;; Must be why org-roam decided to wrap around org-id rather than fight it.
+    (when (and org-mem-do-sync-with-org-id
+               (featurep 'org))
+      (require 'org-id)
+      (unless (bound-and-true-p org-id-track-globally)
+        (error "If `org-mem-do-sync-with-org-id' is t, `org-id-track-globally' must be t"))
+      (when (and org-id-locations-file (null org-id-locations))
+        (org-id-locations-load))
+      (dolist (file (if (symbolp org-id-extra-files)
+                        (symbol-value org-id-extra-files)
+                      org-id-extra-files))
+        (puthash (org-mem--truename file) t org-mem--dedup-tbl))
+      (if (org-mem--try-ensure-org-id-table-p)
+          (cl-loop
+           for file being each hash-value of org-id-locations
+           do (puthash (org-mem--truename file) t org-mem--dedup-tbl))
+        (message "org-mem: Could not check org-id-locations"))))
+  (remhash nil org-mem--dedup-tbl)
+  (cl-loop for truename being each hash-key of org-mem--dedup-tbl
+           collect (org-mem--fast-abbrev-file-name truename)))
+
+(defun org-mem--dir-files-recursive (dir suffix excludes)
+  "Faster, purpose-made variant of `directory-files-recursively'.
+Return a list of all files under directory DIR, its
+sub-directories, sub-sub-directories and so on, with provisos:
+
+- Don\\='t enter directories that are symlinks.
+- Don\\='t enter directories whose name start with dot or underscore.
+- Don\\='t enter directories where some substring of the full name
+  matches one of strings EXCLUDES literally.
+- Don\\='t collect any file where some substring of the basename
+  matches one of strings EXCLUDES literally.
+- Collect only files that end in SUFFIX literally.
+- Don\\='t sort final results in any particular order.
+
+Does not modify the match data."
+  (let (result)
+    (dolist (file (file-name-all-completions "" dir))
+      (if (directory-name-p file)
+          (unless (or (string-prefix-p "." file)
+                      (string-prefix-p "_" file))
+            (setq file (file-name-concat dir file))
+            (unless (or (cl-loop for substr in excludes
+                                 thereis (string-search substr file))
+                        (file-symlink-p (directory-file-name file)))
+              (setq result (nconc result (org-mem--dir-files-recursive
+        		                  file suffix excludes)))))
+        (when (string-suffix-p suffix file)
+          (unless (cl-loop for substr in excludes
+                           thereis (string-search substr file))
+            (push (file-name-concat dir file) result)))))
+    result))
+
+
+;;; Optional: Aliases and refs support
+
+;; This used to come with `org-mem-roamy-db-mode', but bundling it here:
+;; - allows a nicer namespace.
+;; - frees Org-node users from needing to enable that mode at all.
+
+;; Despite their names, properties ROAM_ALIASES and ROAM_REFS are not
+;; only used by Org-roam, but can be seen as an emerging standard concept.
+;; They need special handling because:
+
+;; 1. These properties' values should be transformed from string to list via
+;;    bespoke methods, not the generic `org-entry-get-multivalued-property'.
+;; 2. The refs and aliases fished out of above lists should be cached, because
+;;    they may be consulted a lot (just like vanilla IDs and titles), and it
+;;    lets us check for collisions.
+
+(defvar org-mem--id<>roam-refs (make-hash-table :test 'equal)
+  "1:1 table mapping an ID to a list of ROAM_REFS substrings.")
+
+(defvar org-mem--roam-ref<>id (make-hash-table :test 'equal)
+  "1:1 table mapping a ROAM_REFS member to the nearby ID property.")
+
+;; REVIEW: is it possible to get rid of this?
+(defvar org-mem--roam-ref<>type (make-hash-table :test 'equal)
+  "1:1 table mapping a ROAM_REFS member to its link type if any.")
+
+(defun org-mem-entry-roam-aliases (entry)
+  "Alternative titles for ENTRY, taken from property ROAM_ALIASES."
+  (when-let* ((aliases (org-mem-entry-property "ROAM_ALIASES" entry)))
+    (split-string-and-unquote aliases)))
+
+(defun org-mem-entry-roam-refs (entry)
+  "Valid substrings taken from property ROAM_REFS in ENTRY.
+These substrings are determined by `org-mem--split-roam-refs-field'."
+  (gethash (org-mem-entry-id entry) org-mem--id<>roam-refs))
+
+(defun org-mem-roam-reflinks-to-entry (entry)
+  "All links that point to a substring of ENTRY\\='s ROAM_REFS."
+  (cl-loop for ref in (org-mem-entry-roam-refs entry)
+           append (org-mem-links-to-roam-ref ref)))
+
+(defun org-mem-links-to-roam-ref (ref)
+  (and ref (gethash ref org-mem--dest<>links)))
+
+(defun org-mem-all-roam-reflinks ()
+  (cl-loop for ref being each hash-key of org-mem--roam-ref<>id
+           append (gethash ref org-mem--dest<>links)))
+
+(defun org-mem--record-roam-aliases-and-refs (entry)
+  "Add ENTRY\\='s ROAM_ALIASES and ROAM_REFS to tables."
+  (when-let* ((id (org-mem-entry-id entry)))
+    (dolist (alias (org-mem-entry-roam-aliases entry))
+      ;; Include aliases in the collision-checks
+      (when-let* ((other-id (gethash alias org-mem--title<>id)))
+        (unless (string= id other-id)
+          (push (list (format-time-string "%H:%M") alias id other-id)
+                org-mem--title-collisions)))
+      (puthash alias id org-mem--title<>id))
+    (when-let* ((refs (org-mem--split-roam-refs-field
+                       (org-mem-entry-property "ROAM_REFS" entry))))
+      (puthash id refs org-mem--id<>roam-refs)
+      (dolist (ref refs)
+        (puthash ref id org-mem--roam-ref<>id)))))
+
+(defun org-mem--forget-roam-aliases-and-refs (entry)
+  (dolist (ref (org-mem-entry-roam-refs entry))
+    (remhash (gethash ref org-mem--roam-ref<>id) org-mem--id<>roam-refs)
+    (remhash ref org-mem--roam-ref<>id))
+  (dolist (alias (org-mem-entry-roam-aliases entry))
+    (remhash alias org-mem--title<>id)))
+
+(defun org-mem--split-roam-refs-field (roam-refs)
+  "Extract valid components of a ROAM-REFS field.
+What is valid?  See \"org-mem-test.el\"."
+  (when roam-refs
+    (with-current-buffer (get-buffer-create " *org-mem-scratch*" t)
+      (erase-buffer)
+      (insert roam-refs)
+      (goto-char 1)
+      (let (links beg end colon-pos)
+        ;; Extract all [[bracketed links]]
+        (while (search-forward "[[" nil t)
+          (setq beg (match-beginning 0))
+          (if (setq end (search-forward "]]" nil t))
+              (progn
+                (goto-char beg)
+                (push (buffer-substring (+ 2 beg) (1- (search-forward "]")))
+                      links)
+                (delete-region beg end))
+            (error "Missing close-bracket in ROAM_REFS property %s" roam-refs)))
+        ;; Return merged list
+        (cl-loop
+         for link? in (append links (split-string-and-unquote (buffer-string)))
+         ;; @citekey or &citekey
+         if (string-match (rx (or bol (any ";:"))
+                              (group (any "@&")
+                                     (+ (not (any " ;]")))))
+                          link?)
+         ;; Replace & with @
+         collect (let ((path (substring (match-string 1 link?) 1)))
+                   (puthash path nil org-mem--roam-ref<>type)
+                   (concat "@" path))
+         ;; Some sort of uri://path
+         else when (setq colon-pos (string-search ":" link?))
+         collect (let ((path (string-replace
+                              "%20" " "
+                              (substring link? (1+ colon-pos)))))
+                   ;; Remember the uri: prefix for pretty completions
+                   (puthash path (substring link? 0 colon-pos)
+                            org-mem--roam-ref<>type)
+                   ;; .. but the actual ref is just the //path
+                   path))))))
+
+(add-hook 'org-mem-record-entry-functions
+          #'org-mem--record-roam-aliases-and-refs -10)
+
+(add-hook 'org-mem-forget-entry-functions
+          #'org-mem--forget-roam-aliases-and-refs -10)
+
+
+;;; Optional: Short names
+
+;; These definitions are not used inside this file,
+;; only convenience for end users.
+;; Up to them to write code readably.  At least handy for throwaway code.
+
+;; I suggest that using a short getter is fine the argument is aptly named.
+;; I.e.:
+;; (org-mem-links-to entry)
+;; is just as good as this with a poorly named argument "x":
+;; (org-mem-links-to-entry x)
+;; and this is also fine but can feel like a lot of typing:
+;; (org-mem-links-to-entry entry)
+;; but this is not good:
+;; (org-mem-links-to x)
+
+(defalias 'org-mem-subtree-p      #'org-mem-entry-subtree-p)
+(defalias 'org-mem-title          #'org-mem-entry-title)
+(defalias 'org-mem-olpath         #'org-mem-entry-olpath)
+(defalias 'org-mem-deadline       #'org-mem-entry-deadline)
+(defalias 'org-mem-level          #'org-mem-entry-level)
+(defalias 'org-mem-heading-lvl    #'org-mem-entry-level) ;; feels more legible
+(defalias 'org-mem-priority       #'org-mem-entry-priority)
+(defalias 'org-mem-properties     #'org-mem-entry-properties)
+(defalias 'org-mem-lnum           #'org-mem-entry-lnum)
+(defalias 'org-mem-scheduled      #'org-mem-entry-scheduled)
+(defalias 'org-mem-tags-inherited #'org-mem-entry-tags-inherited)
+(defalias 'org-mem-tags-local     #'org-mem-entry-tags-local)
+(defalias 'org-mem-todo-state     #'org-mem-entry-todo-state)
+
+(defalias 'org-mem-dest           #'org-mem-link-dest)
+(defalias 'org-mem-nearby-id      #'org-mem-link-nearby-id)
+(defalias 'org-mem-type           #'org-mem-link-type)
+(defalias 'org-mem-citation-p     #'org-mem-link-citation-p)
+
+(defalias 'org-mem-entries-in     #'org-mem-entries-in-file)
+
+(defun org-mem-attributes (file)
+  (cl-assert (stringp file))
+  (org-mem-file-attributes file))
+
+(defun org-mem-mtime (file)
+  (cl-assert (stringp file))
+  (org-mem-file-mtime file))
+
+(defun org-mem-line-count (file)
+  (cl-assert (stringp file))
+  (org-mem-file-line-count file))
+
+(defun org-mem-ptmax (file)
+  (cl-assert (stringp file))
+  (org-mem-file-ptmax file))
+
+;;; Short names, with polymorphism
+
+(cl-defgeneric org-mem-pos (entry/link)
+  (:method ((xx org-mem-entry)) (org-mem-entry-pos xx))
+  (:method ((xx org-mem-link)) (org-mem-link-pos xx)))
+
+(cl-defgeneric org-mem-file (entry/link)
+  (:method ((xx org-mem-entry)) (org-mem-entry-file xx))
+  (:method ((xx org-mem-link)) (org-mem-link-file xx)))
+
+(cl-defgeneric org-mem-id (entry/file)
+  (:method ((xx org-mem-entry)) (org-mem-entry-id xx))
+  (:method ((xx string)) (org-mem-file-id-strict xx)))
+
+(cl-defgeneric org-mem-title (entry/file)
+  (:method ((xx org-mem-entry)) (org-mem-entry-title xx))
+  (:method ((xx string)) (org-mem-file-title-strict xx)))
+
+(cl-defgeneric org-mem-roam-reflinks-to (entry/id/file)
+  (:method ((xx org-mem-entry)) (org-mem-roam-reflinks-to-entry xx))
+  (:method ((xx string))
+           (if-let* ((entry (org-mem-entry-by-id xx)))
+               (org-mem-roam-reflinks-to-entry entry)
+             (seq-mapcat #'org-mem-roam-reflinks-to-entry
+                         (org-mem-entries-in-file xx)))))
+
+(cl-defgeneric org-mem-links-to (entry/id/file)
+  (:method ((xx org-mem-entry)) (org-mem-links-to-entry xx))
+  (:method ((xx string))
+           (if-let* ((entry (org-mem-entry-by-id xx)))
+               (org-mem-id-links-to-entry entry)
+             (seq-filter (##equal (org-mem-link-type %) "id")
+                         (org-mem-links-to-file xx)))))
+
+(defun org-mem-id-links-to (entry/id/file)
+  (seq-filter (##equal (org-mem-link-type %) "id")
+              (org-mem-links-to entry/id/file)))
+
+
+;;; Assorted
+
+;; Damn handy with llama
+(defun org-mem-delete (fn tbl)
+  "Delete rows in hash table TBL that satisfy FN\(KEY VALUE)."
+  (maphash (##if (funcall fn %1 %2) (remhash %1 tbl)) tbl) nil)
+
+
+(provide 'org-mem)
+
+;;; org-mem.el ends here
