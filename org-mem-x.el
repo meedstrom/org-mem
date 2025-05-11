@@ -51,6 +51,7 @@
 (declare-function org-get-title "org")
 (declare-function org-get-todo-state "org")
 (declare-function org-link-display-format "ol")
+(define-obsolete-variable-alias 'indexed-x-last-removed-links 'org-mem-x-forgotten-links "2025-05-11")
 
 (defvar org-mem-x--timer (timer-create)
   "Timer for intermittently running `org-mem--scan-full'.")
@@ -261,6 +262,17 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
               :todo-state (when heading (org-get-todo-state))
               :deadline (cdr (assoc "DEADLINE" props))
               :scheduled (cdr (assoc "SCHEDULED" props))))))))))
+
+
+(define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-x--handle-save "2025-05-11")
+(define-obsolete-function-alias 'indexed-x--handle-delete              #'org-mem-x--handle-delete "2025-05-11")
+(define-obsolete-function-alias 'indexed-x--scan-targeted              #'org-mem-x--scan-targeted "2025-05-11")
+(define-obsolete-function-alias 'indexed-x--finalize-targeted          #'org-mem-x--finalize-targeted "2025-05-11")
+(define-obsolete-function-alias 'indexed-x--forget-files               #'org-mem-x--forget-file-contents "2025-05-11")
+(define-obsolete-function-alias 'indexed-x-ensure-buffer-file-known    #'org-mem-x-ensure-buffer-file-known "2025-05-11")
+(define-obsolete-function-alias 'indexed-x-ensure-link-at-point-known  #'org-mem-x-ensure-link-at-point-known "2025-05-11")
+(define-obsolete-function-alias 'indexed-x-ensure-entry-at-point-known #'org-mem-x-ensure-entry-at-point-known "2025-05-11")
+(define-obsolete-function-alias 'indexed--activate-timer               #'org-mem-x--activate-timer "2025-05-11")
 
 (provide 'org-mem-x)
 

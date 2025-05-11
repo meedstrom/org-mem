@@ -161,7 +161,6 @@ the DB on disk and write a new one, then connect to that."
   "Set up tables, schemata and PRAGMA settings in DB."
   (sqlite-execute db "PRAGMA user_version = 20;")
   (sqlite-execute db "PRAGMA foreign_keys = on;")
-  ;; Note to devs: try M-x `org-mem-roamy--insert-schemata-atpt'
   (mapc
    (lambda (query) (sqlite-execute db query))
    '("CREATE TABLE files (
@@ -521,6 +520,20 @@ Can be used as override-advice for `org-roam-reflinks-get'."
                         :ref (org-mem-link-dest link)
                         :source-node (org-mem-roamy-mk-node src-entry)
                         :point (org-mem-link-pos link)))))))
+
+
+(define-obsolete-function-alias 'indexed-roam--re-make-db                            #'org-mem-roamy--re-make-db "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-mode                                   #'org-mem-roamy-db-mode "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam                                        #'org-mem-roamy-db "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam--configure                             #'org-mem-roamy--configure "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam--populate-usably-for-emacsql           #'org-mem-roamy--populate-usably-for-emacsql "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam--mk-singular-value-quoted-like-emacsql #'org-mem-roamy--mk-singular-value-quoted-like-emacsql "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam--mk-rows                               #'org-mem-roamy--mk-rows "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam--mk-file-row                           #'org-mem-roamy--mk-file-row "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam--update-db                             #'org-mem-roamy--update-db "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-mk-node                                #'org-mem-roamy-mk-node "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-mk-backlinks                           #'org-mem-roamy-mk-backlinks "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-mk-reflinks                            #'org-mem-roamy-mk-reflinks "2025-05-11")
 
 (provide 'org-mem-roamy)
 

@@ -89,28 +89,6 @@ To automatically warn, set `org-mem-do-warn-title-collisions'."
     (message "Congratulations, no title collisions! (among %d ID-nodes)"
              (hash-table-count org-mem--title<>id))))
 
-;; ;;;###autoload
-;; (defun org-mem-list-id-collisions ()
-;;   "Pop up a buffer listing ID collisions between two Org entries."
-;;   (interactive)
-;;   (if org-mem--id-collisions
-;;       (org-mem-list--pop-to-tabulated-buffer
-;;        :buffer "*ID collisions*"
-;;        :format [("Time" 6 t) ("ID" 37 t) ("Title 1" 25 t) ("Title 2" 0 t)]
-;;        :reverter #'org-mem-list-title-collisions
-;;        :entries
-;;        (cl-loop
-;;         for row in org-mem--id-collisions
-;;         collect (seq-let ( time id name1 name2 ) row
-;;                   (list
-;;                    (sxhash row)
-;;                    (vector time
-;;                            (buttonize id #'org-mem-list--goto-id id)
-;;                            name1
-;;                            name2)))))
-;;     (message "Congratulations, no ID collisions! (among %d titles)"
-;;              (hash-table-count org-mem--title<>id))))
-
 ;;;###autoload
 (defun org-mem-list-dead-id-links ()
   "List links that lead to no known ID."
@@ -225,6 +203,16 @@ Optional argument REVERTER is a function to add buffer-locally to
   (setq tabulated-list-entries entries)
   (when reverter (add-hook 'tabulated-list-revert-hook reverter nil t))
   (tabulated-list-print t))
+
+
+(define-obsolete-function-alias 'indexed-list--goto-file-pos           #'org-mem-list--goto-file-pos "2025-05-11")
+(define-obsolete-function-alias 'indexed-list--goto-id                 #'org-mem-list--goto-id "2025-05-11")
+(define-obsolete-function-alias 'indexed-list-problems                 #'org-mem-list-problems "2025-05-11")
+(define-obsolete-function-alias 'indexed-list-title-collisions         #'org-mem-list-title-collisions "2025-05-11")
+(define-obsolete-function-alias 'indexed-list-dead-id-links            #'org-mem-list-dead-id-links "2025-05-11")
+(define-obsolete-function-alias 'indexed-list-db-contents              #'org-mem-list-db-contents "2025-05-11")
+(define-obsolete-function-alias 'indexed-list-entries                  #'org-mem-list-entries "2025-05-11")
+(define-obsolete-function-alias 'indexed-list--pop-to-tabulated-buffer #'org-mem-list--pop-to-tabulated-buffer "2025-05-11")
 
 (provide 'org-mem-list)
 
