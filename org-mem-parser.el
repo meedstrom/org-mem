@@ -122,14 +122,6 @@ none), to be included in each link's metadata.  FILE likewise.
 
 It is important that END does not extend past any sub-heading, as
 the subheading potentially has an ID of its own."
-  ;; (save-restriction
-  ;;   (narrow-to-region (point) end)
-  ;;   ;; TODO: now do this on every link to store its lnum
-  ;;   ;; lets see if that slows our scan with 10k links...
-  ;;    ;; not to metnion new base lnum ~3 times per entry.
-  ;;   (setq LNUM (+ base-lnum -1 (line-number-at-pos))))
-  ;;   But maybe easily solved by more successive save-restrictions, cool
-  ;;   technique to use as a matter of course
   (let ((beg (point))
         LINK-TYPE PATH LINK-POS)
     ;; Here it may help to know that:
@@ -140,26 +132,17 @@ the subheading potentially has an ID of its own."
       (setq LINK-POS (- (match-end 0) 1))
       (setq PATH (match-string 1))
       (if PATH
-          ;; Link is the [[bracketed]] kind.  Is there an URI: style link
-          ;; inside?  Here is the magic that allows links to have spaces, it is
-          ;; not possible with `$plain-re' alone.
-
-          ;; XXX test: new version
-          (if-let* ((colon-pos (string-search ":" PATH))
-                    ;; Bail if first colon is actually double; link is untyped.
-                    (_ (not (eq colon-pos (string-search "::" PATH)))))
-              (setq LINK-TYPE (substring PATH 0 colon-pos)
-                    PATH (substring PATH (1+ colon-pos)))
-            (setq LINK-TYPE nil))
-
-        ;; XXX old known-working version (then type nil means dont record)
-        ;; (if (string-match $plain-re PATH)
-        ;;     (setq LINK-TYPE (match-string 1 PATH)
-        ;;           PATH (string-trim-left PATH ".*?:"))
-        ;;   ;; Nothing of interest between the brackets
-        ;;   (setq LINK-TYPE nil))
-
-        ;; Link is the unbracketed kind
+          ;; Link is the [[bracketed]] kind.
+          (let ((colon-pos (string-search ":" PATH)))
+            (if (and colon-pos
+                     (length> PATH colon-pos)
+                     (not (eq ?: (aref PATH (1+ colon-pos))))
+                     (not (eq ?\s (aref PATH (1+ colon-pos)))))
+                ;; Guess that this is a valid URI: type link
+                (setq LINK-TYPE (substring PATH 0 colon-pos)
+                      PATH (substring PATH (1+ colon-pos)))
+              (setq LINK-TYPE nil)))
+        ;; Link is the unbracketed kind and matched `org-mem-seek-link-types'.
         (setq LINK-TYPE (match-string 3)
               PATH (match-string 4)))
 

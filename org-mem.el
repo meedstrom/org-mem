@@ -16,7 +16,7 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 ;; Author:   Martin Edström <meedstrom@runbox.eu>
-;; URL:      https://github.com/meedstrom/org-node
+;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
 ;; Package-Version: 0.6.3.50-git
@@ -36,7 +36,7 @@
 ;;                `org-mem-link-pos', `org-mem-all-id-nodes' etc
 
 ;;  - SQL: an in-memory SQLite database that can be queried like
-;;         (emacsql (org-mem-roamy-db) [:select * :from links])
+;;         (emacsql (org-mem-roamy-db) [:select * :from links :limit 10])
 
 ;;; Code:
 
@@ -154,9 +154,7 @@ e.g. \"/.local/\", \"/.git/\" or \"/_site/\" for that reason."
 
 (defcustom org-mem-seek-link-types
   '("http" "https" "id" "file")
-  "Performance knob.
-Users of org-ref would extend this to ~70 types, which may double
-or triple the time it takes to run `org-mem-reset'."
+  "Which types of plain links to look for."
   :type '(repeat string)
   :package-version '(org-mem . "0.2.0"))
 
@@ -316,7 +314,8 @@ represents the content before the first heading."
 
 (defun org-mem-links-to-entry (entry)
   "All links that point to ENTRY."
-  (and entry (gethash (org-mem-entry-internal-id entry) org-mem--dest<>links)))
+  (and entry (gethash (org-mem-entry-internal-id entry)
+                      org-mem--internal-entry-id<>links)))
 
 (defun org-mem-id-links-to-entry (entry)
   "All ID-links that point to ENTRY."
@@ -1159,9 +1158,8 @@ What is valid?  See \"org-mem-test.el\"."
   (:method ((xx org-mem-entry)) (org-mem-links-to-entry xx))
   (:method ((xx string))
            (if-let* ((entry (org-mem-entry-by-id xx)))
-               (org-mem-id-links-to-entry entry)
-             (seq-filter (##equal (org-mem-link-type %) "id")
-                         (org-mem-links-to-file xx)))))
+               (org-mem-links-to-entry entry)
+             (org-mem-links-to-file xx))))
 
 (defun org-mem-id-links-to (entry/id/file)
   (seq-filter (##equal (org-mem-link-type %) "id")
@@ -1174,6 +1172,10 @@ What is valid?  See \"org-mem-test.el\"."
 
 
 ;;; Assorted
+
+(defun org-mem-block (who n-secs)
+  (cl-assert (symbolp who))
+  (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." who)))
 
 ;; Damn handy with llama
 (defun org-mem-delete (fn tbl)
