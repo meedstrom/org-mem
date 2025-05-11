@@ -23,18 +23,15 @@
 (require 'org-mem-roamy)
 (require 'org-mem-x)
 
-;; FIXME
 (ert-deftest test-split-refs-field ()
   (let ((result
-         (with-current-buffer (setq org-mem-roamy--work-buf
-                                    (get-buffer-create " *org-mem-roamy*" t))
-           (org-mem--split-roam-refs-field
+         (org-mem--split-roam-refs-field
             (concat " \"[cite:@citekey abcd ; @citekey2 cdefgh;@citekey3]\""
                     " \"[[citep:&citekey4 abcd ; &citekey5 cdefgh;&citekey6]]\""
                     " \"[[https://gnu.org/A Link With Spaces/index2.htm]]\""
                     " [[https://gnu.org/A Link With Spaces/index.htm][baz]]"
                     " https://gnu.org [cite:&citekey7]  @foo &bar "
-                    " info:with%20escaped%20spaces")))))
+                    " info:with%20escaped%20spaces"))))
     (should (cl-every (##member % result)
                       '("@citekey"
                         "@citekey4"

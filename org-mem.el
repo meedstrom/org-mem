@@ -62,34 +62,19 @@
 (declare-function org-mem-x--handle-delete "org-mem-x")
 (declare-function org-mem-x--activate-timer "org-mem-x")
 (declare-function tramp-tramp-file-p "tramp")
+(define-obsolete-variable-alias 'indexed--dest<>links       'org-mem--dest<>links "2025-05-11")
+(define-obsolete-variable-alias 'indexed--file<>entries     'org-mem--file<>entries "2025-05-11")
+(define-obsolete-variable-alias 'indexed--id<>entry         'org-mem--id<>entry "2025-05-11")
+(define-obsolete-variable-alias 'indexed--title<>id         'org-mem--title<>id "2025-05-11")
+(define-obsolete-variable-alias 'indexed-roam--id<>refs     'org-mem--id<>roam-refs "2025-05-11")
+(define-obsolete-variable-alias 'indexed-roam--ref<>id      'org-mem--roam-ref<>id "2025-05-11")
+(define-obsolete-variable-alias 'indexed-roam--ref<>type    'org-mem--roam-ref<>type "2025-05-11")
 
-(define-obsolete-variable-alias 'indexed--dest<>links                       'org-mem--dest<>links "2025-05-11")
-(define-obsolete-variable-alias 'indexed--file<>entries                     'org-mem--file<>entries "2025-05-11")
-(define-obsolete-variable-alias 'indexed--id<>entry                         'org-mem--id<>entry "2025-05-11")
-(define-obsolete-variable-alias 'indexed--next-message                      'org-mem--next-message "2025-05-11")
-(define-obsolete-variable-alias 'indexed--problems                          'org-mem--problems "2025-05-11")
-(define-obsolete-variable-alias 'indexed--time-at-begin-full-scan           'org-mem--time-at-begin-full-scan "2025-05-11")
-(define-obsolete-variable-alias 'indexed--time-elapsed                      'org-mem--time-elapsed "2025-05-11")
-(define-obsolete-variable-alias 'indexed--title-collisions                  'org-mem--title-collisions "2025-05-11")
-(define-obsolete-variable-alias 'indexed--title<>id                         'org-mem--title<>id "2025-05-11")
-(define-obsolete-variable-alias 'indexed-forget-entry-functions             'org-mem-forget-entry-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-forget-file-functions              'org-mem-forget-file-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-forget-link-functions              'org-mem-forget-link-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-org-dirs                           'org-mem-watch-dirs "2025-05-11")
-(define-obsolete-variable-alias 'indexed-org-dirs-exclude                   'org-mem-watch-dirs-exclude "2025-05-11")
-(define-obsolete-variable-alias 'indexed-post-full-reset-functions          'org-mem-post-full-scan-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-post-incremental-update-functions  'org-mem-post-targeted-scan-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-pre-full-reset-functions           'org-mem-pre-full-scan-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-pre-incremental-update-functions   'org-mem-pre-targeted-scan-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-record-entry-functions             'org-mem-record-entry-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-record-file-functions              'org-mem-record-file-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-record-link-functions              'org-mem-record-link-functions "2025-05-11")
-(define-obsolete-variable-alias 'indexed-roam--id<>refs                     'org-mem--id<>roam-refs "2025-05-11")
-(define-obsolete-variable-alias 'indexed-roam--ref<>id                      'org-mem--roam-ref<>id "2025-05-11")
-(define-obsolete-variable-alias 'indexed-roam--ref<>type                    'org-mem--roam-ref<>type "2025-05-11")
-(define-obsolete-variable-alias 'indexed-seek-link-types                    'org-mem-seek-link-types "2025-05-11")
-(define-obsolete-variable-alias 'indexed-sync-with-org-id                   'org-mem-do-sync-with-org-id "2025-05-11")
-(define-obsolete-variable-alias 'indexed-warn-title-collisions              'org-mem-do-warn-title-collisions "2025-05-11")
+;; To move into `org-mem--warn-deprec' later
+(define-obsolete-variable-alias 'indexed-org-dirs           'org-mem-watch-dirs "2025-05-11")
+(define-obsolete-variable-alias 'indexed-org-dirs-exclude   'org-mem-watch-dirs-exclude "2025-05-11")
+(define-obsolete-variable-alias 'indexed-sync-with-org-id   'org-mem-do-sync-with-org-id "2025-05-11")
+(define-obsolete-variable-alias 'indexed-roam-overwrite     'org-mem-roamy-do-overwrite-real-db "2025-05-11")
 
 ;; REVIEW: I wonder if we should mass-rename all uses of "dest" to "path"?  Or
 ;;         "target"?  If we ever cache link descriptions and shorten them to
@@ -208,7 +193,8 @@ User should query via `org-mem-links-in-entry'.")
 
 (define-inline org-mem--table (key subkey)
   "In a table identified by KEY, access value at SUBKEY.
-Store all tables in `org-mem--key<>subtable'.  Note: often wiped."
+Store all tables in `org-mem--key<>subtable'.
+Note: All tables cleared often, because this is meant for memoizations."
   (inline-quote
    (gethash ,subkey (or (gethash ,key org-mem--key<>subtable)
                         (puthash ,key (make-hash-table :test 'equal)
@@ -414,15 +400,15 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
     (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))))
 
 (defun org-mem-entry-olpath-with-self-with-title
-      (entry &optional filename-fallback)
-    "Outline path, including file #+title, and ENTRY\\='s own heading.
+    (entry &optional filename-fallback)
+  "Outline path, including file #+title, and ENTRY\\='s own heading.
 With FILENAME-FALLBACK, use file basename if there is no #+title."
-    (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry)))))
-      (when (null (car olp))
-        (pop olp)
-        (when filename-fallback
-          (push (file-name-nondirectory (org-mem-entry-file entry)) olp)))
-      olp))
+  (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry)))))
+    (when (null (car olp))
+      (pop olp)
+      (when filename-fallback
+        (push (file-name-nondirectory (org-mem-entry-file entry)) olp)))
+    olp))
 
 (defalias 'org-mem-entry-olpath-with-title-with-self
   #'org-mem-entry-olpath-with-self-with-title)
@@ -522,7 +508,7 @@ case that there exists a file-level ID but no #+title:, or vice versa."
   ;; "Value of #+title in file at FILE/ENTRY; fall back on topmost heading."
   (let ((entries (org-mem-entries-in-file
                   (if (stringp file/entry) file/entry
-                     (org-mem-entry-file file/entry)))))
+                    (org-mem-entry-file file/entry)))))
     (or (org-mem-entry-title (car entries))
         (ignore-errors (org-mem-entry-title (cadr entries))))))
 
@@ -621,6 +607,7 @@ case that there exists a file-level ID but no #+title:, or vice versa."
 With TAKEOVER t, stop any already ongoing scan to start a new one."
   (when (or takeover (not (el-job-is-busy 'org-mem)))
     (setq org-mem--time-at-begin-full-scan (current-time))
+    (org-mem--warn-deprec)
     (let ((result (el-job-launch
                    :id 'org-mem
                    :if-busy 'takeover
@@ -834,7 +821,7 @@ Caches any non-nil result, so may return a name no longer correct."
                   (remhash wild-file org-mem--wild-filename<>abbr-truename))))))
 
 (defun org-mem--fast-abbrev (file-name)
-    "Abbreviate the absolute file name FILE-NAME.
+  "Abbreviate the absolute file name FILE-NAME.
 Faster than `abbreviate-file-name' especially for network paths."
   (let ((case-fold-search nil))
     (setq file-name (directory-abbrev-apply file-name))
@@ -1097,15 +1084,15 @@ What is valid?  See \"org-mem-test.el\"."
 ;; only convenience for end users.
 ;; Up to them to write code readably.  At least handy for throwaway code.
 
-;; I suggest that using a short getter is fine the argument is aptly named.
+;; I suggest that using a short getter is fine if the argument is aptly named.
 ;; I.e.:
-;; (org-mem-links-to entry)
+;;    (org-mem-links-to entry)
 ;; is just as good as this with a poorly named argument "x":
-;; (org-mem-links-to-entry x)
+;;    (org-mem-links-to-entry x)
 ;; and this is also fine but can feel like a lot of typing:
-;; (org-mem-links-to-entry entry)
+;;    (org-mem-links-to-entry entry)
 ;; but this is not good:
-;; (org-mem-links-to x)
+;;    (org-mem-links-to x)
 
 (defalias 'org-mem-subtree-p      #'org-mem-entry-subtree-p)
 (defalias 'org-mem-title          #'org-mem-entry-title)
@@ -1195,7 +1182,6 @@ What is valid?  See \"org-mem-test.el\"."
 
 ;; (define-obsolete-function-alias 'indexed-file-data )
 ;; (define-obsolete-function-alias 'indexed-heading-above )
-;; (define-obsolete-function-alias 'indexed-org-links )
 ;; (define-obsolete-function-alias 'indexed-property-assert )
 ;; (define-obsolete-function-alias 'indexed-root-heading-to )
 
@@ -1230,6 +1216,7 @@ What is valid?  See \"org-mem-test.el\"."
 (define-obsolete-function-alias 'indexed-id-nodes                      #'org-mem-all-id-nodes "2025-05-11")
 (define-obsolete-function-alias 'indexed-id-nodes-in                   #'org-mem-id-nodes-in-files "2025-05-11")
 (define-obsolete-function-alias 'indexed-links                         #'org-mem-all-links "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-links                     #'org-mem-all-links "2025-05-11")
 (define-obsolete-function-alias 'indexed-links-from                    #'org-mem-links-from-id "2025-05-11")
 (define-obsolete-function-alias 'indexed-lnum                          #'org-mem-entry-lnum "2025-05-11")
 (define-obsolete-function-alias 'indexed-mtime                         #'org-mem-file-mtime "2025-05-11")
@@ -1283,9 +1270,34 @@ What is valid?  See \"org-mem-test.el\"."
 (define-obsolete-function-alias 'indexed-updater-mode                  #'org-mem-updater-mode "2025-05-11")
 (define-obsolete-function-alias 'indexed-x--tramp-file-p               #'org-mem--tramp-file-p "2025-05-11")
 
-;; so gethash will error
-(defvar indexed--origin<>links 'obsolete)
-(defvar indexed--file<>data 'obsolete)
+(defun org-mem--warn-deprec ()
+  "Warn about use of deprecated variable names, and unintern them."
+  (dolist (old-var (seq-filter #'boundp
+                               '(indexed-forget-entry-functions
+                                 indexed-forget-file-functions
+                                 indexed-forget-link-functions
+                                 indexed-post-full-reset-functions
+                                 indexed-post-incremental-update-functions
+                                 indexed-post-reset-functions
+                                 indexed-pre-full-reset-functions
+                                 indexed-pre-incremental-update-functions
+                                 indexed-pre-reset-functions
+                                 indexed-record-entry-functions
+                                 indexed-record-file-functions
+                                 indexed-record-link-functions
+                                 indexed-seek-link-types
+                                 indexed-warn-title-collisions
+                                 indexed-x-forget-entry-functions
+                                 indexed-x-forget-file-functions
+                                 indexed-x-forget-link-functions
+                                 indexed-x-post-update-functions
+                                 indexed-x-pre-update-functions)))
+    (lwarn 'org-mem :warning "Deprecated: %s" old-var)
+    (makunbound old-var)))
+
+;; So that `gethash' will error
+(defvar indexed--origin<>links :obsolete)
+(defvar indexed--file<>data :obsolete)
 
 (provide 'org-mem)
 

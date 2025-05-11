@@ -22,9 +22,10 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'seq)
-(require 'org-mem)
 (require 'sqlite)
-(require 'eieio) ;; `oref' is a macro
+(require 'org-mem)
+(require 'llama)
+(declare-function eieio-oref "eieio")
 
 ;;;###autoload
 (define-minor-mode org-mem-roamy-db-mode
@@ -132,7 +133,7 @@ the DB on disk and write a new one, then connect to that."
                       (setq conn (org-roam-db))
                       (setq name org-roam-db-location)
                       (org-mem-roamy--populate-usably-for-emacsql
-                       (oref conn handle)
+                       (eieio-oref conn 'handle)
                        (org-mem-roamy--mk-rows))))
                 (error "Option `org-mem-roamy-do-overwrite-real-db' is t, but org-roam unavailable"))
             ;; Make our own diskless DB.
@@ -142,9 +143,9 @@ the DB on disk and write a new one, then connect to that."
             (unless (and conn (emacsql-live-p conn))
               (setq conn (emacsql-sqlite-open nil))
               (setq org-mem-roamy--connection conn)
-              (org-mem-roamy--configure (oref conn handle))
+              (org-mem-roamy--configure (eieio-oref conn 'handle))
               (org-mem-roamy--populate-usably-for-emacsql
-               (oref conn handle)
+               (eieio-oref conn 'handle)
                (org-mem-roamy--mk-rows))))
 
           (when org-mem--next-message
@@ -366,7 +367,10 @@ With SPECIFIC-FILES, only return data that involves those files."
      (cl-loop for ref in (org-mem-entry-roam-refs entry) do
               (let ((type (gethash ref org-mem--roam-ref<>type)))
                 (push (list id
-                            ref
+                            ;; REVIEW: double check
+                            (if (string-prefix-p "@" ref)
+                                (substring ref 1)
+                              ref)
                             (or type "cite"))
                       ref-rows))))
 

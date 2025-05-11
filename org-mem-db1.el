@@ -39,6 +39,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sqlite)
+(require 'llama)
 (require 'org-mem)
 
 (defvar org-mem-db1--connection nil

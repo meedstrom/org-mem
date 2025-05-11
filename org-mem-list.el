@@ -26,6 +26,7 @@
 (require 'seq)
 (require 'org-mem)
 (require 'sqlite)
+(require 'llama)
 (require 'sqlite-mode)
 (require 'eieio)
 (eieio-declare-slots handle)
