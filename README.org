@@ -4,7 +4,7 @@
 # without any warranty.
 #+TITLE: Org-mem
 
-# TODO: Document that TRAMP won't work.
+# TODO: Document that TRAMP won't work, or fix that.
 
 A cache of metadata about the structure of all your Org files -- headings, links and so on.
 
@@ -69,7 +69,7 @@ A design choice: Org-mem does not use Org code to analyze your files, but a [[ht
 
 3. *Fast rebuild.*  As they say, there are two hard things in computer science: cache invalidation and naming things.
 
-   Org-mem must update its cache as the user saves, renames and deletes files.  Not a difficult problem, until you realize that files may change due to a Git operation, OS file operations, a =rm= command on the terminal, edits by another Emacs instance, or even remote edits by Logseq.
+   Org-mem must update its cache as the user saves, renames and deletes files.  Not difficult, until you realize that files may change due to a Git operation, OS file operations, a =rm= command on the terminal, edits by another Emacs instance, or remote edits by Logseq.
 
    A robust approach to cache invalidation is to avoid trying: ensure that a full rebuild is fast enough that you can just do /that/ instead.
 

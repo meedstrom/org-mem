@@ -91,15 +91,20 @@ If timer not running, start it."
 If FILE differs from the name by which the actual file is listed in our
 tables, because a parent directory is a symlink or the abbreviation
 differs, try to discover the known name variant and operate on that.
-Do not do so when FILE satisfies `file-symlink-p'."
-  (when (string-suffix-p ".org" file)
+
+However, do not do so when FILE itself satisfies `file-symlink-p'.
+In that case, there may be nothing wrong with the known name."
+  (when (and (string-suffix-p ".org" file)
+             ;; Don't accidentally scrub Tramp files from org-id-locations
+             ;; just because we chose to know nothing about them.
+             (not (org-mem--tramp-file-p file)))
     (let ((bad (list file))
-          (cached-true (gethash file org-mem--wild-filename<>truename)))
-      (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
+          (cached-true (gethash file org-mem--wild-filename<>abbr-truename)))
       (when (and cached-true (not (file-symlink-p file)))
-        (push (org-mem--fast-abbrev-file-name cached-true) bad))
+        (push cached-true bad))
       (org-mem-x--forget-file-contents bad)
-      (org-mem--invalidate-file-names bad))))
+      (org-mem--invalidate-file-names bad)
+      (mapc #'clrhash (hash-table-values org-mem--key<>subtable)))))
 
 (defun org-mem-x--scan-targeted (files)
   "Arrange to scan FILES."
@@ -132,7 +137,7 @@ Do not do so when FILE satisfies `file-symlink-p'."
       (push prob org-mem--problems))
     (run-hook-with-args 'org-mem-post-targeted-scan-functions parse-results)
     (when bad-paths
-      (let ((good-paths (seq-keep #'org-mem--abbr-truename-safe bad-paths)))
+      (let ((good-paths (seq-keep #'org-mem--abbr-truename bad-paths)))
         (org-mem-x--scan-targeted (seq-difference good-paths bad-paths))))
     (when problems
       (message "Scan had problems, see M-x org-mem-list-problems"))))

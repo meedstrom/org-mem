@@ -226,7 +226,7 @@ Store all tables in `org-mem--key<>subtable'.  Note: often wiped."
 
 (defun org-mem-all-entries ()
   "All entries."
-  (with-memoization (org-mem--table 21 'org-mem-all-entries)
+  (with-memoization (org-mem--table 0 'org-mem-all-entries)
     (apply #'append (hash-table-values org-mem--file<>entries))))
 
 (defun org-mem-all-id-nodes ()
@@ -239,12 +239,12 @@ An ID-node is an entry that has an ID property."
 Citations are `org-mem-link' objects where TYPE is nil and
 the string DEST begins with \"@\".
 2025-03-18: This may change in the future!"
-  (with-memoization (org-mem--table 22 'org-mem-all-links)
+  (with-memoization (org-mem--table 0 'org-mem-all-links)
     (apply #'append (hash-table-values org-mem--dest<>links))))
 
 (defun org-mem-all-id-links ()
   "All ID-links."
-  (with-memoization (org-mem--table 23 'org-mem-all-id-links)
+  (with-memoization (org-mem--table 0 'org-mem-all-id-links)
     (org-mem-links-of-type "id")))
 
 (defun org-mem-entry-by-id (id)
@@ -277,7 +277,6 @@ represents the content before the first heading."
   (with-memoization (org-mem--table 13 files)
     (seq-mapcat #'org-mem-entries-in-file files)))
 
-
 (defun org-mem-file-by-id (id)
   "The file that contains an :ID: property matching ID."
   (let ((entry (and id (gethash id org-mem--id<>entry))))
@@ -300,6 +299,10 @@ represents the content before the first heading."
   (cl-loop for link in (gethash path org-mem--dest<>links)
            when (equal type (org-mem-link-type link))
            collect link))
+
+(defun org-mem-links-to-entry (entry)
+  "All links that point to ENTRY."
+  (and entry (gethash (org-mem-entry-internal-id entry) org-mem--dest<>links)))
 
 (defun org-mem-id-links-to-entry (entry)
   "All ID-links that point to ENTRY."
@@ -325,7 +328,7 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
                 (org-mem-all-links))))
 
 ;; TODO
-(defun org-mem-links-to-file (file)
+(defun org-mem-links-to-file (_file)
   ;; (let ((dests-for-file (org-mem-entries-in-file))))
   ;; (cl-loop for link in (org-mem-all-links)
   ;;          collect nil)
@@ -583,12 +586,14 @@ case that there exists a file-level ID but no #+title:, or vice versa."
   (org-mem--scan-full))
 
 (defvar org-mem--time-at-begin-full-scan nil)
-(defun org-mem--scan-full ()
-  "Arrange a full scan."
-  (unless (el-job-is-busy 'org-mem)
+(defun org-mem--scan-full (&optional takeover)
+  "Arrange a full scan, if one is not already ongoing.
+With TAKEOVER t, stop any already ongoing scan to start a new one."
+  (when (or takeover (not (el-job-is-busy 'org-mem)))
     (setq org-mem--time-at-begin-full-scan (current-time))
     (let ((result (el-job-launch
                    :id 'org-mem
+                   :if-busy 'takeover
                    :inject-vars (org-mem--mk-work-vars)
                    :load-features '(org-mem-parser)
                    :inputs #'org-mem--list-files-from-fs
@@ -650,7 +655,7 @@ see what you may want to revert."
              (length (org-mem-all-files))
              (seq-count #'org-mem-entry-subtree-p (org-mem-all-entries))
              (length (org-mem-all-links))
-             org-mem--time-at-begin-full-scan)))
+             (float-time (time-since org-mem--time-at-begin-full-scan)))))
     (run-hook-with-args 'org-mem-post-full-scan-functions parse-results)
     (message "%s" org-mem--next-message)
     (setq org-mem--next-message nil)
@@ -777,68 +782,60 @@ No-op if Org has not loaded."
 
 ;;; File-name subroutines
 
-(defvar org-mem--wild-filename<>truename (make-hash-table :test 'equal)
-  "1:1 table mapping a wild file name to its truename.
+(defvar org-mem--wild-filename<>abbr-truename (make-hash-table :test 'equal)
+  "1:1 table mapping a wild file name to its abbreviated truename.
 See helper `org-mem--abbr-truename'.")
 
-;; TODO: Ugh, should it return nil or error? Pros/cons, pros/cons...
-;; We'll see with experience I guess.
+;; Biggest reason Org-mem may not support Tramp is that the parser runs in
+;; child Elisp processes that do not inherit your Tramp setup.
+;; So a design requirement is don't touch such files -- neither analyze them,
+;; nor scrub them from org-id-locations or the like.
 (defun org-mem--abbr-truename (wild-file)
-  "For WILD-FILE, return its abbreviated truename."
-  (or (org-mem--abbr-truename-safe wild-file)
-      (error "org-mem: File not on disk, or is a TRAMP path: %s" wild-file)))
-
-(defun org-mem--abbr-truename-safe (wild-file)
-  "For WILD-FILE, return its abbreviated truename, or nil."
-  (let* ((file-name-handler-alist nil)
-         (truename (org-mem--truename wild-file)))
-    (and truename (org-mem--fast-abbrev-file-name truename))))
-
-(defun org-mem--truename (wild-file)
-  "Return the truename for unknown file name WILD-FILE.
-Return nil if WILD-FILE does not exist or looks like a TRAMP path.
-Cache any non-nil result."
+  "For existing non-Tramp WILD-FILE, return its abbreviated truename.
+Caches any non-nil result, so may return a name no longer correct."
   (and wild-file
-       (or (gethash wild-file org-mem--wild-filename<>truename)
+       (or (gethash wild-file org-mem--wild-filename<>abbr-truename)
            (and (not (org-mem--tramp-file-p wild-file))
-                (if (file-exists-p wild-file)
+                (if-let* ((truename (and (file-exists-p wild-file)
+                                         (file-truename wild-file))))
                     (puthash wild-file
-                             (file-truename wild-file)
-                             org-mem--wild-filename<>truename)
-                  (remhash wild-file org-mem--wild-filename<>truename))))))
+                             (org-mem--fast-abbrev truename)
+                             org-mem--wild-filename<>abbr-truename)
+                  (remhash wild-file org-mem--wild-filename<>abbr-truename))))))
 
+(defun org-mem--fast-abbrev (file-name)
+    "Abbreviate the absolute file name FILE-NAME.
+Faster than `abbreviate-file-name' especialley for network paths."
+  (let ((case-fold-search nil))
+    (setq file-name (directory-abbrev-apply file-name))
+    (if (string-match (with-memoization (org-mem--table 0 'org-mem--fast-abbrev)
+                        (directory-abbrev-make-regexp (expand-file-name "~")))
+                      file-name)
+        (concat "~" (substring file-name (match-beginning 1)))
+      file-name)))
+
+;; If user has not caused Tramp to load, the FILE we get is unlikely to be a
+;; Tramp path.  If that assumption is wrong, issues should still go away on
+;; the first reset after Tramp load.
 (defun org-mem--tramp-file-p (file)
   "Pass FILE to `tramp-tramp-file-p' if Tramp loaded, else return nil."
   (and (featurep 'tramp)
        (tramp-tramp-file-p file)))
-
-(defvar org-mem--userhome nil)
-(defun org-mem--fast-abbrev-file-name (file-name)
-  "Abbreviate the absolute file name FILE-NAME.
-Faster than `abbreviate-file-name', but may give different results."
-  (unless org-mem--userhome
-    ;; PERF HACK: No `directory-abbrev-make-regexp', to avoid `string-match'.
-    (setq org-mem--userhome (file-name-as-directory (expand-file-name "~"))))
-  (let ((case-fold-search nil))
-    (setq file-name (directory-abbrev-apply file-name))
-    (if (string-prefix-p org-mem--userhome file-name)
-        (concat "~" (substring file-name (1- (length org-mem--userhome))))
-      file-name)))
 
 (defun org-mem--invalidate-file-names (bad)
   "Scrub bad file names BAD in the tables that can pollute a reset.
 Notably, invalidate the cache used by `org-mem--abbr-truename'.
 If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
   (dolist (bad bad)
-    (remhash bad org-mem--wild-filename<>truename))
+    (remhash bad org-mem--wild-filename<>abbr-truename))
   ;; Example situation: File WILD is a symlink that changed destination.
   ;; So cached TRUE led to a nonexistent file in the last scan.
   ;; Now invalidate it so we cache a correct TRUE next time.
   (maphash (lambda (wild true)
              (when (member true bad)
                (push wild bad)
-               (remhash wild org-mem--wild-filename<>truename)))
-           org-mem--wild-filename<>truename)
+               (remhash wild org-mem--wild-filename<>abbr-truename)))
+           org-mem--wild-filename<>abbr-truename)
   (when (and org-mem-do-sync-with-org-id
              (org-mem--try-ensure-org-id-table-p))
     (setq org-id-locations
@@ -852,6 +849,8 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
 
 ;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.006 s
 ;; (benchmark-call #'org-roam-list-files)          => 4.141 s
+(defvar org-mem--daa 0)
+(defvar org-mem--tramp (featurep 'tramp))
 (defvar org-mem--dedup-tbl (make-hash-table :test 'equal))
 (defun org-mem--list-files-from-fs ()
   "Look for Org files in `org-mem-watch-dirs'.
@@ -874,12 +873,19 @@ If you have experienced such issues, it may help to set user option
 and restart.  Or make frequent use of `org-mem--abbr-truename'."
   (unless (or org-mem-watch-dirs org-mem-do-sync-with-org-id)
     (error "At least one setting must be non-nil: `org-mem-watch-dirs' or `org-mem-do-sync-with-org-id'"))
+  (unless (= org-mem--daa (sxhash directory-abbrev-alist))
+    (setq org-mem--daa (sxhash directory-abbrev-alist))
+    (clrhash org-mem--wild-filename<>abbr-truename))
+  (unless (eq org-mem--tramp (featurep 'tramp))
+    (setq org-mem--tramp (featurep 'tramp))
+    (clrhash org-mem--wild-filename<>abbr-truename))
   (clrhash org-mem--dedup-tbl)
+
   (let ((file-name-handler-alist nil))
     (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
       (dolist (file (org-mem--dir-files-recursive
                      dir ".org" org-mem-watch-dirs-exclude))
-        (puthash (org-mem--truename file) t org-mem--dedup-tbl)))
+        (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl)))
     ;; Maybe check org-id-locations.
     ;; I wish for Christmas: a better org-id API...
     ;; Must be why org-roam decided to wrap around org-id rather than fight it.
@@ -893,15 +899,14 @@ and restart.  Or make frequent use of `org-mem--abbr-truename'."
       (dolist (file (if (symbolp org-id-extra-files)
                         (symbol-value org-id-extra-files)
                       org-id-extra-files))
-        (puthash (org-mem--truename file) t org-mem--dedup-tbl))
+        (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl))
       (if (org-mem--try-ensure-org-id-table-p)
           (cl-loop
            for file being each hash-value of org-id-locations
-           do (puthash (org-mem--truename file) t org-mem--dedup-tbl))
+           do (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl))
         (message "org-mem: Could not check org-id-locations"))))
   (remhash nil org-mem--dedup-tbl)
-  (cl-loop for truename being each hash-key of org-mem--dedup-tbl
-           collect (org-mem--fast-abbrev-file-name truename)))
+  (hash-table-keys org-mem--dedup-tbl))
 
 (defun org-mem--dir-files-recursive (dir suffix excludes)
   "Faster, purpose-made variant of `directory-files-recursively'.
@@ -1091,8 +1096,6 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-type           #'org-mem-link-type)
 (defalias 'org-mem-citation-p     #'org-mem-link-citation-p)
 
-(defalias 'org-mem-entries-in     #'org-mem-entries-in-file)
-
 (defun org-mem-attributes (file)
   (cl-assert (stringp file))
   (org-mem-file-attributes file))
@@ -1147,6 +1150,11 @@ What is valid?  See \"org-mem-test.el\"."
   (seq-filter (##equal (org-mem-link-type %) "id")
               (org-mem-links-to entry/id/file)))
 
+(defun org-mem-entries-in (file/files)
+  (funcall (if (listp file/files) #'org-mem-entries-in-files
+             #'org-mem-entries-in-file)
+           file/files))
+
 
 ;;; Assorted
 
@@ -1154,7 +1162,6 @@ What is valid?  See \"org-mem-test.el\"."
 (defun org-mem-delete (fn tbl)
   "Delete rows in hash table TBL that satisfy FN\(KEY VALUE)."
   (maphash (##if (funcall fn %1 %2) (remhash %1 tbl)) tbl) nil)
-
 
 (provide 'org-mem)
 

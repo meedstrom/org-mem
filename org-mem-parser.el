@@ -152,7 +152,7 @@ the subheading potentially has an ID of its own."
                     PATH (substring PATH (1+ colon-pos)))
             (setq LINK-TYPE nil))
 
-        ;; XXX old known-working version
+        ;; XXX old known-working version (then type nil means dont record)
         ;; (if (string-match $plain-re PATH)
         ;;     (setq LINK-TYPE (match-string 1 PATH)
         ;;           PATH (string-trim-left PATH ".*?:"))
@@ -274,7 +274,7 @@ Also set some variables, including global variables."
         ID ID-HERE INTERNAL-ENTRY-ID
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
         TITLE HEADING-POS LNUM CRUMBS
-        TODO-STATE TODO-RE FILE-TODO-SETTINGS
+        TODO-STATE TODO-RE
         SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
         ;; Arbitrarily-named buffer positions
         HERE FAR END DRAWER-BEG DRAWER-END)
@@ -323,7 +323,6 @@ Also set some variables, including global variables."
               (setq NONHERITABLE-TAGS (if x (cdr x)
                                         $nonheritable-tags))))
 
-          (goto-char 1)
           ;; If the very first line of file is a heading, don't try to scan
           ;; content before it.  Our usage of `org-mem-parser--next-heading'
           ;; cannot handle that edge-case.
@@ -357,19 +356,13 @@ Also set some variables, including global variables."
                        ":" t)
                     nil))
             (goto-char HERE)
-            (setq TODO-RE
-                  (if (re-search-forward file-todo-option-re FAR t)
-                      (progn
-                        (setq FILE-TODO-SETTINGS nil)
-                        ;; Because you can have multiple #+todo: lines...
-                        (while (progn
-                                 (push (buffer-substring (point) (pos-eol))
-                                       FILE-TODO-SETTINGS)
-                                 (re-search-forward
-                                  file-todo-option-re FAR t)))
-                        (org-mem-parser--make-todo-regexp
-                         (string-join FILE-TODO-SETTINGS " ")))
-                    $default-todo-re))
+            (let (collected-todo-lines)
+              (while (re-search-forward file-todo-option-re FAR t)
+                (push (buffer-substring (point) (pos-eol)) collected-todo-lines))
+              (setq TODO-RE (if collected-todo-lines
+                                (org-mem-parser--make-todo-regexp
+                                 (string-join collected-todo-lines " "))
+                              $default-todo-re)))
             (goto-char HERE)
             (setq TITLE (when (re-search-forward "^#\\+TITLE: +" FAR t)
                           (string-trim-right
@@ -471,29 +464,26 @@ Also set some variables, including global variables."
               (setq FAR (pos-eol))
               (setq SCHED
                     (if (re-search-forward "[\s\t]*SCHEDULED: +" FAR t)
-                        (prog1
-                            (org-mem-parser--stamp-to-iso8601
-                             (buffer-substring
-                              (point)
-                              (+ (point) (skip-chars-forward "^]>\n"))))
+                        (prog1 (org-mem-parser--stamp-to-iso8601
+                                (buffer-substring
+                                 (point)
+                                 (+ (point) (skip-chars-forward "^]>\n"))))
                           (goto-char HERE))
                       nil))
               (setq DEADLINE
                     (if (re-search-forward "[\s\t]*DEADLINE: +" FAR t)
-                        (prog1
-                            (org-mem-parser--stamp-to-iso8601
-                             (buffer-substring
-                              (point)
-                              (+ (point) (skip-chars-forward "^]>\n"))))
+                        (prog1 (org-mem-parser--stamp-to-iso8601
+                                (buffer-substring
+                                 (point)
+                                 (+ (point) (skip-chars-forward "^]>\n"))))
                           (goto-char HERE))
                       nil))
               (setq CLOSED
                     (if (re-search-forward "[\s\t]*CLOSED: +" FAR t)
-                        (prog1
-                            (org-mem-parser--stamp-to-iso8601
-                             (buffer-substring
-                              (point)
-                              (+ (point) (skip-chars-forward "^]>\n"))))
+                        (prog1 (org-mem-parser--stamp-to-iso8601
+                                (buffer-substring
+                                 (point)
+                                 (+ (point) (skip-chars-forward "^]>\n"))))
                           (goto-char HERE))
                       nil))
               (when (or SCHED DEADLINE CLOSED)
