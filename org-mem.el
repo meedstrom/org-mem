@@ -413,8 +413,7 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
   (with-memoization (org-mem--table 25 entry)
     (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))))
 
-(defalias 'org-mem-entry-olpath-with-title-with-self
-  (defun org-mem-entry-olpath-with-self-with-title
+(defun org-mem-entry-olpath-with-self-with-title
       (entry &optional filename-fallback)
     "Outline path, including file #+title, and ENTRY\\='s own heading.
 With FILENAME-FALLBACK, use file basename if there is no #+title."
@@ -423,7 +422,10 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
         (pop olp)
         (when filename-fallback
           (push (file-name-nondirectory (org-mem-entry-file entry)) olp)))
-      olp)))
+      olp))
+
+(defalias 'org-mem-entry-olpath-with-title-with-self
+  #'org-mem-entry-olpath-with-self-with-title)
 
 (defun org-mem-entry-olpath-with-title (entry &optional filename-fallback)
   "Outline path to ENTRY, including file #+title.
