@@ -24,6 +24,7 @@
 (require 'seq)
 (require 'org-mem)
 (require 'sqlite)
+(require 'eieio) ;; `oref' is a macro
 
 ;;;###autoload
 (define-minor-mode org-mem-roamy-db-mode
@@ -377,20 +378,21 @@ With SPECIFIC-FILES, only return data that involves those files."
        when (org-mem-link-nearby-id link)
        unless (and specific-files (not (member file specific-files)))
        unless (and roam-dir (not (string-prefix-p roam-dir file)))
-       do (if (org-mem-link-type link)
-              ;; See `org-roam-db-insert-link'
+       do (if (org-mem-link-citation-p link)
+              ;; See `org-roam-db-insert-citation'
+              (push (list (org-mem-link-nearby-id link)
+                          (substring (org-mem-link-dest link) 1)
+                          (org-mem-link-pos link)
+                          dummy-props)
+                    citation-rows)
+            ;; See `org-roam-db-insert-link'
+            (when (org-mem-link-type link)
               (push (list (org-mem-link-pos link)
                           (org-mem-link-nearby-id link)
                           (org-mem-link-dest link)
                           (org-mem-link-type link)
                           dummy-props)
-                    link-rows)
-            ;; See `org-roam-db-insert-citation'
-            (push (list (org-mem-link-nearby-id link)
-                        (substring (org-mem-link-dest link) 1)
-                        (org-mem-link-pos link)
-                        dummy-props)
-                  citation-rows))))
+                    link-rows)))))
 
     (list file-rows
           node-rows
