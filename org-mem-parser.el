@@ -229,12 +229,15 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       (setq POS-EOL (pos-eol))
       ;; XXX test
       ;; Some properties have :MULTIPLE:COLONS:IN:NAME:.
-      (while (progn (or (search-forward ":" POS-EOL t)
-                        (error "Possibly malformed property drawer"))
-                    (not (looking-at-p "[\s\n]"))))
-      (push (cons (upcase (buffer-substring POS-START (1- (point))))
-                  (string-trim (buffer-substring (point) POS-EOL)))
-            result)
+      ;; (while (progn (or (search-forward ":" POS-EOL t)
+      ;;                   (error "Possibly malformed property drawer"))
+      ;;               (not (looking-at-p "[\s\n]"))))
+      (or (search-forward ":" POS-EOL t)
+          (error "Possibly malformed property drawer"))
+      (when (looking-at-p " ") ;; Ignore if :MULTIPLE:COLONS:IN:NAME:
+        (push (cons (upcase (buffer-substring POS-START (1- (point))))
+                    (string-trim (buffer-substring (point) POS-EOL)))
+              result))
       (forward-line 1))
     result))
 
