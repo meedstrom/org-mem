@@ -274,6 +274,7 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
 (define-obsolete-function-alias 'indexed-x-ensure-entry-at-point-known #'org-mem-x-ensure-entry-at-point-known "2025-05-11")
 (define-obsolete-function-alias 'indexed--activate-timer               #'org-mem-x--activate-timer "2025-05-11")
 
+(provide 'indexed-x)
 (provide 'org-mem-x)
 
 ;;; org-mem-x.el ends here

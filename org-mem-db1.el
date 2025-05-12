@@ -287,6 +287,7 @@ With SPECIFIC-FILES, only return data that involves those files."
 (define-obsolete-function-alias 'indexed-orgdb--mk-rows         #'org-mem-db1--mk-rows "2025-05-11")
 (define-obsolete-function-alias 'indexed-orgdb--mk-file-row     #'org-mem-db1--mk-file-row "2025-05-11")
 
+(provide 'indexed-orgdb)
 (provide 'org-mem-db1)
 
 ;;; org-mem-db1.el ends here

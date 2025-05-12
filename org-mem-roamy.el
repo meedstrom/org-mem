@@ -542,6 +542,7 @@ Can be used as override-advice for `org-roam-reflinks-get'."
 (define-obsolete-function-alias 'indexed-roam-mk-backlinks                           #'org-mem-roamy-mk-backlinks "2025-05-11")
 (define-obsolete-function-alias 'indexed-roam-mk-reflinks                            #'org-mem-roamy-mk-reflinks "2025-05-11")
 
+(provide 'indexed-roam)
 (provide 'org-mem-roamy)
 
 ;;; org-mem-roamy.el ends here

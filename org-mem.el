@@ -1301,6 +1301,7 @@ What is valid?  See \"org-mem-test.el\"."
 (defvar indexed--origin<>links :obsolete)
 (defvar indexed--file<>data :obsolete)
 
+(provide 'indexed)
 (provide 'org-mem)
 
 ;;; org-mem.el ends here
