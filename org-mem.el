@@ -206,7 +206,7 @@ Note: All tables cleared often, because this is meant for memoizations."
   (type              () :read-only t :type string)
   (dest              () :read-only t :type string)
   (nearby-id         () :read-only t :type string)
-  (internal-entry-id () :read-only t :type integer))
+  (-internal-entry-id () :read-only t :type integer))
 
 (cl-defstruct (org-mem-entry (:constructor org-mem-entry--make-obj)
                              (:copier nil))
@@ -224,7 +224,7 @@ Note: All tables cleared often, because this is meant for memoizations."
   (scheduled      () :read-only t :type string)
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
-  (internal-id    () :read-only t :type integer))
+  (-internal-id    () :read-only t :type integer))
 
 
 ;;; To find the objects to operate on
@@ -314,7 +314,7 @@ represents the content before the first heading."
 
 (defun org-mem-links-to-entry (entry)
   "All links that point to ENTRY."
-  (and entry (gethash (org-mem-entry-internal-id entry)
+  (and entry (gethash (org-mem-entry--internal-id entry)
                       org-mem--internal-entry-id<>links)))
 
 (defun org-mem-id-links-to-entry (entry)
@@ -365,15 +365,15 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
 
 (defun org-mem-links-in-entry (entry)
   "All links found inside ENTRY, ignoring descendant entries."
-  (and entry (gethash (org-mem-entry-internal-id entry)
+  (and entry (gethash (org-mem-entry--internal-id entry)
                       org-mem--internal-entry-id<>links)))
 
 (defun org-mem-next-entry (entry)
   "The next entry after ENTRY in the same file, if any."
   (with-memoization (org-mem--table 20 entry)
     (let ((entries (gethash (org-mem-entry-file entry) org-mem--file<>entries)))
-      (while (not (= (org-mem-entry-internal-id (car entries))
-                     (org-mem-entry-internal-id entry)))
+      (while (not (= (org-mem-entry--internal-id (car entries))
+                     (org-mem-entry--internal-id entry)))
         (pop entries))
       (pop entries)
       (car entries))))
@@ -694,7 +694,7 @@ see what you may want to revert."
 (defun org-mem--record-link (link)
   "Add info related to LINK to various tables."
   (push link (gethash (org-mem-link-dest link) org-mem--dest<>links))
-  (push link (gethash (org-mem-link-internal-entry-id link)
+  (push link (gethash (org-mem-link--internal-entry-id link)
                       org-mem--internal-entry-id<>links)))
 
 (defun org-mem--record-entry (entry)

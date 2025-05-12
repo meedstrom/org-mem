@@ -27,21 +27,6 @@
 (require 'llama)
 (declare-function eieio-oref "eieio")
 
-;;;###autoload
-(define-minor-mode org-mem-roamy-db-mode
-  "Instantiate an `org-mem-roamy-db' database and keep it updated.
-May slow down \\[org-mem-reset].
-See also user option `org-mem-roamy-do-overwrite-real-db'."
-  :global t
-  :group 'org-mem
-  (if org-mem-roamy-db-mode
-      (progn
-        (add-hook 'org-mem-post-targeted-scan-functions 'org-mem-roamy--update-db)
-        (add-hook 'org-mem-post-full-scan-functions 'org-mem-roamy--re-make-db)
-        (org-mem--scan-full))
-    (remove-hook 'org-mem-post-targeted-scan-functions 'org-mem-roamy--update-db)
-    (remove-hook 'org-mem-post-full-scan-functions 'org-mem-roamy--re-make-db)))
-
 (defcustom org-mem-roamy-do-overwrite-real-db nil
   "Whether to overwrite the database file at `org-roam-db-location'.
 
@@ -62,6 +47,21 @@ to:
   :type 'boolean
   :group 'org-mem
   :package-version '(org-mem . "0.4.0"))
+
+;;;###autoload
+(define-minor-mode org-mem-roamy-db-mode
+  "Instantiate an `org-mem-roamy-db' database and keep it updated.
+May slow down \\[org-mem-reset].
+See also user option `org-mem-roamy-do-overwrite-real-db'."
+  :global t
+  :group 'org-mem
+  (if org-mem-roamy-db-mode
+      (progn
+        (add-hook 'org-mem-post-targeted-scan-functions 'org-mem-roamy--update-db)
+        (add-hook 'org-mem-post-full-scan-functions 'org-mem-roamy--re-make-db)
+        (org-mem--scan-full))
+    (remove-hook 'org-mem-post-targeted-scan-functions 'org-mem-roamy--update-db)
+    (remove-hook 'org-mem-post-full-scan-functions 'org-mem-roamy--re-make-db)))
 
 (defvar org-mem-roamy--connection nil
   "An EmacSQL connection.")
@@ -119,7 +119,8 @@ the DB on disk and write a new one, then connect to that."
                       (error "Both options should not be t: `org-mem-roamy-do-overwrite-real-db' and `org-roam-db-update-on-save'"))
                     (setq conn (org-roam-db--get-connection))
                     (when org-mem--next-message
-                      (cl-assert (null conn)))
+                      ;; (cl-assert (null conn)) ;;FIXME
+                      )
                     (unless (and conn (emacsql-live-p conn))
                       ;; No live connection, take the chance to repopulate.
                       ;; Note that live connections sometimes get closed by
@@ -139,7 +140,8 @@ the DB on disk and write a new one, then connect to that."
             ;; Make our own diskless DB.
             (setq conn org-mem-roamy--connection)
             (when org-mem--next-message
-              (cl-assert (null conn)))
+              ;; (cl-assert (null conn)) ;;FIXME
+              )
             (unless (and conn (emacsql-live-p conn))
               (setq conn (emacsql-sqlite-open nil))
               (setq org-mem-roamy--connection conn)
@@ -433,7 +435,7 @@ Suitable on `org-mem-post-targeted-scan-functions'."
   ;;       Aside from tracking down the bug, could we workaround by getting rid
   ;;       of all the CASCADE rules and pre-determine what needs to be deleted?
   ;;       It's not The Way to use a RDBMS, but it's a simple enough puzzle.
-  (let ((db (oref (org-mem-roamy-db) handle))
+  (let ((db (eieio-oref (org-mem-roamy-db) 'handle))
         (newly-parsed-files (mapcar #'car (nth 1 parse-results)))
         (bad-paths (nth 0 parse-results)))
     (dolist (file (append newly-parsed-files bad-paths))

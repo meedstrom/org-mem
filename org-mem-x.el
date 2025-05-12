@@ -158,7 +158,7 @@ same links that were passed to `org-mem-forget-link-functions'."
       (dolist (entry (org-mem-entries-in-file file))
         (remhash (org-mem-entry-id entry) org-mem--id<>entry)
         (remhash (org-mem-entry-title entry) org-mem--title<>id)
-        (remhash (org-mem-entry-internal-id entry)
+        (remhash (org-mem-entry--internal-id entry)
                  org-mem--internal-entry-id<>links)
         (run-hook-with-args 'org-mem-forget-entry-functions entry))
       (remhash file org-mem--file<>entries)
