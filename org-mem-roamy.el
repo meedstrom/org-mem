@@ -118,9 +118,9 @@ the DB on disk and write a new one, then connect to that."
                                (bound-and-true-p org-roam-db-update-on-save))
                       (error "Both options should not be t: `org-mem-roamy-do-overwrite-real-db' and `org-roam-db-update-on-save'"))
                     (setq conn (org-roam-db--get-connection))
-                    (when org-mem--next-message
-                      ;; (cl-assert (null conn)) ;;FIXME
-                      )
+                    ;; FIXME
+                    ;; (when org-mem--next-message
+                    ;;   (cl-assert (null conn)))
                     (unless (and conn (emacsql-live-p conn))
                       ;; No live connection, take the chance to repopulate.
                       ;; Note that live connections sometimes get closed by
@@ -139,9 +139,9 @@ the DB on disk and write a new one, then connect to that."
                 (error "Option `org-mem-roamy-do-overwrite-real-db' is t, but org-roam unavailable"))
             ;; Make our own diskless DB.
             (setq conn org-mem-roamy--connection)
-            (when org-mem--next-message
-              ;; (cl-assert (null conn)) ;;FIXME
-              )
+            ;; FIXME
+            ;; (when org-mem--next-message
+            ;;   (cl-assert (null conn)))
             (unless (and conn (emacsql-live-p conn))
               (setq conn (emacsql-sqlite-open nil))
               (setq org-mem-roamy--connection conn)
@@ -376,6 +376,7 @@ With SPECIFIC-FILES, only return data that involves those files."
                             (or type "cite"))
                       ref-rows))))
 
+    ;; https://github.com/org-roam/org-roam/pull/2509
     (let ((dummy-props '(:outline nil)))
       (cl-loop
        for link in (org-mem-all-links)
@@ -418,7 +419,7 @@ With SPECIFIC-FILES, only return data that involves those files."
   ;; See `org-roam-db-insert-file'
   (list file
         (org-mem-file-title-strict file)
-        ""                            ; HACK: Hashing is slow, skip
+        ""                            ; HACK: Sha1 hashing is slow, skip
         (org-mem-file-mtime-int file) ; HACK: org-roam doesn't use atime anyway
         (org-mem-file-mtime-int file)))
 

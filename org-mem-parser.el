@@ -199,7 +199,7 @@ the subheading potentially has an ID of its own."
   "Collect Org properties between BEG and END into an alist.
 Assumes BEG and END are buffer positions delimiting a region in
 between buffer substrings \":PROPERTIES:\" and \":END:\"."
-  (let (result POS-START POS-EOL)
+  (let (result START EOL)
     (goto-char beg)
     (while (< (point) end)
       (skip-chars-forward "\s\t")
@@ -208,18 +208,17 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       (forward-char)
       (when (eolp)
         (error "Possibly malformed property drawer"))
-      (setq POS-START (point))
-      (setq POS-EOL (pos-eol))
-      ;; XXX test
-      ;; Some properties have :MULTIPLE:COLONS:IN:NAME:.
-      ;; (while (progn (or (search-forward ":" POS-EOL t)
+      (setq START (point))
+      (setq EOL (pos-eol))
+      ;; TODO: accept multiple colons
+      ;; (while (progn (or (search-forward ":" EOL t)
       ;;                   (error "Possibly malformed property drawer"))
       ;;               (not (looking-at-p "[\s\n]"))))
-      (or (search-forward ":" POS-EOL t)
+      (or (search-forward ":" EOL t)
           (error "Possibly malformed property drawer"))
       (when (looking-at-p " ") ;; Ignore if :MULTIPLE:COLONS:IN:NAME:
-        (push (cons (upcase (buffer-substring POS-START (1- (point))))
-                    (string-trim (buffer-substring (point) POS-EOL)))
+        (push (cons (upcase (buffer-substring START (1- (point))))
+                    (string-trim (buffer-substring (point) EOL)))
               result))
       (forward-line 1))
     result))

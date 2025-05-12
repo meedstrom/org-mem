@@ -4,8 +4,6 @@
 # without any warranty.
 #+TITLE: Org-mem
 
-# TODO: Document that TRAMP won't work, or fix that.
-
 A cache of metadata about the structure of all your Org files -- headings, links and so on.
 
 Builds quickly, so that there is no need to persist data across sessions. My =M-x org-mem-reset=:

@@ -28,8 +28,7 @@
 (require 'sqlite)
 (require 'llama)
 (require 'sqlite-mode)
-(require 'eieio)
-(eieio-declare-slots handle)
+(declare-function eieio-oref "eieio")
 (declare-function org-mem-roamy-db "org-mem-roamy")
 (defvar org-mem-roamy-db-mode)
 
@@ -131,6 +130,7 @@ With optional argument DB, explore that database connection
 instead of default `org-mem-roamy--connection'."
   (interactive)
   (require 'org-mem-roamy)
+  (require 'eieio)
   (cl-assert (sqlite-available-p))
   ;; this is way too roundabout
   (let (dbs)
@@ -140,8 +140,8 @@ instead of default `org-mem-roamy--connection'."
          (push org-mem-db1--connection dbs))
     (and org-mem-roamy-db-mode
          (ignore-errors
-           (sqlite-pragma (oref (org-mem-roamy-db) handle) "hi"))
-         (push (oref (org-mem-roamy-db) handle) dbs))
+           (sqlite-pragma (eieio-oref (org-mem-roamy-db) 'handle) "hi"))
+         (push (eieio-oref (org-mem-roamy-db) 'handle) dbs))
     (let ((db (cond (db)
                     ((length> dbs 1)
                      (if (equal "org" (read-answer
