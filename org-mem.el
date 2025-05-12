@@ -237,13 +237,14 @@ Note: All tables cleared often, because this is meant for memoizations."
   (hash-table-keys org-mem--file<>metadata))
 
 (defun org-mem-all-entries ()
-  "All entries."
+  "All entries with non-nil title."
   (with-memoization (org-mem--table 0 'org-mem-all-entries)
-    (apply #'append (hash-table-values org-mem--file<>entries))))
+    (seq-filter #'org-mem-entry-title
+                (apply #'append (hash-table-values org-mem--file<>entries)))))
 
 (defun org-mem-all-id-nodes ()
-  "All ID-nodes.
-An ID-node is an entry that has an ID property."
+  "All ID-nodes with non-nil title.
+An ID-node is simply an entry that has an ID property."
   (hash-table-values org-mem--id<>entry))
 
 (defun org-mem-all-links ()
@@ -320,6 +321,9 @@ represents the content before the first heading."
 (defun org-mem-id-links-to-entry (entry)
   "All ID-links that point to ENTRY."
   (and entry (gethash (org-mem-entry-id entry) org-mem--dest<>links)))
+
+(defun org-mem-id-links-to-id (id)
+  (org-mem-id-links-to-entry (org-mem-entry-by-id id)))
 
 (defun org-mem-id-node-by-title (title)
   "The ID-node titled TITLE."

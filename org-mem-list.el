@@ -212,7 +212,7 @@ Optional argument REVERTER is a function to add buffer-locally to
 (define-obsolete-function-alias 'indexed-list-title-collisions         #'org-mem-list-title-collisions "2025-05-11")
 (define-obsolete-function-alias 'indexed-list-dead-id-links            #'org-mem-list-dead-id-links "2025-05-11")
 (define-obsolete-function-alias 'indexed-list-db-contents              #'org-mem-list-db-contents "2025-05-11")
-(define-obsolete-function-alias 'indexed-list-entries                  #'org-mem-list-entries "2025-05-11")
+(define-obsolete-function-alias 'indexed-list-org-entries              #'org-mem-list-entries "2025-05-11")
 (define-obsolete-function-alias 'indexed-list--pop-to-tabulated-buffer #'org-mem-list--pop-to-tabulated-buffer "2025-05-11")
 
 (provide 'indexed-list)
