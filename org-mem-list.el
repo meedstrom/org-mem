@@ -49,7 +49,7 @@
   (interactive)
   (if org-mem--problems
       (org-mem-list--pop-to-tabulated-buffer
-       :buffer "*indexing problems*"
+       :buffer "*org-mem scan problems*"
        :format [("Time" 6 t) ("Scan choked near position" 27 t) ("Issue" 0 t)]
        :reverter #'org-mem-list-problems
        :entries
@@ -73,7 +73,7 @@ To automatically warn, set `org-mem-do-warn-title-collisions'."
   (interactive)
   (if org-mem--title-collisions
       (org-mem-list--pop-to-tabulated-buffer
-       :buffer "*title collisions*"
+       :buffer "*org-mem title collisions*"
        :format [("Time" 6 t) ("Shared name" 30 t) ("ID" 37 t) ("Other ID" 0 t)]
        :reverter #'org-mem-list-title-collisions
        :entries
@@ -106,7 +106,7 @@ To automatically warn, set `org-mem-do-warn-title-collisions'."
     (message "%d dead links found" (length dead-links))
     (when dead-links
       (org-mem-list--pop-to-tabulated-buffer
-       :buffer "*dead links*"
+       :buffer "*org-mem dead links*"
        :format `[("Unknown ID reference" ,(1+ longest) t) ("Location" 0 t)]
        :reverter #'org-mem-list-dead-id-links
        :entries
@@ -168,7 +168,7 @@ instead of default `org-mem-roamy--connection'."
   "List all Org entries."
   (interactive)
   (org-mem-list--pop-to-tabulated-buffer
-   :buffer "*all Org entries*"
+   :buffer "*org-mem entries*"
    :format [("Entry" 30 t) ("File" 30 t) ("Outline path" 0 t)]
    :reverter #'org-mem-list-entries
    :entries

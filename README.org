@@ -20,7 +20,7 @@ Example: org-roam's DB, org-node's hash tables, and other packages just re-run g
 
 And they must do this, because Org ships no tool to query across lots of files.  You know what happens if you put 2,000 files into =org-agenda-files=!  It needs to open each file in real-time to check anything in them, so everyday commands grind to a halt, or even crash: many OSes have a cap of 1,024 simultaneous file handles.
 
-** Quick overview
+** Quick start
 
 Example setup:
 
@@ -30,6 +30,11 @@ Example setup:
 (org-mem-updater-mode)
 #+end_src
 
+That's it -- now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  Check the many defuns in [[https://github.com/meedstrom/org-mem/blob/main/org-mem.el][org-mem.el]] for what you can do with that!
+
+
+--------
+
 Two different APIs to access the same data.
 
 - Emacs Lisp
@@ -38,6 +43,7 @@ Two different APIs to access the same data.
 Why two?  It's free.  When the data has been gathered anyway, there is no reason to /only/ insert it into a SQLite db, nor /only/ put it in a hash table.
 
 Famously, org-roam uses a SQLite DB.  My package org-node used simple hash tables.  Now you get both, without having to install either.
+
 
 ** Data only
 
@@ -81,8 +87,7 @@ Included is a drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =
 
 In the future we may also do a drop-in for [[https://github.com/ndwarshuis/org-sql/blob/80bea9996de7fa8bc7ff891a91cfaff91111dcd8/org-sql.el#L141][org-sql]]'s DB, or something custom, but we'll see!
 
-*** Quick start with =org-mem-roamy-db=
-**** Without org-roam installed
+*** Without org-roam installed
 
 Activating the mode creates an in-memory database by default.
 
@@ -96,7 +101,7 @@ Test that it works:
 (emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
 #+end_src
 
-**** With org-roam installed
+*** With org-roam installed
 
 You can use this to end your dependence on =org-roam-db-sync=.  Set the following to overwrite the "org-roam.db" file.
 
@@ -119,15 +124,15 @@ N/B: because =(equal (org-roam-db) (org-mem-roamy-db))=, the above is equivalent
 (emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
 #+end_src
 
-A *known issue*: "attempt to write a readonly database".  Happens when you use multiple Emacsen.  Get unstuck with =M-: (org-roam-db--close-all)=.
+A known issue when when you use multiple Emacsen: "attempt to write a readonly database".  Get unstuck with =M-: (org-roam-db--close-all)=.
 
-**** View what info is inside the DB
+*** View what info is inside the DB
 
 Use the command =M-x org-mem-list-db-contents=.
 
 ** Appendix II: Elisp API
 
-We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some broad simplifications:
+We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some simplifications:
 
 - The content before the first heading counts as an entry with heading level zero.
   - Some predictable differences from normal entries: the zeroth-level entry obviously cannot have a TODO state, so =org-mem-entry-todo-state= always returns nil, and so on.
@@ -138,15 +143,3 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
 
 
 TODO: Some get-started examples.
-
-** Appendix III: Fully inform org-id
-
-Never sit through a slow =M-x org-id-update-id-locations= again.
-
-#+begin_src elisp
-(setq org-mem-do-sync-with-org-id t)
-#+end_src
-
-This tells org-id about everything that Org-mem can find under =org-mem-watch-dirs=.  That's nice because if you had clicked an ID-link that org-id did not know about, it would react by running =org-id-update-id-locations= for you, and that hangs Emacs for quite a while.
-
-Never had this problem?  If you came here from org-node or org-roam, that’s because they solve this problem for you.

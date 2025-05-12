@@ -447,16 +447,7 @@ Suitable on `org-mem-post-targeted-scan-functions'."
        db (org-mem-roamy--mk-rows newly-parsed-files)))))
 
 
-;;; Bonus utilities
-
-;; If saving buffers is slow with org-roam.  Use this snippet to stop updating
-;; org-roam.db on save, and keep your *org-roam* buffer correct anyway.
-;;
-;; (setq org-roam-db-update-on-save nil)
-;; (org-mem-updater-mode)
-;; (org-mem-roamy-db-mode)
-;; (advice-add 'org-roam-backlinks-get :override #'org-mem-roamy-mk-backlinks)
-;; (advice-add 'org-roam-reflinks-get  :override #'org-mem-roamy-mk-reflinks)
+;;; Translators
 
 (declare-function org-roam-node-create "org-roam-node")
 (declare-function org-roam-node-id "org-roam-node")
@@ -469,29 +460,26 @@ Suitable on `org-mem-post-targeted-scan-functions'."
   (unless (org-mem-entry-id entry)
     (error "org-mem-roamy-mk-node: An ID-less entry cannot make an org-roam-node: %s"
            entry))
-  (let ((file (org-mem-entry-file entry)))
-    (org-roam-node-create
-     :file       file
-     :file-mtime (org-mem-file-mtime file)
-     :file-title (org-mem-file-title-strict file)
-     :id         (org-mem-entry-id entry)
-     :scheduled  (org-mem-entry-scheduled entry)
-     :deadline   (org-mem-entry-deadline entry)
-     :level      (org-mem-entry-level entry)
-     :title      (org-mem-entry-title entry)
-     :tags       (org-mem-entry-tags entry)
-     :aliases    (org-mem-entry-roam-aliases entry)
-     :todo       (org-mem-entry-todo-state entry)
-     :refs       (org-mem-entry-roam-refs entry)
-     :point      (org-mem-entry-pos entry)
-     :priority   (org-mem-entry-priority entry)
-     :properties (org-mem-entry-properties entry)
-     :olp        (org-mem-entry-olpath entry))))
+  (org-roam-node-create
+   :file       (org-mem-entry-file entry)
+   :file-mtime (org-mem-file-mtime entry)
+   :file-title (org-mem-file-title-strict entry)
+   :id         (org-mem-entry-id entry)
+   :scheduled  (org-mem-entry-scheduled entry)
+   :deadline   (org-mem-entry-deadline entry)
+   :level      (org-mem-entry-level entry)
+   :title      (org-mem-entry-title entry)
+   :tags       (org-mem-entry-tags entry)
+   :aliases    (org-mem-entry-roam-aliases entry)
+   :todo       (org-mem-entry-todo-state entry)
+   :refs       (org-mem-entry-roam-refs entry)
+   :point      (org-mem-entry-pos entry)
+   :priority   (org-mem-entry-priority entry)
+   :properties (org-mem-entry-properties entry)
+   :olp        (org-mem-entry-olpath entry)))
 
 (defun org-mem-roamy-mk-backlinks (target-roam-node &rest _)
-  "Make `org-roam-backlink' objects pointing to TARGET-ROAM-NODE.
-
-Can be used as override-advice for `org-roam-backlinks-get'."
+  "Make `org-roam-backlink' objects pointing to TARGET-ROAM-NODE."
   (require 'org-roam-mode)
   (require 'org-roam-node)
   (let* ((target-id (org-roam-node-id target-roam-node))
@@ -506,11 +494,8 @@ Can be used as override-advice for `org-roam-backlinks-get'."
               :source-node (org-mem-roamy-mk-node src-entry)
               :point (org-mem-link-pos link)))))
 
-;; REVIEW:  Are our refs exactly the same as org-roam's refs?
 (defun org-mem-roamy-mk-reflinks (target-roam-node &rest _)
-  "Make `org-roam-reflink' objects pointing to TARGET-ROAM-NODE.
-
-Can be used as override-advice for `org-roam-reflinks-get'."
+  "Make `org-roam-reflink' objects pointing to TARGET-ROAM-NODE."
   (require 'org-roam-mode)
   (require 'org-roam-node)
   (let* ((target-id (org-roam-node-id target-roam-node))
