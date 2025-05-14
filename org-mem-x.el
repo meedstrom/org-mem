@@ -31,7 +31,6 @@
 
 (require 'cl-lib)
 (require 'subr-x)
-(require 'seq)
 (require 'llama)
 (require 'org-mem)
 (require 'org-mem-parser)
@@ -39,6 +38,7 @@
 (defvar org-trust-scanner-tags)
 (defvar org-id-track-globally)
 (defvar org-id-locations)
+(defvar org-outline-path-cache)
 (declare-function org-current-level "org")
 (declare-function org-element-context "org-element")
 (declare-function org-element-property "org-element")
@@ -51,7 +51,7 @@
 (declare-function org-get-title "org")
 (declare-function org-get-todo-state "org")
 (declare-function org-link-display-format "ol")
-(define-obsolete-variable-alias 'indexed-x-last-removed-links 'org-mem-x-forgotten-links "2025-05-11")
+(define-obsolete-variable-alias 'indexed-x-last-removed-links 'org-mem-x--forgotten-links "2025-05-11")
 
 (defvar org-mem-x--timer (timer-create)
   "Timer for intermittently running `org-mem--scan-full'.")
@@ -128,6 +128,9 @@ In that case, there may be nothing wrong with the known name."
     (dolist (datum file-data)
       (puthash (car datum) datum org-mem--file<>metadata)
       (run-hook-with-args 'org-mem-record-file-functions datum))
+    ;; (org-mem-x--forget-links-from-files (mapcar #'car file-data))
+    ;; TODO may be faster to use internal eid
+    (org-mem-x--forget-links-from-entries entries)
     (dolist (entry entries)
       (org-mem--record-entry entry)
       (run-hook-with-args 'org-mem-record-entry-functions entry))
@@ -144,37 +147,45 @@ In that case, there may be nothing wrong with the known name."
       (message "Scan had problems, see M-x org-mem-list-problems"))))
 
 ;; XXX Test. Verify links still get forgotten: check for backlink duplicates
-(defvar org-mem-x-forgotten-links nil)
 (defun org-mem-x--forget-file-contents (files)
   "Delete from tables, most info relating to FILES and their contents.
 You should also run `org-mem--invalidate-file-names'.
-
-For downstream use, a list of deleted `org-mem-link' records is put in
-variable `org-mem-x-forgotten-links' until next time.  These are the
-same links that were passed to `org-mem-forget-link-functions'."
+and potentially `org-mem-x--forget-links-from-entries'."
   (setq files (ensure-list files))
   (when files
     (dolist (file files)
-      (dolist (entry (org-mem-entries-in-file file))
+      (dolist (entry (gethash file org-mem--file<>entries))
         (remhash (org-mem-entry-id entry) org-mem--id<>entry)
         (remhash (org-mem-entry-title entry) org-mem--title<>id)
-        (remhash (org-mem-entry--internal-id entry)
-                 org-mem--internal-entry-id<>links)
         (run-hook-with-args 'org-mem-forget-entry-functions entry))
       (remhash file org-mem--file<>entries)
       (remhash file org-mem--file<>metadata)
-      (run-hook-with-args 'org-mem-forget-file-functions file))
-    (setq org-mem-x-forgotten-links nil)
-    (maphash (lambda (dest links)
-               (let (reduced-link-set)
-                 (dolist (link links)
-                   (if (member (org-mem-link-file link) files)
-                       (push link org-mem-x-forgotten-links)
-                     (push link reduced-link-set)))
-                 (puthash dest reduced-link-set org-mem--dest<>links)))
-             org-mem--dest<>links)
-    (dolist (link org-mem-x-forgotten-links)
-      (run-hook-with-args 'org-mem-forget-link-functions link))))
+      (run-hook-with-args 'org-mem-forget-file-functions file))))
+
+(defvar org-mem-x--dest<>old-id-links (make-hash-table :test 'equal))
+(defun org-mem-x--forget-links-from-entries (stale-entries)
+  (clrhash org-mem-x--dest<>old-id-links)
+  (let ((eids (mapcar #'org-mem-entry--internal-id stale-entries))
+        dests-to-update)
+    (dolist (eid eids)
+      (dolist (link (gethash eid org-mem--internal-entry-id<>links))
+          (when (or (org-mem-link-citation-p link)
+                    (equal "id" (org-mem-link-type link)))
+        (unless (member (org-mem-link-dest link) dests-to-update)
+            (push (org-mem-link-dest link) dests-to-update)))))
+    (dolist (dest dests-to-update)
+      (let ((links (gethash dest org-mem--dest<>links)))
+        (cl-loop
+         for link in links
+         if (memq (org-mem-link--internal-entry-id link) eids)
+         collect link into forgotten-links
+         else
+         collect link into reduced-link-set
+         finally do
+         (puthash dest reduced-link-set org-mem--dest<>links)
+         ;; TODO can likely use nconc
+         (puthash dest (append forgotten-links reduced-link-set)
+                  org-mem-x--dest<>old-id-links))))))
 
 
 ;;; Instant placeholders
@@ -196,23 +207,30 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
 
 (defun org-mem-x-ensure-link-at-point-known (&rest _)
   "Record the link at point.
-Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
+Use this if you cannot wait for `org-mem-updater-mode' to pick it up.
+No support for citations."
   (require 'org)
-  (require 'org-element)
+  (require 'org-element-ast)
   (when (and buffer-file-truename
              (derived-mode-p 'org-mode))
     (when-let* ((el (org-element-context))
                 (dest (org-element-property :path el))
                 (type (org-element-property :type el)))
-      (org-mem-x-ensure-buffer-file-known)
-      (org-mem--record-link
-       (org-mem-link--make-obj
-        :file buffer-file-truename
-        :pos (point)
-        :citation-p nil ;; HACK
-        :type type
-        :dest dest
-        :nearby-id (org-entry-get-with-inheritance "ID"))))))
+      (let ((desc-beg (org-element-property :contents-begin el))
+            (desc-end (org-element-property :contents-end el)))
+        (org-mem-x-ensure-buffer-file-known)
+        (org-mem--record-link
+         (record 'org-mem-link
+                 buffer-file-truename
+                 (point)
+                 (and desc-beg
+                      (buffer-substring-no-properties desc-beg desc-end))
+                 nil
+                 type
+                 dest
+                 (org-entry-get-with-inheritance "ID")
+                 ;; HACK
+                 nil))))))
 
 (defun org-mem-x-ensure-entry-at-point-known ()
   "Record the entry at point.
@@ -228,40 +246,55 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
         (without-restriction
           (when id
             (goto-char (point-min))
-            (re-search-forward (concat "^[ \t]*:id: +" (regexp-quote id))))
-          (let ((props (org-entry-properties))
-                (heading (org-get-heading t t t t))
-                (ftitle (org-get-title)))
-            (when heading
-              (setq heading (org-link-display-format
-                             (substring-no-properties heading))))
-            (when ftitle
-              (setq ftitle (org-link-display-format
-                            (substring-no-properties ftitle))))
+            (re-search-forward (concat "^[ \t]*:ID: +" (regexp-quote id))))
+          (let* ((heading (org-get-heading t t t t))
+                 (pos (and heading (org-entry-beginning-position)))
+                 (olp-w-self (and heading (org-get-outline-path t t)))
+                 (properties (org-entry-properties))
+                 (ftitle (org-get-title)))
+            ;; Polish the strings
+            (when heading (setq heading (org-link-display-format
+                                         (substring-no-properties heading))))
+            (when ftitle (setq ftitle (org-link-display-format
+                                       (substring-no-properties ftitle))))
             (org-mem--record-entry
-             (org-mem-entry--make-obj
-              :id id
-              :title (or heading ftitle)
-              :file buffer-file-truename
-              :pos (if heading (org-entry-beginning-position) 1)
-              ;; NOTE: Don't use `org-reduced-level' since
-              ;;       org-mem-parser.el also does not.
-              :level (or (org-current-level) 0)
-              :lnum (if heading (line-number-at-pos
-                                 (org-entry-beginning-position) t)
-                      1)
-              ;; HACK
-              :crumbs
-              (cons (list 0 0 0 ftitle nil nil)
-                    (nreverse
-                     (cl-loop for heading in (org-get-outline-path t t)
-                              collect (list 0 0 0 heading nil nil))))
-              :priority nil ;; HACK
-              :properties props
-              :tags-local (org-get-tags nil t)
-              :todo-state (when heading (org-get-todo-state))
-              :deadline (cdr (assoc "DEADLINE" props))
-              :scheduled (cdr (assoc "SCHEDULED" props))))))))))
+             (record 'org-mem-entry
+                     buffer-file-truename
+                     (if heading (line-number-at-pos pos t) 1)
+                     (if heading pos 1)
+                     (or heading ftitle)
+                     ;; NOTE: Don't use `org-reduced-level' since
+                     ;;       org-mem-parser.el also does not.
+                     (or (org-current-level) 0)
+                     id
+                     nil
+                     ;; HACK: partial data
+                     (append (cl-loop
+                              for heading in olp-w-self
+                              as pos = (car (cl-rassoc heading org-outline-path-cache
+                                                       :key #'car :test #'string=))
+                              collect (list -1 -1 pos heading nil nil))
+                             (list (list 0 1 1 ftitle nil nil)))
+                     nil ;; HACK
+                     properties
+                     (org-mem-x--tags-at-point-inherited-only)
+                     (org-get-tags nil t)
+                     (when heading (org-get-todo-state))
+                     (cdr (assoc "DEADLINE" properties))
+                     (cdr (assoc "SCHEDULED" properties))
+                     nil))))))))
+
+(defun org-mem-x--tags-at-point-inherited-only ()
+  "Like `org-get-tags', but get only the inherited tags."
+  (require 'org)
+  (let ((all-tags (if org-use-tag-inheritance
+                      (org-get-tags)
+                    (let ((org-use-tag-inheritance t)
+                          (org-trust-scanner-tags nil))
+                      (org-get-tags)))))
+    (cl-loop for tag in all-tags
+             when (get-text-property 0 'inherited tag)
+             collect (substring-no-properties tag))))
 
 
 (define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-x--handle-save "2025-05-11")

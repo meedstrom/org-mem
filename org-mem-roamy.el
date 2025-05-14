@@ -21,7 +21,6 @@
 
 (require 'cl-lib)
 (require 'subr-x)
-(require 'seq)
 (require 'sqlite)
 (require 'org-mem)
 (require 'llama)

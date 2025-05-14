@@ -42,7 +42,6 @@
 
 (require 'cl-lib)
 (require 'subr-x)
-(require 'seq)
 (require 'llama)
 (require 'el-job)
 (require 'org-mem-parser)
@@ -192,24 +191,40 @@ User should query via `org-mem-links-in-entry'.")
 (define-inline org-mem--table (key subkey)
   "In a table identified by KEY, access value at SUBKEY.
 Store all tables in `org-mem--key<>subtable'.
-Note: All tables cleared often, because this is meant for memoizations."
+Note: All tables cleared often, meant for memoizations."
   (inline-quote
    (gethash ,subkey (or (gethash ,key org-mem--key<>subtable)
                         (puthash ,key (make-hash-table :test 'equal)
                                  org-mem--key<>subtable)))))
 
-(cl-defstruct (org-mem-link (:constructor org-mem-link--make-obj)
-                            (:copier nil))
+(defvar org-mem--file<>metadata (make-hash-table :test 'equal)
+  "1:1 table mapping a file name to a list of assorted data.
+
+Users have no reason to inspect this table, prefer stable API
+in `org-mem-file-mtime' and friends.")
+
+(defun org-mem--get-file-metadata (file/entry/link)
+  "Return (FILE ATTRS LINES PTMAX) if FILE/ENTRY/LINK known, else error."
+  (let ((wild-file (if (stringp file/entry/link)
+                       file/entry/link
+                     (if (org-mem-entry-p file/entry/link)
+                         (org-mem-entry-file file/entry/link)
+                       (org-mem-link-file file/entry/link)))))
+    (or (gethash wild-file org-mem--file<>metadata)
+        (gethash (org-mem--abbr-truename wild-file) org-mem--file<>metadata)
+        (error "org-mem: File seems not yet scanned: %s" wild-file))))
+
+(cl-defstruct (org-mem-link (:constructor nil) (:copier nil))
   (file              () :read-only t :type string)
   (pos               () :read-only t :type integer)
+  (description       () :read-only t :type string)
   (citation-p        () :read-only t :type boolean)
   (type              () :read-only t :type string)
   (dest              () :read-only t :type string)
   (nearby-id         () :read-only t :type string)
   (-internal-entry-id () :read-only t :type integer))
 
-(cl-defstruct (org-mem-entry (:constructor org-mem-entry--make-obj)
-                             (:copier nil))
+(cl-defstruct (org-mem-entry (:constructor nil) (:copier nil))
   (file           () :read-only t :type string)
   (lnum           () :read-only t :type integer)
   (pos            () :read-only t :type integer)
@@ -222,6 +237,7 @@ Note: All tables cleared often, because this is meant for memoizations."
   (priority       () :read-only t :type string)
   (properties     () :read-only t :type list)
   (scheduled      () :read-only t :type string)
+  (tags-inherited () :read-only t :type list)
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
   (-internal-id    () :read-only t :type integer))
@@ -230,11 +246,13 @@ Note: All tables cleared often, because this is meant for memoizations."
 ;;; To find the objects to operate on
 
 (defun org-mem-all-ids ()
-  (hash-table-keys org-mem--id<>entry))
+  (with-memoization (org-mem--table 0 'org-mem-all-ids)
+    (hash-table-keys org-mem--id<>entry)))
 
 (defun org-mem-all-files ()
   "All Org files that have been found."
-  (hash-table-keys org-mem--file<>metadata))
+  (with-memoization (org-mem--table 0 'org-mem-all-files)
+    (hash-table-keys org-mem--file<>metadata)))
 
 (defun org-mem-all-entries ()
   "All entries with non-nil title."
@@ -245,13 +263,13 @@ Note: All tables cleared often, because this is meant for memoizations."
 (defun org-mem-all-id-nodes ()
   "All ID-nodes with non-nil title.
 An ID-node is simply an entry that has an ID property."
-  (hash-table-values org-mem--id<>entry))
+  (with-memoization (org-mem--table 0 'org-mem-all-id-nodes)
+    (hash-table-values org-mem--id<>entry)))
 
 (defun org-mem-all-links ()
   "All links and citations.
-Citations are `org-mem-link' objects where TYPE is nil and
-the string DEST begins with \"@\".
-2025-03-18: This may change in the future!"
+Citations are `org-mem-link' objects that satisfy
+`org-mem-link-citation-p'."
   (with-memoization (org-mem--table 0 'org-mem-all-links)
     (apply #'append (hash-table-values org-mem--dest<>links))))
 
@@ -267,23 +285,61 @@ the string DEST begins with \"@\".
 (defun org-mem-entry-at-lnum-in-file (lnum file)
   "The entry that is current at line-number LNUM in FILE."
   (with-memoization (org-mem--table 11 (list lnum file))
-    (cl-loop
-     for (prev next) on (org-mem-entries-in-file file)
-     if (or (not next) (<= lnum (org-mem-entry-lnum next))) return prev)))
+    (let ((entries (org-mem-entries-in-file file)))
+      (if (and (cadr entries) (= lnum 1 (org-mem-entry-lnum (cadr entries))))
+          (cadr entries)
+        (cl-loop
+         for (prev next) on entries
+         if (or (not next) (< lnum (org-mem-entry-lnum next))) return prev)))))
 
 (defun org-mem-entry-at-pos-in-file (pos file)
   "The entry that is current at char-position POS in FILE."
   (with-memoization (org-mem--table 12 (list pos file))
-    (cl-loop
-     for (prev next) on (org-mem-entries-in-file file)
-     if (or (not next) (<= pos (org-mem-entry-pos next))) return prev)))
+    (let ((entries (org-mem-entries-in-file file)))
+      (if (and (cadr entries) (= pos 1 (org-mem-entry-pos (cadr entries))))
+          (cadr entries)
+        (cl-loop
+         for (prev next) on entries
+         if (or (not next) (< pos (org-mem-entry-pos next))) return prev)))))
+
+(define-inline org-mem-entry-at-file-pos (file pos)
+  "Like `org-mem-entry-at-pos-in-file' with flipped argument order."
+  (inline-quote (org-mem-entry-at-pos-in-file ,pos ,file)))
+
+(define-inline org-mem-entry-at-file-lnum (file pos)
+  "Like `org-mem-entry-at-lnum-in-file' with flipped argument order."
+  (inline-quote (org-mem-entry-at-lnum-in-file ,pos ,file)))
+
+(defun org-mem-next-entry (entry)
+  "The next entry after ENTRY in the same file, if any."
+  (with-memoization (org-mem--table 20 entry)
+    (let ((entries (gethash (org-mem-entry-file entry) org-mem--file<>entries)))
+      (while (and (car entries)
+                  (not (= (org-mem-entry--internal-id (car entries))
+                          (org-mem-entry--internal-id entry))))
+        (pop entries))
+      (pop entries)
+      (car entries))))
+
+(defun org-mem-previous-entry (entry)
+  "The next entry after ENTRY in the same file, if any."
+  (with-memoization (org-mem--table 21 entry)
+    (let ((entries (gethash (org-mem-entry-file entry) org-mem--file<>entries)))
+      (while (and (cadr entries)
+                  (not (= (org-mem-entry--internal-id (cadr entries))
+                          (org-mem-entry--internal-id entry))))
+        (pop entries))
+      (car entries))))
 
 (defun org-mem-entries-in-file (file)
   "List of entries in same order as they appear in FILE, if FILE known.
 The list always contains at least one entry, which
-represents the content before the first heading."
+represents the content before the first heading.
+2025-05-13: The last fact may change."
   (cl-assert (stringp file))
   (gethash file org-mem--file<>entries))
+
+(defalias 'org-mem-file-entries #'org-mem-entries-in-file)
 
 (defun org-mem-entries-in-files (files)
   "Combined list of entries from all of FILES."
@@ -372,16 +428,6 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
   (and entry (gethash (org-mem-entry--internal-id entry)
                       org-mem--internal-entry-id<>links)))
 
-(defun org-mem-next-entry (entry)
-  "The next entry after ENTRY in the same file, if any."
-  (with-memoization (org-mem--table 20 entry)
-    (let ((entries (gethash (org-mem-entry-file entry) org-mem--file<>entries)))
-      (while (not (= (org-mem-entry--internal-id (car entries))
-                     (org-mem-entry--internal-id entry)))
-        (pop entries))
-      (pop entries)
-      (car entries))))
-
 
 ;;; Entry info
 
@@ -391,15 +437,15 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
 
 ;; REVIEW: To make `org-mem-entry' objects take less visual space when
 ;;         printed, we could stop putting ancestor titles in CRUMBS, just look
-;;         them up here live, via cross-ref with the char positions.
+;;         them up at this time via cross-ref with the char positions.
 (defun org-mem-entry-olpath (entry)
   "Outline path to ENTRY."
-  (with-memoization (org-mem--table 14 entry)
+  (with-memoization (org-mem--table 25 entry)
     (mapcar #'cl-fourth (cdr (reverse (cdr (org-mem-entry-crumbs entry)))))))
 
 (defun org-mem-entry-olpath-with-self (entry)
   "Outline path, including ENTRY\\='s own heading."
-  (with-memoization (org-mem--table 25 entry)
+  (with-memoization (org-mem--table 26 entry)
     (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))))
 
 (defun org-mem-entry-olpath-with-self-with-title
@@ -430,36 +476,16 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
   "Value of property PROP in ENTRY."
   (cdr (assoc (upcase prop) (org-mem-entry-properties entry))))
 
+;; TODO: It would surely be useful to be able to get inherited tags even where
+;;       it is not allowed.  Currently `org-mem-entry-tags-inherited' is just
+;;       nil in that case, but maybe a separate field?
 (defun org-mem-entry-tags (entry)
-  "ENTRY tags, with inheritance if allowed for ENTRY."
-  (delete-dups (append (org-mem-entry-tags-local entry)
-                       (org-mem-entry-tags-inherited entry))))
-
-(defun org-mem-entry-tags-inherited (entry)
-  "Tags inherited by ENTRY."
-  (with-memoization (org-mem--table 24 entry)
-    (delete-dups
-     (flatten-tree (mapcar #'cl-sixth (cdr (org-mem-entry-crumbs entry)))))))
+  "ENTRY tags, with inheritance if allowed at ENTRY."
+  (delete-dups (append (org-mem-entry-tags-inherited entry)
+                       (org-mem-entry-tags-local entry))))
 
 
 ;;; File data
-
-(defvar org-mem--file<>metadata (make-hash-table :test 'equal)
-  "1:1 table mapping a file name to a list of assorted data.
-
-Users have no reason to inspect this table, prefer stable API
-in `org-mem-file-mtime' and friends.")
-
-(defun org-mem--get-file-metadata (file/entry/link)
-  "Return (FILE ATTRS LINES PTMAX) if FILE/ENTRY/LINK known, else error."
-  (let ((wild-file (if (stringp file/entry/link)
-                       file/entry/link
-                     (if (org-mem-entry-p file/entry/link)
-                         (org-mem-entry-file file/entry/link)
-                       (org-mem-link-file file/entry/link)))))
-    (or (gethash wild-file org-mem--file<>metadata)
-        (gethash (org-mem--abbr-truename wild-file) org-mem--file<>metadata)
-        (error "org-mem: File seems not yet scanned: %s" wild-file))))
 
 (defun org-mem-file-attributes (file/entry/link)
   "The `file-attributes' list for file at FILE/ENTRY/LINK."
@@ -669,7 +695,7 @@ see what you may want to revert."
     (when org-mem--next-message
       (setq org-mem--next-message
             (format
-             "Org-mem saw %d ID-nodes and %d ID-links in %d files, %d subtrees, %d links in %.2fs"
+             "Org-mem saw %d ID-nodes and %d ID-links in %d files (%d subtrees, %d links) in %.2fs"
              (length (org-mem-all-id-nodes))
              (length (org-mem-all-id-links))
              (length (org-mem-all-files))
@@ -1002,6 +1028,9 @@ These substrings are determined by `org-mem--split-roam-refs-field'."
   (cl-loop for ref in (org-mem-entry-roam-refs entry)
            append (org-mem-links-to-roam-ref ref)))
 
+(defun org-mem-entry-by-roam-ref (ref)
+  (org-mem-entry-by-id (gethash ref org-mem--roam-ref<>id)))
+
 (defun org-mem-links-to-roam-ref (ref)
   (and ref (gethash ref org-mem--dest<>links)))
 
@@ -1209,7 +1238,7 @@ What is valid?  See \"org-mem-test.el\"."
 (define-obsolete-function-alias 'indexed-entry-near-lnum-in-file       #'org-mem-entry-at-lnum-in-file "2025-05-11")
 (define-obsolete-function-alias 'indexed-entry-near-pos-in-file        #'org-mem-entry-at-pos-in-file "2025-05-11")
 (define-obsolete-function-alias 'indexed-file                          #'org-mem-file "2025-05-11")
-(define-obsolete-function-alias 'indexed-file-mtime                    #'org-mem-file-mtime "2025-05-11")
+(define-obsolete-function-alias 'indexed-file-mtime                    #'org-mem-file-mtime-int "2025-05-11")
 (define-obsolete-function-alias 'indexed-file-name                     #'org-mem-file "2025-05-11")
 (define-obsolete-function-alias 'indexed-file-title                    #'org-mem-file-title-strict "2025-05-11")
 (define-obsolete-function-alias 'indexed-file-title-or-basename        #'org-mem-file-title-or-basename "2025-05-11")
@@ -1225,7 +1254,7 @@ What is valid?  See \"org-mem-test.el\"."
 (define-obsolete-function-alias 'indexed-org-links                     #'org-mem-all-links "2025-05-11")
 (define-obsolete-function-alias 'indexed-links-from                    #'org-mem-links-from-id "2025-05-11")
 (define-obsolete-function-alias 'indexed-lnum                          #'org-mem-entry-lnum "2025-05-11")
-(define-obsolete-function-alias 'indexed-mtime                         #'org-mem-file-mtime "2025-05-11")
+(define-obsolete-function-alias 'indexed-mtime                         #'org-mem-file-mtime-int "2025-05-11")
 (define-obsolete-function-alias 'indexed-nearby-id                     #'org-mem-link-nearby-id "2025-05-11")
 (define-obsolete-function-alias 'indexed-olpath                        #'org-mem-entry-olpath "2025-05-11")
 (define-obsolete-function-alias 'indexed-olpath-with-self              #'org-mem-entry-olpath-with-self "2025-05-11")
@@ -1305,7 +1334,6 @@ What is valid?  See \"org-mem-test.el\"."
 (defvar indexed--origin<>links :obsolete)
 (defvar indexed--file<>data :obsolete)
 
-(provide 'indexed)
 (provide 'org-mem)
 
 ;;; org-mem.el ends here

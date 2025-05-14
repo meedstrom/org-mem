@@ -123,7 +123,7 @@ none), to be included in each link's metadata.  FILE likewise.
 It is important that END does not extend past any sub-heading, as
 the subheading potentially has an ID of its own."
   (let ((beg (point))
-        LINK-TYPE PATH LINK-POS)
+        LINK-TYPE PATH LINK-POS LINK-DESC)
     ;; Here it may help to know that:
     ;; - `$plain-re' will be morally the same as `org-link-plain-re'
     ;; - `$merged-re' merges the above with `org-link-bracket-re'
@@ -131,6 +131,7 @@ the subheading potentially has an ID of its own."
       ;; Record same position that `org-roam-db-map-links' does.
       (setq LINK-POS (- (match-end 0) 1))
       (setq PATH (match-string 1))
+      (setq LINK-DESC (match-string 2))
       (if PATH
           ;; Link is the [[bracketed]] kind.
           (let ((colon-pos (string-search ":" PATH)))
@@ -157,6 +158,7 @@ the subheading potentially has an ID of its own."
         (push (record 'org-mem-link
                       file
                       LINK-POS
+                      LINK-DESC
                       nil
                       LINK-TYPE
                       (string-replace "%20" " " PATH) ; nicety, but will regret
@@ -168,31 +170,35 @@ the subheading potentially has an ID of its own."
         ))
 
     ;; Start over and look for @citekeys
+    ;; TODO: Make less permissive after we only look for org 9.5 citations here
     (goto-char beg)
     (while (search-forward "[cite" end t)
-      (let ((closing-bracket (save-excursion (search-forward "]" end t))))
-        (if closing-bracket
-            ;; Use a modified `org-element-citation-key-re'
-            (while (re-search-forward "[&@][!#-+./:<>-@^-`{-~[:word:]-]+"
-                                      closing-bracket
-                                      t)
-              ;; Record same position that `org-roam-db-map-citations' does
-              (setq LINK-POS (1+ (match-beginning 0)))
-              (if (save-excursion
-                    (goto-char (pos-bol))
-                    (looking-at-p "[\s\t]*# "))
-                  ;; On a # comment, skip citation
-                  (goto-char closing-bracket)
-                (push (record 'org-mem-link
-                              file
-                              LINK-POS
-                              t
-                              "cite"
-                              (match-string 0)
-                              id-here
-                              internal-entry-id)
-                      org-mem-parser--found-links)))
-          (error "No closing bracket to [cite:")))))
+      (when-let* ((closing-bracket (save-excursion
+                                     (or (search-forward "]" end t)
+                                         (error "No closing bracket to [cite:"))))
+                  (colon (search-forward ":" closing-bracket t)))
+        ;; Use a modified `org-element-citation-key-re'
+        (while (re-search-forward "[&@][!#-+./:<>-@^-`{-~[:word:]-]+"
+                                  closing-bracket
+                                  t)
+          ;; Record same position that `org-roam-db-map-citations' does
+          (setq LINK-POS (1+ (match-beginning 0)))
+          (setq LINK-DESC (buffer-substring colon (1- closing-bracket)))
+          (if (save-excursion
+                (goto-char (pos-bol))
+                (looking-at-p "[\s\t]*# "))
+              ;; On a # comment, skip citation
+              (goto-char closing-bracket)
+            (push (record 'org-mem-link
+                          file
+                          LINK-POS
+                          LINK-DESC
+                          t
+                          "cite"
+                          (match-string 0)
+                          id-here
+                          internal-entry-id)
+                  org-mem-parser--found-links))))))
   (goto-char (or end (point-max))))
 
 (defun org-mem-parser--collect-properties (beg end)
@@ -380,18 +386,35 @@ Also set some variables, including global variables."
                         nil
                         PROPS
                         nil
+                        nil
                         TAGS
                         nil
                         INTERNAL-ENTRY-ID)
                 found-entries)
 
+          ;; There are two ways we could store inherited tags for end use.
+          ;; Either put them in a "tags-inherited" field, or put the
+          ;; heritable local tags inside CRUMBS that a function
+          ;; "tags-inherited" can later use to figure it out.
+
+          ;; Going with the former to simplify implementation of
+          ;; `org-mem-x-ensure-entry-at-point-known'.
+
+          ;; That constraint is also why we cannot just let CRUMBS be a flat
+          ;; list of positions and figure out everything else in real time,
+          ;; because positions change.
+
+          ;; Suppose someone filters entries by an inherited tag "notes" for
+          ;; display as completion candidates, but we can't find the ancestors
+          ;; because the positions are wrong in an unsaved buffer, and then a
+          ;; newly inserted heading does not show up among candidates --
+          ;; you get the idea.  Better to rely as little as possible on
+          ;; cross-referencing with other entries' positions.
+
           (let ((heritable-tags
                  (and USE-TAG-INHERITANCE
-                      (cl-loop for tag in TAGS
-                               unless (member tag NONHERITABLE-TAGS)
-                               collect tag))))
-            (push (list 0 1 1 TITLE ID heritable-tags)
-                  CRUMBS))
+                      (seq-difference TAGS NONHERITABLE-TAGS))))
+            (push (list 0 1 1 TITLE ID heritable-tags) CRUMBS))
 
           ;; Loop over the file's headings
           (setq LNUM (line-number-at-pos))
@@ -514,11 +537,15 @@ Also set some variables, including global variables."
                             LEVEL
                             ID
                             CLOSED
-                            CRUMBS
+                            (mapcar #'butlast CRUMBS)
                             DEADLINE
                             PRIORITY
                             PROPS
                             SCHED
+                            (nreverse
+                             (delete-dups
+                              (flatten-tree
+                               (mapcar #'last (cdr CRUMBS)))))
                             TAGS
                             TODO-STATE
                             INTERNAL-ENTRY-ID)

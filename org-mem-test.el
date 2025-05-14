@@ -16,7 +16,6 @@
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 (require 'ert)
-(require 'seq)
 (require 'find-func)
 (require 'llama)
 (require 'org-mem)

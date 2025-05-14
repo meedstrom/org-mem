@@ -23,7 +23,6 @@
 
 (require 'cl-lib)
 (require 'subr-x)
-(require 'seq)
 (require 'org-mem)
 (require 'sqlite)
 (require 'llama)
