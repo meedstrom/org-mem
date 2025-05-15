@@ -47,6 +47,14 @@ to:
   :group 'org-mem
   :package-version '(org-mem . "0.4.0"))
 
+(defcustom org-mem-roamy-do-try-async t
+  "Whether to use an asynchronous technique on saving a big file.
+
+Currently only applies when `org-mem-roamy-do-overwrite-real-db' also t."
+  :type 'boolean
+  :group 'org-mem
+  :package-version '(org-mem . "0.8.0"))
+
 ;;;###autoload
 (define-minor-mode org-mem-roamy-db-mode
   "Instantiate an `org-mem-roamy-db' database and keep it updated.
@@ -85,7 +93,7 @@ Restore org-roam functionality with: (setq org-roam-db-update-on-save t)")
          (emacsql-close org-mem-roamy--connection)))
   (org-mem-roamy-db))
 
-(defun org-mem-roamy-db ()
+(defun org-mem-roamy-db (&optional force-reuse)
   "Return an EmacSQL connection.
 
 If user option `org-mem-roamy-do-overwrite-real-db' is t, return the same
@@ -425,25 +433,47 @@ With SPECIFIC-FILES, only return data that involves those files."
 
 ;;; Update-on-save
 
+(defvar org-mem-roamy--async-new-rows nil)
 (defun org-mem-roamy--update-db (parse-results)
   "Update currently connected DB, with data from PARSE-RESULTS.
 Suitable on `org-mem-post-targeted-scan-functions'."
-  ;; NOTE: There's a likely performance bug in Emacs sqlite.c.
-  ;;       I have a yuge file, which takes 0.01 seconds to delete on the
-  ;;       sqlite3 command line... but 0.53 seconds with `sqlite-execute'.
-  ;;
-  ;;       Aside from tracking down the bug, could we workaround by getting rid
-  ;;       of all the CASCADE rules and pre-determine what needs to be deleted?
-  ;;       It's not The Way to use a RDBMS, but it's a simple enough puzzle.
-  (let ((db (eieio-oref (org-mem-roamy-db) 'handle))
-        (newly-parsed-files (mapcar #'car (nth 1 parse-results)))
-        (bad-paths (nth 0 parse-results)))
-    (dolist (file (append newly-parsed-files bad-paths))
-      (sqlite-execute db "DELETE FROM files WHERE file LIKE ?;"
-                      (list (prin1-to-string file))))
-    (when newly-parsed-files
-      (org-mem-roamy--populate-usably-for-emacsql
-       db (org-mem-roamy--mk-rows newly-parsed-files)))))
+  (let* ((db (eieio-oref (org-mem-roamy-db) 'handle))
+         (db-file (eieio-oref (org-mem-roamy-db) 'file))
+         (sqlite3 (and db-file (executable-find "sqlite3")))
+         (newly-parsed-files (mapcar #'car (nth 1 parse-results)))
+         (bad-paths (nth 0 parse-results)))
+    (if (and org-mem-roamy-do-try-async
+             sqlite3
+             (fboundp 'emacsql-close)
+             (fboundp 'org-roam-db))
+        ;; Do the deletion async. Otherwise Emacs blocks for seconds
+        ;; waiting for sqlite to cascade-delete a big file.
+        (let ((query
+               (concat "PRAGMA foreign_keys = on; "
+                       (cl-loop
+                        for file in (append newly-parsed-files bad-paths)
+                        concat (format "DELETE FROM files WHERE file LIKE '%s';"
+                                       (prin1-to-string file))))))
+          (emacsql-close (org-mem-roamy-db))
+          (make-process
+           :name "org-mem-roamy"
+           :command (list sqlite3 db-file query)
+           :noquery t
+           :sentinel `(lambda (_ _)
+                        (when org-mem-roamy--async-new-rows
+                          (org-mem-roamy--populate-usably-for-emacsql
+                           (eieio-oref (org-roam-db) 'handle)
+                           org-mem-roamy--async-new-rows))))
+          (setq org-mem-roamy--async-new-rows
+                (and newly-parsed-files
+                     (org-mem-roamy--mk-rows newly-parsed-files))))
+      ;; Basic method
+      (dolist (file (append newly-parsed-files bad-paths))
+        (sqlite-execute db "DELETE FROM files WHERE file LIKE ?;"
+                        (list (prin1-to-string file))))
+      (when newly-parsed-files
+        (org-mem-roamy--populate-usably-for-emacsql
+         db (org-mem-roamy--mk-rows newly-parsed-files))))))
 
 
 ;;; Translators
