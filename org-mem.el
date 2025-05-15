@@ -513,6 +513,10 @@ Often close to but not exactly the size in bytes due to text encoding."
   "Modification time for file at FILE/ENTRY/LINK."
   (file-attribute-modification-time (org-mem-file-attributes file/entry/link)))
 
+(defun org-mem-file-size (file/entry/link)
+  "Modification time for file at FILE/ENTRY/LINK."
+  (file-attribute-size (org-mem-file-attributes file/entry/link)))
+
 (defun org-mem-file-mtime-int (file/entry/link)
   "Modification time for file at FILE/ENTRY/LINK, rounded-up integer."
   (ceiling (float-time (org-mem-file-mtime file/entry/link))))
@@ -1140,26 +1144,22 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-tags-local     #'org-mem-entry-tags-local)
 (defalias 'org-mem-todo-state     #'org-mem-entry-todo-state)
 
-(defalias 'org-mem-target           #'org-mem-link-target)
+(defalias 'org-mem-target         #'org-mem-link-target)
 (defalias 'org-mem-nearby-id      #'org-mem-link-nearby-id)
 (defalias 'org-mem-type           #'org-mem-link-type)
 (defalias 'org-mem-citation-p     #'org-mem-link-citation-p)
 
-(defun org-mem-attributes (file)
-  (cl-assert (stringp file))
-  (org-mem-file-attributes file))
+;; (defun org-mem-mtime (file)
+;;   (cl-assert (stringp file))
+;;   (org-mem-file-mtime file))
 
-(defun org-mem-mtime (file)
-  (cl-assert (stringp file))
-  (org-mem-file-mtime file))
+;; (defun org-mem-line-count (file)
+;;   (cl-assert (stringp file))
+;;   (org-mem-file-line-count file))
 
-(defun org-mem-line-count (file)
-  (cl-assert (stringp file))
-  (org-mem-file-line-count file))
-
-(defun org-mem-ptmax (file)
-  (cl-assert (stringp file))
-  (org-mem-file-ptmax file))
+;; (defun org-mem-ptmax (file)
+;;   (cl-assert (stringp file))
+;;   (org-mem-file-ptmax file))
 
 ;;; Short names, with polymorphism
 

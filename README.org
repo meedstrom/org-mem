@@ -32,7 +32,6 @@ Example setup:
 
 That's it -- now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  Check the many defuns in [[https://github.com/meedstrom/org-mem/blob/main/org-mem.el][org-mem.el]] for what you can do with that!
 
-
 --------
 
 Two different APIs to access the same data.
@@ -43,7 +42,6 @@ Two different APIs to access the same data.
 Why two?  It's free.  When the data has been gathered anyway, there is no reason to /only/ insert it into a SQLite db, nor /only/ put it in a hash table.
 
 Famously, org-roam uses a SQLite DB.  My package org-node used simple hash tables.  Now you get both, without having to install either.
-
 
 ** Data only
 
@@ -78,8 +76,6 @@ A design choice: Org-mem does not use Org code to analyze your files, but a [[ht
    A robust approach to cache invalidation is to avoid trying: ensure that a full rebuild is fast enough that you can just do /that/ instead.
 
    In fact, =org-mem-updater-mode= does a bit of both, because it is still important that saving a file does not lag;  it does its best to update only the necessary tables on save, and an idle timer triggers a full reset every now and then.
-
-# (anytime org-mem stores a char position, it tries to also store a line number, because it's easy at that time and comes in handy later to compare with grep results, for example)
 
 ** Appendix I: A SQLite database, for free
 
@@ -126,7 +122,7 @@ N/B: because =(equal (org-roam-db) (org-mem-roamy-db))=, the above is equivalent
 
 A known issue when when you use multiple Emacsen: "attempt to write a readonly database".  Get unstuck with =M-: (org-roam-db--close-all)=.
 
-*** View what info is inside the DB
+*** View what info is in the DB
 
 Use the command =M-x org-mem-list-db-contents=.
 
