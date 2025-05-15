@@ -257,7 +257,7 @@ in `org-mem-file-mtime' and friends.")
 (defun org-mem-all-entries ()
   "All entries with non-nil title."
   (with-memoization (org-mem--table 0 'org-mem-all-entries)
-    (seq-filter #'org-mem-entry-title
+    (seq-filter #'org-mem-entry-title-maybe
                 (apply #'append (hash-table-values org-mem--file<>entries)))))
 
 (defun org-mem-all-id-nodes ()
@@ -552,9 +552,10 @@ case that there exists a file-level ID but no #+title:, or vice versa."
 
 (defun org-mem-file-title-strict (file/entry)
   "Value of #+title setting in FILE, if any."
-  (org-mem-entry-title (car (org-mem-entries-in-file
-                             (if (stringp file/entry) file/entry
-                               (org-mem-entry-file file/entry))))))
+  (org-mem-entry-title-maybe
+   (car (org-mem-entries-in-file
+         (if (stringp file/entry) file/entry
+           (org-mem-entry-file file/entry))))))
 
 (defun org-mem-file-id-topmost (file/entry)
   "ID from file properties or topmost subtree in file at FILE/ENTRY."

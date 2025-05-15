@@ -153,7 +153,7 @@ and potentially `org-mem-x--forget-links-from-entries'."
     (dolist (file files)
       (dolist (entry (gethash file org-mem--file<>entries))
         (remhash (org-mem-entry-id entry) org-mem--id<>entry)
-        (remhash (org-mem-entry-title entry) org-mem--title<>id)
+        (remhash (org-mem-entry-title-maybe entry) org-mem--title<>id)
         (run-hook-with-args 'org-mem-forget-entry-functions entry))
       (remhash file org-mem--file<>entries)
       (remhash file org-mem--file<>metadata)
