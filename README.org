@@ -137,5 +137,79 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
 - An =org-mem-link= object corresponds either to a valid Org link, or to a citation fragment.
   - Check with =org-mem-link-citation-p=.
 
-
 TODO: Some get-started examples.
+
+As of [2025-05-15 Thu 12:04], the full list of functions:
+
+- =org-mem-all-entries=
+- =org-mem-all-files=
+- =org-mem-all-id-links=
+- =org-mem-all-id-nodes=
+- =org-mem-all-ids=
+- =org-mem-all-links=
+- =org-mem-entries-in-file=
+- =org-mem-entries-in-files=
+- =org-mem-entry-at-file-lnum=
+- =org-mem-entry-at-file-pos=
+- =org-mem-entry-at-lnum-in-file=
+- =org-mem-entry-at-pos-in-file=
+- =org-mem-entry-by-id=
+- =org-mem-entry-closed=
+- =org-mem-entry-crumbs=
+- =org-mem-entry-deadline=
+- =org-mem-entry-file=
+- =org-mem-entry-id=
+- =org-mem-entry-level=
+- =org-mem-entry-lnum=
+- =org-mem-entry-olpath-with-self-with-title=
+- =org-mem-entry-olpath-with-self=
+- =org-mem-entry-olpath-with-title-with-self=
+- =org-mem-entry-olpath-with-title=
+- =org-mem-entry-olpath=
+- =org-mem-entry-pos=
+- =org-mem-entry-priority=
+- =org-mem-entry-properties=
+- =org-mem-entry-property=
+- =org-mem-entry-scheduled=
+- =org-mem-entry-subtree-p=
+- =org-mem-entry-tags-inherited=
+- =org-mem-entry-tags-local=
+- =org-mem-entry-tags=
+- =org-mem-entry-that-contains-link=
+- =org-mem-entry-title=
+- =org-mem-entry-todo-state=
+- =org-mem-file-attributes=
+- =org-mem-file-by-id=
+- =org-mem-file-entries=
+- =org-mem-file-id-strict=
+- =org-mem-file-id-topmost=
+- =org-mem-file-line-count=
+- =org-mem-file-mtime-int=
+- =org-mem-file-mtime=
+- =org-mem-file-ptmax=
+- =org-mem-file-size=
+- =org-mem-file-title-or-basename=
+- =org-mem-file-title-strict=
+- =org-mem-file-title-topmost=
+- =org-mem-id-by-title=
+- =org-mem-id-links-from-id=
+- =org-mem-id-links-to-entry=
+- =org-mem-id-links-to-id=
+- =org-mem-id-node-by-title=
+- =org-mem-id-nodes-in-files=
+- =org-mem-link-citation-p=
+- =org-mem-link-description=
+- =org-mem-link-file=
+- =org-mem-link-nearby-id=
+- =org-mem-link-pos=
+- =org-mem-link-target=
+- =org-mem-link-type=
+- =org-mem-links-from-id=
+- =org-mem-links-in-entry=
+- =org-mem-links-in-file=
+- =org-mem-links-of-type=
+- =org-mem-links-to-entry=
+- =org-mem-links-to-file=
+- =org-mem-links-with-type-and-path=
+- =org-mem-next-entry=
+- =org-mem-previous-entry=

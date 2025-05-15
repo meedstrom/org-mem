@@ -1,4 +1,4 @@
-;;; org-mem-db1.el --- Our own SQL database -*- lexical-binding: t; -*-
+;;; org-mem-db1.el --- Experimental variant SQL database -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Free Software Foundation, Inc.
 

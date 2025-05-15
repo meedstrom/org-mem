@@ -218,7 +218,7 @@ in `org-mem-file-mtime' and friends.")
   (file              () :read-only t :type string)
   (pos               () :read-only t :type integer)
   (type              () :read-only t :type string)
-  (target              () :read-only t :type string)
+  (target            () :read-only t :type string)
   (description       () :read-only t :type string)
   (citation-p        () :read-only t :type boolean)
   (nearby-id         () :read-only t :type string)
@@ -240,7 +240,7 @@ in `org-mem-file-mtime' and friends.")
   (tags-inherited () :read-only t :type list)
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
-  (-internal-id    () :read-only t :type integer))
+  (-internal-id   () :read-only t :type integer))
 
 
 ;;; To find the objects to operate on
