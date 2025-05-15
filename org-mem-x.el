@@ -128,8 +128,6 @@ In that case, there may be nothing wrong with the known name."
     (dolist (datum file-data)
       (puthash (car datum) datum org-mem--file<>metadata)
       (run-hook-with-args 'org-mem-record-file-functions datum))
-    ;; (org-mem-x--forget-links-from-files (mapcar #'car file-data))
-    ;; TODO may be faster to use internal eid
     (org-mem-x--forget-links-from-entries entries)
     (dolist (entry entries)
       (org-mem--record-entry entry)
@@ -146,7 +144,6 @@ In that case, there may be nothing wrong with the known name."
     (when problems
       (message "Scan had problems, see M-x org-mem-list-problems"))))
 
-;; XXX Test. Verify links still get forgotten: check for backlink duplicates
 (defun org-mem-x--forget-file-contents (files)
   "Delete from tables, most info relating to FILES and their contents.
 You should also run `org-mem--invalidate-file-names'.
@@ -162,30 +159,26 @@ and potentially `org-mem-x--forget-links-from-entries'."
       (remhash file org-mem--file<>metadata)
       (run-hook-with-args 'org-mem-forget-file-functions file))))
 
-(defvar org-mem-x--dest<>old-id-links (make-hash-table :test 'equal))
+(defvar org-mem-x--target<>old-links (make-hash-table :test 'equal))
 (defun org-mem-x--forget-links-from-entries (stale-entries)
-  (clrhash org-mem-x--dest<>old-id-links)
+  (clrhash org-mem-x--target<>old-links)
   (let ((eids (mapcar #'org-mem-entry--internal-id stale-entries))
-        dests-to-update)
+        targets-to-update)
     (dolist (eid eids)
       (dolist (link (gethash eid org-mem--internal-entry-id<>links))
-          (when (or (org-mem-link-citation-p link)
-                    (equal "id" (org-mem-link-type link)))
-        (unless (member (org-mem-link-dest link) dests-to-update)
-            (push (org-mem-link-dest link) dests-to-update)))))
-    (dolist (dest dests-to-update)
-      (let ((links (gethash dest org-mem--dest<>links)))
-        (cl-loop
-         for link in links
-         if (memq (org-mem-link--internal-entry-id link) eids)
-         collect link into forgotten-links
-         else
-         collect link into reduced-link-set
-         finally do
-         (puthash dest reduced-link-set org-mem--dest<>links)
-         ;; TODO can likely use nconc
-         (puthash dest (append forgotten-links reduced-link-set)
-                  org-mem-x--dest<>old-id-links))))))
+        (unless (member (org-mem-link-target link) targets-to-update)
+          (push (org-mem-link-target link) targets-to-update))))
+    (dolist (target targets-to-update)
+      (cl-loop
+       for link in (gethash target org-mem--target<>links)
+       if (memq (org-mem-link--internal-entry-id link) eids)
+       collect link into forgotten-links
+       else
+       collect link into reduced-link-set
+       finally do
+       (puthash target reduced-link-set org-mem--target<>links)
+       (puthash target (nconc forgotten-links reduced-link-set)
+                org-mem-x--target<>old-links)))))
 
 
 ;;; Instant placeholders
@@ -214,7 +207,7 @@ No support for citations."
   (when (and buffer-file-truename
              (derived-mode-p 'org-mode))
     (when-let* ((el (org-element-context))
-                (dest (org-element-property :path el))
+                (target (org-element-property :path el))
                 (type (org-element-property :type el)))
       (let ((desc-beg (org-element-property :contents-begin el))
             (desc-end (org-element-property :contents-end el)))
@@ -227,7 +220,7 @@ No support for citations."
                       (buffer-substring-no-properties desc-beg desc-end))
                  nil
                  type
-                 dest
+                 target
                  (org-entry-get-with-inheritance "ID")
                  ;; HACK
                  nil))))))

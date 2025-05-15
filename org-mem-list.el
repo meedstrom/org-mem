@@ -93,15 +93,15 @@ To automatically warn, set `org-mem-do-warn-title-collisions'."
   "List links that lead to no known ID."
   (interactive)
   (let* ((dead-links
-          (cl-loop for dest being each hash-key of org-mem--dest<>links
+          (cl-loop for target being each hash-key of org-mem--target<>links
                    using (hash-values links)
-                   unless (gethash dest org-mem--id<>entry)
+                   unless (gethash target org-mem--id<>entry)
                    append (cl-loop for link in links
                                    when (equal "id" (org-mem-link-type link))
-                                   collect (cons dest link))))
+                                   collect (cons target link))))
          (longest
           (cl-loop for (_ . link) in dead-links
-                   maximize (length (org-mem-link-dest link)))))
+                   maximize (length (org-mem-link-target link)))))
     (message "%d dead links found" (length dead-links))
     (when dead-links
       (org-mem-list--pop-to-tabulated-buffer
@@ -110,12 +110,12 @@ To automatically warn, set `org-mem-do-warn-title-collisions'."
        :reverter #'org-mem-list-dead-id-links
        :entries
        (cl-loop
-        for (dest . link) in dead-links
+        for (target . link) in dead-links
         as origin-id = (org-mem-link-nearby-id link)
         as entry = (org-mem-entry-by-id origin-id)
         collect
         (list (sxhash link)
-              (vector dest
+              (vector target
                       (buttonize (org-mem-entry-title entry)
                                  #'org-mem-list--goto-file-pos
                                  (cons (org-mem-entry-file entry)

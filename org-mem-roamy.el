@@ -386,7 +386,7 @@ With SPECIFIC-FILES, only return data that involves those files."
        do (if (org-mem-link-citation-p link)
               ;; See `org-roam-db-insert-citation'
               (push (list (org-mem-link-nearby-id link)
-                          (substring (org-mem-link-dest link) 1)
+                          (substring (org-mem-link-target link) 1)
                           (org-mem-link-pos link)
                           dummy-props)
                     citation-rows)
@@ -394,7 +394,7 @@ With SPECIFIC-FILES, only return data that involves those files."
             (when (org-mem-link-type link)
               (push (list (org-mem-link-pos link)
                           (org-mem-link-nearby-id link)
-                          (org-mem-link-dest link)
+                          (org-mem-link-target link)
                           (org-mem-link-type link)
                           dummy-props)
                     link-rows)))))
@@ -482,7 +482,7 @@ Suitable on `org-mem-post-targeted-scan-functions'."
   (require 'org-roam-mode)
   (require 'org-roam-node)
   (let* ((target-id (org-roam-node-id target-roam-node))
-         (links (gethash target-id org-mem--dest<>links)))
+         (links (gethash target-id org-mem--target<>links)))
     (cl-loop
      for link in links
      as src-id = (org-mem-link-nearby-id link)
@@ -503,12 +503,12 @@ Suitable on `org-mem-post-targeted-scan-functions'."
       (cl-loop
        for ref in (org-mem-entry-roam-refs entry)
        append (cl-loop
-               for link in (gethash ref org-mem--dest<>links)
+               for link in (gethash ref org-mem--target<>links)
                as src-id = (org-mem-link-nearby-id link)
                as src-entry = (gethash src-id org-mem--id<>entry)
                when src-entry
                collect (org-roam-reflink-create
-                        :ref (org-mem-link-dest link)
+                        :ref (org-mem-link-target link)
                         :source-node (org-mem-roamy-mk-node src-entry)
                         :point (org-mem-link-pos link)))))))
 

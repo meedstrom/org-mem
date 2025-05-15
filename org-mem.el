@@ -61,7 +61,7 @@
 (declare-function org-mem-x--handle-delete "org-mem-x")
 (declare-function org-mem-x--activate-timer "org-mem-x")
 (declare-function tramp-tramp-file-p "tramp")
-(define-obsolete-variable-alias 'indexed--dest<>links       'org-mem--dest<>links "2025-05-11")
+(define-obsolete-variable-alias 'indexed--dest<>links       'org-mem--target<>links "2025-05-11")
 (define-obsolete-variable-alias 'indexed--file<>entries     'org-mem--file<>entries "2025-05-11")
 (define-obsolete-variable-alias 'indexed--id<>entry         'org-mem--id<>entry "2025-05-11")
 (define-obsolete-variable-alias 'indexed--title<>id         'org-mem--title<>id "2025-05-11")
@@ -170,7 +170,7 @@ e.g. \"/.local/\", \"/.git/\" or \"/_site/\" for that reason."
   "1:N table mapping a file name to a sorted list of `org-mem-entry' records.
 Sorted by field `org-mem-entry-pos'.")
 
-(defvar org-mem--dest<>links (make-hash-table :test 'equal)
+(defvar org-mem--target<>links (make-hash-table :test 'equal)
   "1:N table mapping a destination to a list of `org-mem-link' records.
 
 A destination is a citekey or the path component of a valid Org link.
@@ -220,7 +220,7 @@ in `org-mem-file-mtime' and friends.")
   (description       () :read-only t :type string)
   (citation-p        () :read-only t :type boolean)
   (type              () :read-only t :type string)
-  (dest              () :read-only t :type string)
+  (target              () :read-only t :type string)
   (nearby-id         () :read-only t :type string)
   (-internal-entry-id () :read-only t :type integer))
 
@@ -271,7 +271,7 @@ An ID-node is simply an entry that has an ID property."
 Citations are `org-mem-link' objects that satisfy
 `org-mem-link-citation-p'."
   (with-memoization (org-mem--table 0 'org-mem-all-links)
-    (apply #'append (hash-table-values org-mem--dest<>links))))
+    (apply #'append (hash-table-values org-mem--target<>links))))
 
 (defun org-mem-all-id-links ()
   "All ID-links."
@@ -365,7 +365,7 @@ represents the content before the first heading.
 
 (defun org-mem-links-with-type-and-path (type path)
   "Links with components TYPE and PATH, see `org-link-plain-re'."
-  (cl-loop for link in (gethash path org-mem--dest<>links)
+  (cl-loop for link in (gethash path org-mem--target<>links)
            when (equal type (org-mem-link-type link))
            collect link))
 
@@ -376,7 +376,7 @@ represents the content before the first heading.
 
 (defun org-mem-id-links-to-entry (entry)
   "All ID-links that point to ENTRY."
-  (and entry (gethash (org-mem-entry-id entry) org-mem--dest<>links)))
+  (and entry (gethash (org-mem-entry-id entry) org-mem--target<>links)))
 
 (defun org-mem-id-links-to-id (id)
   (org-mem-id-links-to-entry (org-mem-entry-by-id id)))
@@ -402,7 +402,7 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
 
 ;; TODO
 (defun org-mem-links-to-file (_file)
-  ;; (let ((dests-for-file (org-mem-entries-in-file))))
+  ;; (let ((targets-for-file (org-mem-entries-in-file))))
   ;; (cl-loop for link in (org-mem-all-links)
   ;;          collect nil)
   (error "Unimplemented"))
@@ -676,7 +676,7 @@ see what you may want to revert."
   (clrhash org-mem--file<>metadata)
   (clrhash org-mem--file<>entries)
   (clrhash org-mem--internal-entry-id<>links)
-  (clrhash org-mem--dest<>links)
+  (clrhash org-mem--target<>links)
   (setq org-mem--title-collisions nil)
   (seq-let (bad-paths file-data entries links problems) parse-results
     (when bad-paths
@@ -723,7 +723,7 @@ see what you may want to revert."
 
 (defun org-mem--record-link (link)
   "Add info related to LINK to various tables."
-  (push link (gethash (org-mem-link-dest link) org-mem--dest<>links))
+  (push link (gethash (org-mem-link-target link) org-mem--target<>links))
   (push link (gethash (org-mem-link--internal-entry-id link)
                       org-mem--internal-entry-id<>links)))
 
@@ -1032,11 +1032,11 @@ These substrings are determined by `org-mem--split-roam-refs-field'."
   (org-mem-entry-by-id (gethash ref org-mem--roam-ref<>id)))
 
 (defun org-mem-links-to-roam-ref (ref)
-  (and ref (gethash ref org-mem--dest<>links)))
+  (and ref (gethash ref org-mem--target<>links)))
 
 (defun org-mem-all-roam-reflinks ()
   (cl-loop for ref being each hash-key of org-mem--roam-ref<>id
-           append (gethash ref org-mem--dest<>links)))
+           append (gethash ref org-mem--target<>links)))
 
 (defun org-mem--record-roam-aliases-and-refs (entry)
   "Add ENTRY\\='s ROAM_ALIASES and ROAM_REFS to tables."
@@ -1140,7 +1140,7 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-tags-local     #'org-mem-entry-tags-local)
 (defalias 'org-mem-todo-state     #'org-mem-entry-todo-state)
 
-(defalias 'org-mem-dest           #'org-mem-link-dest)
+(defalias 'org-mem-target           #'org-mem-link-target)
 (defalias 'org-mem-nearby-id      #'org-mem-link-nearby-id)
 (defalias 'org-mem-type           #'org-mem-link-type)
 (defalias 'org-mem-citation-p     #'org-mem-link-citation-p)
@@ -1231,7 +1231,7 @@ What is valid?  See \"org-mem-test.el\"."
 (define-obsolete-function-alias 'indexed--relist-org-files             #'org-mem--list-files-from-fs "2025-05-11")
 (define-obsolete-function-alias 'indexed--scan-full                    #'org-mem--scan-full "2025-05-11")
 (define-obsolete-function-alias 'indexed-deadline                      #'org-mem-entry-deadline "2025-05-11")
-(define-obsolete-function-alias 'indexed-dest                          #'org-mem-link-dest "2025-05-11")
+(define-obsolete-function-alias 'indexed-dest                          #'org-mem-link-target "2025-05-11")
 (define-obsolete-function-alias 'indexed-entries                       #'org-mem-all-entries "2025-05-11")
 (define-obsolete-function-alias 'indexed-entries-in                    #'org-mem-entries-in-files "2025-05-11")
 (define-obsolete-function-alias 'indexed-entry-by-id                   #'org-mem-entry-by-id "2025-05-11")
@@ -1276,7 +1276,7 @@ What is valid?  See \"org-mem-test.el\"."
 (define-obsolete-function-alias 'indexed-org-entry-todo-state          #'org-mem-entry-todo-state "2025-05-11")
 (define-obsolete-function-alias 'indexed-org-files                     #'org-mem-all-files "2025-05-11")
 (define-obsolete-function-alias 'indexed-org-id-nodes                  #'org-mem-all-id-nodes "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-link-dest                 #'org-mem-link-dest "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-link-dest                 #'org-mem-link-target "2025-05-11")
 (define-obsolete-function-alias 'indexed-org-link-nearby-id            #'org-mem-link-nearby-id "2025-05-11")
 (define-obsolete-function-alias 'indexed-org-link-origin               #'org-mem-link-nearby-id "2025-05-11")
 (define-obsolete-function-alias 'indexed-org-link-type                 #'org-mem-link-type "2025-05-11")
