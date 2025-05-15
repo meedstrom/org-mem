@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.8.0
+;; Package-Version: 0.8.1
 ;; Package-Requires: ((emacs "29.1") (el-job "2.4.2") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -1251,7 +1251,6 @@ What is valid?  See \"org-mem-test.el\"."
 (define-obsolete-function-alias 'indexed-id-nodes                      #'org-mem-all-id-nodes "2025-05-11")
 (define-obsolete-function-alias 'indexed-id-nodes-in                   #'org-mem-id-nodes-in-files "2025-05-11")
 (define-obsolete-function-alias 'indexed-links                         #'org-mem-all-links "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-links                     #'org-mem-all-links "2025-05-11")
 (define-obsolete-function-alias 'indexed-links-from                    #'org-mem-links-from-id "2025-05-11")
 (define-obsolete-function-alias 'indexed-lnum                          #'org-mem-entry-lnum "2025-05-11")
 (define-obsolete-function-alias 'indexed-mtime                         #'org-mem-file-mtime-int "2025-05-11")
@@ -1280,6 +1279,7 @@ What is valid?  See \"org-mem-test.el\"."
 (define-obsolete-function-alias 'indexed-org-link-nearby-id            #'org-mem-link-nearby-id "2025-05-11")
 (define-obsolete-function-alias 'indexed-org-link-origin               #'org-mem-link-nearby-id "2025-05-11")
 (define-obsolete-function-alias 'indexed-org-link-type                 #'org-mem-link-type "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-links                     #'org-mem-all-links "2025-05-11")
 (define-obsolete-function-alias 'indexed-org-links-and-citations       #'org-mem-all-links "2025-05-11")
 (define-obsolete-function-alias 'indexed-origin                        #'org-mem-link-nearby-id "2025-05-11")
 (define-obsolete-function-alias 'indexed-pos                           #'org-mem-pos "2025-05-11")
@@ -1304,6 +1304,7 @@ What is valid?  See \"org-mem-test.el\"."
 (define-obsolete-function-alias 'indexed-type                          #'org-mem-link-type "2025-05-11")
 (define-obsolete-function-alias 'indexed-updater-mode                  #'org-mem-updater-mode "2025-05-11")
 (define-obsolete-function-alias 'indexed-x--tramp-file-p               #'org-mem--tramp-file-p "2025-05-11")
+(define-obsolete-function-alias 'org-mem-link-dest                     #'org-mem-link-target "2025-05-15")
 
 (defun org-mem--warn-deprec ()
   "Warn about use of deprecated variable names, and unintern them."
@@ -1334,6 +1335,7 @@ What is valid?  See \"org-mem-test.el\"."
 (defvar indexed--origin<>links :obsolete)
 (defvar indexed--file<>data :obsolete)
 
+(provide 'indexed)
 (provide 'org-mem)
 
 ;;; org-mem.el ends here
