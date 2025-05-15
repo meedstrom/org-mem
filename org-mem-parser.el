@@ -123,29 +123,29 @@ none), to be included in each link's metadata.  FILE likewise.
 It is important that END does not extend past any sub-heading, as
 the subheading potentially has an ID of its own."
   (let ((beg (point))
-        LINK-TYPE PATH LINK-POS LINK-DESC)
+        LINK-TYPE LINK-PATH LINK-POS LINK-DESC)
     ;; Here it may help to know that:
     ;; - `$plain-re' will be morally the same as `org-link-plain-re'
     ;; - `$merged-re' merges the above with `org-link-bracket-re'
     (while (re-search-forward $merged-re end t)
       ;; Record same position that `org-roam-db-map-links' does.
       (setq LINK-POS (- (match-end 0) 1))
-      (setq PATH (match-string 1))
+      (setq LINK-PATH (match-string 1))
       (setq LINK-DESC (match-string 2))
-      (if PATH
+      (if LINK-PATH
           ;; Link is the [[bracketed]] kind.
-          (let ((colon-pos (string-search ":" PATH)))
+          (let ((colon-pos (string-search ":" LINK-PATH)))
             (if (and colon-pos
-                     (length> PATH colon-pos)
-                     (not (eq ?: (aref PATH (1+ colon-pos))))
-                     (not (eq ?\s (aref PATH (1+ colon-pos)))))
+                     (length> LINK-PATH colon-pos)
+                     (not (eq ?: (aref LINK-PATH (1+ colon-pos))))
+                     (not (eq ?\s (aref LINK-PATH (1+ colon-pos)))))
                 ;; Guess that this is a valid URI: type link
-                (setq LINK-TYPE (substring PATH 0 colon-pos)
-                      PATH (substring PATH (1+ colon-pos)))
+                (setq LINK-TYPE (substring LINK-PATH 0 colon-pos)
+                      LINK-PATH (substring LINK-PATH (1+ colon-pos)))
               (setq LINK-TYPE nil)))
         ;; Link is the unbracketed kind and matched `org-mem-seek-link-types'.
         (setq LINK-TYPE (match-string 3)
-              PATH (match-string 4)))
+              LINK-PATH (match-string 4)))
 
       (unless (save-excursion
                 ;; If point is in a # comment line, skip
@@ -153,19 +153,19 @@ the subheading potentially has an ID of its own."
                 (looking-at-p "[\s\t]*# "))
         ;; Handle a special case opened by Org 9.7 `org-id-link-use-context'
         (when (and (equal LINK-TYPE "id"))
-          (let ((chop (string-search "::" PATH)))
-            (when chop (setq PATH (substring PATH 0 chop)))))
+          (let ((chop (string-search "::" LINK-PATH)))
+            (when chop (setq LINK-PATH (substring LINK-PATH 0 chop)))))
         (push (record 'org-mem-link
                       file
                       LINK-POS
                       LINK-TYPE
-                      (string-replace "%20" " " PATH) ; nicety, but will regret
+                      (string-replace "%20" " " LINK-PATH) ; nicety, but will regret
                       LINK-DESC
                       nil
                       id-here
                       internal-entry-id)
               org-mem-parser--found-links)
-        ;; TODO: Fish any org-ref v3 &citekeys out of PATH and make a new link
+        ;; TODO: Fish any org-ref v3 &citekeys out of LINK-PATH and make a new link
         ;;       object for each.  Then stop including &citekeys in below step.
         ))
 

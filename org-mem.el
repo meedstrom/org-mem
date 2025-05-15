@@ -1130,36 +1130,31 @@ What is valid?  See \"org-mem-test.el\"."
 ;; but this is not good:
 ;;    (org-mem-links-to x)
 
-(defalias 'org-mem-subtree-p      #'org-mem-entry-subtree-p)
-(defalias 'org-mem-title          #'org-mem-entry-title)
-(defalias 'org-mem-olpath         #'org-mem-entry-olpath)
-(defalias 'org-mem-deadline       #'org-mem-entry-deadline)
-(defalias 'org-mem-level          #'org-mem-entry-level)
-(defalias 'org-mem-heading-lvl    #'org-mem-entry-level) ;; feels more legible
-(defalias 'org-mem-priority       #'org-mem-entry-priority)
-(defalias 'org-mem-properties     #'org-mem-entry-properties)
-(defalias 'org-mem-lnum           #'org-mem-entry-lnum)
-(defalias 'org-mem-scheduled      #'org-mem-entry-scheduled)
-(defalias 'org-mem-tags-inherited #'org-mem-entry-tags-inherited)
-(defalias 'org-mem-tags-local     #'org-mem-entry-tags-local)
-(defalias 'org-mem-todo-state     #'org-mem-entry-todo-state)
+(defalias 'org-mem-deadline                    #'org-mem-entry-deadline)
+(defalias 'org-mem-heading-lvl                 #'org-mem-entry-level) ;; feels more legible
+(defalias 'org-mem-level                       #'org-mem-entry-level)
+(defalias 'org-mem-lnum                        #'org-mem-entry-lnum)
+(defalias 'org-mem-olpath                      #'org-mem-entry-olpath)
+(defalias 'org-mem-olpath-with-self            #'org-mem-entry-olpath-with-self)
+(defalias 'org-mem-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-title)
+(defalias 'org-mem-olpath-with-title           #'org-mem-entry-olpath-with-title)
+(defalias 'org-mem-olpath-with-title-with-self #'org-mem-entry-olpath-with-title-with-self)
+(defalias 'org-mem-priority                    #'org-mem-entry-priority)
+(defalias 'org-mem-properties                  #'org-mem-entry-properties)
+(defalias 'org-mem-roam-aliases                #'org-mem-entry-roam-aliases)
+(defalias 'org-mem-roam-refs                   #'org-mem-entry-roam-refs)
+(defalias 'org-mem-scheduled                   #'org-mem-entry-scheduled)
+(defalias 'org-mem-subtree-p                   #'org-mem-entry-subtree-p)
+(defalias 'org-mem-tags                        #'org-mem-entry-tags)
+(defalias 'org-mem-tags-inherited              #'org-mem-entry-tags-inherited)
+(defalias 'org-mem-tags-local                  #'org-mem-entry-tags-local)
+(defalias 'org-mem-title                       #'org-mem-entry-title)
+(defalias 'org-mem-todo-state                  #'org-mem-entry-todo-state)
 
 (defalias 'org-mem-target         #'org-mem-link-target)
 (defalias 'org-mem-nearby-id      #'org-mem-link-nearby-id)
 (defalias 'org-mem-type           #'org-mem-link-type)
 (defalias 'org-mem-citation-p     #'org-mem-link-citation-p)
-
-;; (defun org-mem-mtime (file)
-;;   (cl-assert (stringp file))
-;;   (org-mem-file-mtime file))
-
-;; (defun org-mem-line-count (file)
-;;   (cl-assert (stringp file))
-;;   (org-mem-file-line-count file))
-
-;; (defun org-mem-ptmax (file)
-;;   (cl-assert (stringp file))
-;;   (org-mem-file-ptmax file))
 
 ;;; Short names, with polymorphism
 
