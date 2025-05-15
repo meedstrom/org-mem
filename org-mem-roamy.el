@@ -93,7 +93,7 @@ Restore org-roam functionality with: (setq org-roam-db-update-on-save t)")
          (emacsql-close org-mem-roamy--connection)))
   (org-mem-roamy-db))
 
-(defun org-mem-roamy-db (&optional force-reuse)
+(defun org-mem-roamy-db ()
   "Return an EmacSQL connection.
 
 If user option `org-mem-roamy-do-overwrite-real-db' is t, return the same
@@ -346,6 +346,7 @@ With SPECIFIC-FILES, only return data that involves those files."
      for entry in (org-mem-all-id-nodes)
      as file = (org-mem-entry-file entry)
      as id = (org-mem-entry-id entry)
+     when (org-mem-entry-title-maybe entry)
      unless (and specific-files (not (member file specific-files)))
      unless (and roam-dir (not (string-prefix-p roam-dir file)))
      do
@@ -459,11 +460,11 @@ Suitable on `org-mem-post-targeted-scan-functions'."
            :name "org-mem-roamy"
            :command (list sqlite3 db-file query)
            :noquery t
-           :sentinel `(lambda (_ _)
-                        (when org-mem-roamy--async-new-rows
-                          (org-mem-roamy--populate-usably-for-emacsql
-                           (eieio-oref (org-roam-db) 'handle)
-                           org-mem-roamy--async-new-rows))))
+           :sentinel (lambda (&rest _)
+                       (when org-mem-roamy--async-new-rows
+                         (org-mem-roamy--populate-usably-for-emacsql
+                          (eieio-oref (org-roam-db) 'handle)
+                          org-mem-roamy--async-new-rows))))
           (setq org-mem-roamy--async-new-rows
                 (and newly-parsed-files
                      (org-mem-roamy--mk-rows newly-parsed-files))))
