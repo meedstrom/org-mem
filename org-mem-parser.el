@@ -158,10 +158,10 @@ the subheading potentially has an ID of its own."
         (push (record 'org-mem-link
                       file
                       LINK-POS
-                      LINK-DESC
-                      nil
                       LINK-TYPE
                       (string-replace "%20" " " PATH) ; nicety, but will regret
+                      LINK-DESC
+                      nil
                       id-here
                       internal-entry-id)
               org-mem-parser--found-links)
@@ -193,9 +193,9 @@ the subheading potentially has an ID of its own."
                           file
                           LINK-POS
                           LINK-DESC
-                          t
                           "cite"
                           (match-string 0)
+                          t
                           id-here
                           internal-entry-id)
                   org-mem-parser--found-links))))))

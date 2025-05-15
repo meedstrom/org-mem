@@ -216,11 +216,11 @@ No support for citations."
          (record 'org-mem-link
                  buffer-file-truename
                  (point)
+                 type
+                 target
                  (and desc-beg
                       (buffer-substring-no-properties desc-beg desc-end))
                  nil
-                 type
-                 target
                  (org-entry-get-with-inheritance "ID")
                  ;; HACK
                  nil))))))
