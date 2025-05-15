@@ -264,7 +264,8 @@ in `org-mem-file-mtime' and friends.")
   "All ID-nodes with non-nil title.
 An ID-node is simply an entry that has an ID property."
   (with-memoization (org-mem--table 0 'org-mem-all-id-nodes)
-    (hash-table-values org-mem--id<>entry)))
+    (seq-filter #'org-mem-entry-title-maybe
+                (hash-table-values org-mem--id<>entry))))
 
 (defun org-mem-all-links ()
   "All links and citations.

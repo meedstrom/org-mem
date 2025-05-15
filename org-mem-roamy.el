@@ -322,6 +322,7 @@ difficult to use with `sqlite-select'."
 
 ;; TODO: Argument nil should not mean all files, but signal error.
 ;;       Let it take argument t instead.
+(defvar org-mem-roamy--untitled-id-nodes nil)
 (defun org-mem-roamy--mk-rows (&optional specific-files)
   "Return rows of data suitable for inserting into `org-mem-roamy-db'.
 
@@ -329,6 +330,7 @@ Specifically, return seven lists of rows, one for each SQL table
 created by `org-mem-roamy--configure'.
 
 With SPECIFIC-FILES, only return data that involves those files."
+  (setq org-mem-roamy--untitled-id-nodes nil)
   (let (file-rows
         node-rows
         alias-rows
@@ -343,13 +345,15 @@ With SPECIFIC-FILES, only return data that involves those files."
                     (abbreviate-file-name (file-truename org-roam-directory)))))
     (cl-loop
      with seen-files = (make-hash-table :test 'equal)
-     for entry in (org-mem-all-id-nodes)
+     for entry in (hash-table-values org-mem--id<>entry)
      as file = (org-mem-entry-file entry)
      as id = (org-mem-entry-id entry)
-     when (org-mem-entry-title-maybe entry)
+     as title = (org-mem-entry-title-maybe entry)
      unless (and specific-files (not (member file specific-files)))
      unless (and roam-dir (not (string-prefix-p roam-dir file)))
      do
+     (unless title
+       (push entry org-mem-roamy--untitled-id-nodes))
      (unless (gethash file seen-files)
        (puthash file t seen-files)
        (push (org-mem-roamy--mk-file-row file) file-rows))
@@ -369,7 +373,7 @@ With SPECIFIC-FILES, only return data that involves those files."
                  (org-mem-entry-priority entry)
                  (org-mem-entry-scheduled entry)
                  (org-mem-entry-deadline entry)
-                 (org-mem-entry-title entry)
+                 title
                  (org-mem-entry-properties entry)
                  (org-mem-entry-olpath entry))
            node-rows)
@@ -377,8 +381,8 @@ With SPECIFIC-FILES, only return data that involves those files."
      (cl-loop for ref in (org-mem-entry-roam-refs entry) do
               (let ((type (gethash ref org-mem--roam-ref<>type)))
                 (push (list id
-                            ;; REVIEW: double check
-                            (if (string-prefix-p "@" ref)
+                            (if (or (string-prefix-p "@" ref)
+                                    (string-prefix-p "&" ref))
                                 (substring ref 1)
                               ref)
                             (or type "cite"))
@@ -407,6 +411,10 @@ With SPECIFIC-FILES, only return data that involves those files."
                           (org-mem-link-type link)
                           dummy-props)
                     link-rows)))))
+
+    (when org-mem-roamy--untitled-id-nodes
+      (message "Untitled ID nodes added to org-mem-roamy-db, org-roam does not normally support that.
+Inspect `org-mem-roamy--untitled-id-nodes'."))
 
     (list file-rows
           node-rows
