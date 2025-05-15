@@ -228,7 +228,7 @@ in `org-mem-file-mtime' and friends.")
   (file           () :read-only t :type string)
   (lnum           () :read-only t :type integer)
   (pos            () :read-only t :type integer)
-  (title          () :read-only t :type string)
+  (title-maybe    () :read-only t :type string)
   (level          () :read-only t :type integer)
   (id             () :read-only t :type string)
   (closed         () :read-only t :type string)
@@ -471,6 +471,11 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
       (when filename-fallback
         (push (file-name-nondirectory (org-mem-entry-file entry)) olp)))
     olp))
+
+(defun org-mem-entry-title (entry)
+  "Like `org-mem-entry-title-maybe' but signal when ENTRY has no title."
+  (or (org-mem-entry-title-maybe entry)
+      (error "Entry has no title, try org-mem-entry-title-maybe: %S" entry)))
 
 (defun org-mem-entry-property (prop entry)
   "Value of property PROP in ENTRY."
@@ -735,7 +740,7 @@ see what you may want to revert."
   "Add info related to ENTRY to various tables."
   (let ((id    (org-mem-entry-id entry))
         (file  (org-mem-entry-file entry))
-        (title (org-mem-entry-title entry)))
+        (title (org-mem-entry-title-maybe entry)))
     ;; NOTE: Puts entries in correct order because we're called by
     ;; `org-mem--finalize-full' looping over entries in reverse order.
     (push entry (gethash file org-mem--file<>entries))
