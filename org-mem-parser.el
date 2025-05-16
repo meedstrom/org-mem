@@ -392,32 +392,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         (and $do-cache-text (buffer-string)))
                 found-entries)
 
-          ;; There are two ways we could store inherited tags for end use.
-          ;; Either put them in a "tags-inherited" field, or put the
-          ;; heritable local tags inside CRUMBS that a function
-          ;; "tags-inherited" can later use to figure it out.
-
-          ;; Going with the former to simplify implementation of
-          ;; `org-mem-x-ensure-entry-at-point-known'.
-
-          ;; That constraint is also why we cannot just let CRUMBS be a flat
-          ;; list of positions and figure out everything else in real time,
-          ;; because positions change.
-
-          ;; Suppose someone filters entries by an inherited tag ":notes:" for
-          ;; display as completion candidates, but we can't find the ancestors
-          ;; because the positions are wrong in an unsaved buffer, and then a
-          ;; newly inserted heading does not show up among candidates --
-          ;; you get the idea.  Better to rely as little as possible on
-          ;; cross-referencing with other entries' positions.
-
           (let ((heritable-tags
                  (and USE-TAG-INHERITANCE
                       (seq-difference TAGS NONHERITABLE-TAGS))))
             (push (list 0 1 1 TITLE ID heritable-tags) CRUMBS))
-
-          ;; Loop over the file's headings
           (setq LNUM (line-number-at-pos))
+          ;; Loop over the file's headings
           (while (not (eobp))
             ;; Narrow til next heading
             (narrow-to-region (point)
@@ -520,6 +500,26 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;;       :END:
             ;; It lets us track context so we know the outline path to the
             ;; current entry and what tags it should be able to inherit.
+
+            ;; There are two ways we could store inherited tags for end use.
+            ;; Either put them in a "tags-inherited" field, or put the
+            ;; heritable local tags inside CRUMBS that a function
+            ;; "tags-inherited" can later use to figure it out.
+
+            ;; Going with the former to simplify implementation of
+            ;; `org-mem-x-ensure-entry-at-point-known'.
+
+            ;; That constraint is also why we cannot just let CRUMBS be a flat
+            ;; list of positions and figure out everything else in real time,
+            ;; because positions change.
+
+            ;; Suppose someone filters entries by an inherited tag ":notes:" for
+            ;; display as completion candidates, but we can't find the ancestors
+            ;; because the positions are wrong in an unsaved buffer, and then a
+            ;; newly inserted heading does not show up among candidates --
+            ;; you get the idea.  Better to rely as little as possible on
+            ;; cross-referencing with other entries' positions.
+
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE
                         (cl-loop for tag in TAGS
