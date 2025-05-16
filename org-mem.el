@@ -673,6 +673,22 @@ Then eval this expression, substituting the input for some file of yours:
     (set (car var) (cdr var)))
   (org-mem-parser--parse-file file))
 
+(defvar org-mem-scratch nil
+  "Work buffer current while executing some hooks.
+These are hooks called many times:
+- `org-mem-record-file-functions'
+- `org-mem-record-entry-functions'
+- `org-mem-record-link-functions'
+- `org-mem-forget-file-functions'
+- `org-mem-forget-entry-functions'
+- `org-mem-forget-link-functions'
+
+This lets a function on these hooks sidestep the performance overhead of
+`with-temp-buffer' or `with-work-buffer', in favor of simply using the
+already current buffer:
+    \(cl-assert (eq (current-buffer) org-mem-scratch))
+    \(erase-buffer)")
+
 (defvar org-mem--caused-retry nil)
 (defun org-mem--finalize-full (parse-results _job)
   "Handle PARSE-RESULTS from `org-mem--scan-full'."
@@ -688,15 +704,17 @@ Then eval this expression, substituting the input for some file of yours:
   (seq-let (bad-paths file-data entries links problems) parse-results
     (when bad-paths
       (org-mem--invalidate-file-names bad-paths))
-    (dolist (fdata file-data)
-      (puthash (car fdata) fdata org-mem--file<>metadata)
-      (run-hook-with-args 'org-mem-record-file-functions fdata))
-    (dolist (entry entries)
-      (org-mem--record-entry entry)
-      (run-hook-with-args 'org-mem-record-entry-functions entry))
-    (dolist (link links)
-      (org-mem--record-link link)
-      (run-hook-with-args 'org-mem-record-link-functions link))
+    (with-current-buffer
+        (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
+      (dolist (fdata file-data)
+        (puthash (car fdata) fdata org-mem--file<>metadata)
+        (run-hook-with-args 'org-mem-record-file-functions fdata))
+      (dolist (entry entries)
+        (org-mem--record-entry entry)
+        (run-hook-with-args 'org-mem-record-entry-functions entry))
+      (dolist (link links)
+        (org-mem--record-link link)
+        (run-hook-with-args 'org-mem-record-link-functions link)))
     (setq org-mem--time-elapsed
           (float-time (time-since org-mem--time-at-begin-full-scan)))
     (when org-mem--next-message
@@ -1072,7 +1090,11 @@ These substrings are determined by `org-mem--split-roam-refs-field'."
   "Extract valid components of a ROAM-REFS field.
 What is valid?  See \"org-mem-test.el\"."
   (when roam-refs
-    (with-current-buffer (get-buffer-create " *org-mem-scratch*" t)
+    (with-current-buffer (if (eq (current-buffer) org-mem-scratch)
+                             org-mem-scratch
+                           ;; (message "org-mem: Work buffer was not current")
+                           (setq org-mem-scratch
+                                 (get-buffer-create " *org-mem-scratch*" t)))
       (erase-buffer)
       (insert roam-refs)
       (goto-char 1)
