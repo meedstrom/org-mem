@@ -560,7 +560,7 @@ Suitable on `org-mem-post-targeted-scan-functions'."
 (define-obsolete-function-alias 'indexed-roam-mk-backlinks  #'org-mem-roamy-mk-backlinks  "2025-05-11")
 (define-obsolete-function-alias 'indexed-roam-mk-reflinks   #'org-mem-roamy-mk-reflinks   "2025-05-11")
 
-(provide 'indexed-roam)
 (provide 'org-mem-roamy)
+(provide 'indexed-roam)
 
 ;;; org-mem-roamy.el ends here

@@ -1363,7 +1363,7 @@ Return t on finish, or nil if N-SECS elapsed without finishing."
 (define-obsolete-function-alias 'org-mem-link-dest  #'org-mem-link-target "2025-05-15")
 (define-obsolete-function-alias 'org-mem-dest       #'org-mem-link-target "2025-05-15")
 
-(provide 'indexed)
 (provide 'org-mem)
+(provide 'indexed)
 
 ;;; org-mem.el ends here
