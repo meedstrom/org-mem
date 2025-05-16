@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.9.0
+;; Package-Version: 0.9.1
 ;; Package-Requires: ((emacs "29.1") (el-job "2.4.2") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -86,8 +86,10 @@
 
 (defcustom org-mem-do-cache-text nil
   "Whether to also cache text contents of all entries.
+
 This makes the raw text available via accessor `org-mem-entry-text',
-which can be fontified via function `org-mem-x-fontify'.
+which can be fontified via function `org-mem-x-fontify-like-org'.
+
 Likely to slow down `org-mem-reset'."
   :type 'boolean
   :package-version '(org-mem . "0.9.0"))

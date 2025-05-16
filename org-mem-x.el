@@ -296,7 +296,7 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
 (defvar org-element-cache-persistent)
 (defvar org-inhibit-startup)
 (defvar org-mem-x--org-scratch nil)
-(defun org-mem-x-fontify (string)
+(defun org-mem-x-fontify-like-org (string)
   "Return STRING with text properties from fontifying it in `org-mode'."
   (require 'org)
   (unless (buffer-live-p org-mem-x--org-scratch)
