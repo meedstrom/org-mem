@@ -417,164 +417,162 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           ;; Loop over the file's headings
           (setq LNUM (line-number-at-pos))
           (while (not (eobp))
-            (catch 'entry-done
-              ;; Narrow til next heading
-              (narrow-to-region (point)
-                                (save-excursion
-                                  (or (org-mem-parser--next-heading)
-                                      (point-max))))
-              (setq HEADING-POS (point))
-              (setq LEVEL (skip-chars-forward "*"))
-              (skip-chars-forward " ")
-              (let ((case-fold-search nil))
-                (setq TODO-STATE
-                      (if (looking-at TODO-RE)
-                          (prog1 (buffer-substring (point) (match-end 0))
-                            (goto-char (match-end 0))
-                            (skip-chars-forward " "))
-                        nil))
-                ;; [#A] [#B] [#C]
-                (setq PRIORITY
-                      (if (looking-at "\\[#[A-Z0-9]+\\]")
-                          (prog1 (match-string 0)
-                            (goto-char (match-end 0))
-                            (skip-chars-forward " "))
-                        nil)))
-              ;; Skip statistics-cookie such as "[2/10]"
-              (when (looking-at "\\[[0-9]*/[0-9]*\\]")
-                (goto-char (match-end 0))
-                (skip-chars-forward " "))
-              (setq HERE (point))
-              ;; Any tags in heading?
-              (if (re-search-forward " +:.+: *$" (pos-eol) t)
-                  (progn
-                    (goto-char (match-beginning 0))
-                    (setq TAGS (split-string (match-string 0) ":" t " *"))
-                    (setq TITLE (string-trim-right
-                                 (org-mem-parser--org-link-display-format
-                                  (buffer-substring HERE (point))))))
-                (setq TAGS nil)
-                (setq TITLE (string-trim-right
-                             (org-mem-parser--org-link-display-format
-                              (buffer-substring HERE (pos-eol))))))
-              ;; REVIEW: This is possibly overkill, and could be
-              ;;         written in a way easier to follow.
-              ;; Gotta go forward 1 line, see if it is a planning-line, and
-              ;; if it is, then go forward 1 more line, and if that is a
-              ;; :PROPERTIES: line, then we're safe to collect properties
+            ;; Narrow til next heading
+            (narrow-to-region (point)
+                              (save-excursion
+                                (or (org-mem-parser--next-heading)
+                                    (point-max))))
+            (setq HEADING-POS (point))
+            (setq LEVEL (skip-chars-forward "*"))
+            (skip-chars-forward " ")
+            (let ((case-fold-search nil))
+              (setq TODO-STATE
+                    (if (looking-at TODO-RE)
+                        (prog1 (buffer-substring (point) (match-end 0))
+                          (goto-char (match-end 0))
+                          (skip-chars-forward " "))
+                      nil))
+              ;; [#A] [#B] [#C]
+              (setq PRIORITY
+                    (if (looking-at "\\[#[A-Z0-9]+\\]")
+                        (prog1 (match-string 0)
+                          (goto-char (match-end 0))
+                          (skip-chars-forward " "))
+                      nil)))
+            ;; Skip statistics-cookie such as "[2/10]"
+            (when (looking-at "\\[[0-9]*/[0-9]*\\]")
+              (goto-char (match-end 0))
+              (skip-chars-forward " "))
+            (setq HERE (point))
+            ;; Any tags in heading?
+            (if (re-search-forward " +:.+: *$" (pos-eol) t)
+                (progn
+                  (goto-char (match-beginning 0))
+                  (setq TAGS (split-string (match-string 0) ":" t " *"))
+                  (setq TITLE (string-trim-right
+                               (org-mem-parser--org-link-display-format
+                                (buffer-substring HERE (point))))))
+              (setq TAGS nil)
+              (setq TITLE (string-trim-right
+                           (org-mem-parser--org-link-display-format
+                            (buffer-substring HERE (pos-eol))))))
+            ;; REVIEW: This is possibly overkill, and could be
+            ;;         written in a way easier to follow.
+            ;; Gotta go forward 1 line, see if it is a planning-line, and
+            ;; if it is, then go forward 1 more line, and if that is a
+            ;; :PROPERTIES: line, then we're safe to collect properties
+            (forward-line 1)
+            (setq HERE (point))
+            (setq FAR (pos-eol))
+            (setq SCHED
+                  (if (re-search-forward "[\s\t]*SCHEDULED: +" FAR t)
+                      (prog1 (org-mem-parser--stamp-to-iso8601
+                              (buffer-substring
+                               (point)
+                               (+ (point) (skip-chars-forward "^]>\n"))))
+                        (goto-char HERE))
+                    nil))
+            (setq DEADLINE
+                  (if (re-search-forward "[\s\t]*DEADLINE: +" FAR t)
+                      (prog1 (org-mem-parser--stamp-to-iso8601
+                              (buffer-substring
+                               (point)
+                               (+ (point) (skip-chars-forward "^]>\n"))))
+                        (goto-char HERE))
+                    nil))
+            (setq CLOSED
+                  (if (re-search-forward "[\s\t]*CLOSED: +" FAR t)
+                      (prog1 (org-mem-parser--stamp-to-iso8601
+                              (buffer-substring
+                               (point)
+                               (+ (point) (skip-chars-forward "^]>\n"))))
+                        (goto-char HERE))
+                    nil))
+            (when (or SCHED DEADLINE CLOSED)
+              ;; Alright, so there was a planning-line, meaning any
+              ;; :PROPERTIES: are not on this line but the next.
               (forward-line 1)
-              (setq HERE (point))
-              (setq FAR (pos-eol))
-              (setq SCHED
-                    (if (re-search-forward "[\s\t]*SCHEDULED: +" FAR t)
-                        (prog1 (org-mem-parser--stamp-to-iso8601
-                                (buffer-substring
-                                 (point)
-                                 (+ (point) (skip-chars-forward "^]>\n"))))
-                          (goto-char HERE))
-                      nil))
-              (setq DEADLINE
-                    (if (re-search-forward "[\s\t]*DEADLINE: +" FAR t)
-                        (prog1 (org-mem-parser--stamp-to-iso8601
-                                (buffer-substring
-                                 (point)
-                                 (+ (point) (skip-chars-forward "^]>\n"))))
-                          (goto-char HERE))
-                      nil))
-              (setq CLOSED
-                    (if (re-search-forward "[\s\t]*CLOSED: +" FAR t)
-                        (prog1 (org-mem-parser--stamp-to-iso8601
-                                (buffer-substring
-                                 (point)
-                                 (+ (point) (skip-chars-forward "^]>\n"))))
-                          (goto-char HERE))
-                      nil))
-              (when (or SCHED DEADLINE CLOSED)
-                ;; Alright, so there was a planning-line, meaning any
-                ;; :PROPERTIES: are not on this line but the next.
-                (forward-line 1)
-                (setq FAR (pos-eol)))
-              (skip-chars-forward "\s\t")
-              (setq PROPS
-                    (if (looking-at-p ":PROPERTIES:")
-                        (progn
-                          (forward-line 1)
-                          (org-mem-parser--collect-properties
-                           (point)
-                           (if (re-search-forward "^[\s\t]*:END:" nil t)
-                               (pos-bol)
-                             (error "Couldn't find :END: of drawer"))))
-                      nil))
-              (setq ID (cdr (assoc "ID" PROPS)))
-              (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
-              ;; TODO: Document this elsewhere
-              ;; CRUMBS is a kind of state machine; a list that can look like
-              ;;    ((3 23 500 "Heading" "id1234" ("noexport" "work" "urgent"))
-              ;;     (2 10 122 "Another heading" "id6532" ("work"))
-              ;;     (... ... ... ...))
-              ;; if the previous heading (on line 23, char 500) looked like
-              ;;    *** Heading  :noexport:work:urgent:
-              ;;       :PROPERTIES:
-              ;;       :ID: id1234
-              ;;       :END:
-              ;; It lets us track context so we know the outline path to the
-              ;; current entry and what tags it should be able to inherit.
-              (let ((heritable-tags
-                     (and USE-TAG-INHERITANCE
-                          (cl-loop for tag in TAGS
-                                   unless (member tag NONHERITABLE-TAGS)
-                                   collect tag))))
-                (cl-loop until (> LEVEL (caar CRUMBS)) do (pop CRUMBS))
-                (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags)
-                      CRUMBS))
-              (push (record 'org-mem-entry
-                            file
-                            LNUM
-                            HEADING-POS
-                            TITLE
-                            LEVEL
-                            ID
-                            CLOSED
-                            (mapcar #'butlast CRUMBS)
-                            DEADLINE
-                            PRIORITY
-                            PROPS
-                            SCHED
-                            (nreverse
-                             (delete-dups
-                              (flatten-tree
-                               (mapcar #'last (cdr CRUMBS)))))
-                            TAGS
-                            TODO-STATE
-                            INTERNAL-ENTRY-ID)
-                    found-entries)
+              (setq FAR (pos-eol)))
+            (skip-chars-forward "\s\t")
+            (setq PROPS
+                  (if (looking-at-p ":PROPERTIES:")
+                      (progn
+                        (forward-line 1)
+                        (org-mem-parser--collect-properties
+                         (point)
+                         (if (re-search-forward "^[\s\t]*:END:" nil t)
+                             (pos-bol)
+                           (error "Couldn't find :END: of drawer"))))
+                    nil))
+            (setq ID (cdr (assoc "ID" PROPS)))
+            (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
+            ;; TODO: Document this elsewhere
+            ;; CRUMBS is a kind of state machine; a list that can look like
+            ;;    ((3 23 500 "Heading" "id1234" ("noexport" "work" "urgent"))
+            ;;     (2 10 122 "Another heading" "id6532" ("work"))
+            ;;     (... ... ... ...))
+            ;; if the previous heading (on line 23, char 500) looked like
+            ;;    *** Heading  :noexport:work:urgent:
+            ;;       :PROPERTIES:
+            ;;       :ID: id1234
+            ;;       :END:
+            ;; It lets us track context so we know the outline path to the
+            ;; current entry and what tags it should be able to inherit.
+            (let ((heritable-tags
+                   (and USE-TAG-INHERITANCE
+                        (cl-loop for tag in TAGS
+                                 unless (member tag NONHERITABLE-TAGS)
+                                 collect tag))))
+              (cl-loop until (> LEVEL (caar CRUMBS)) do (pop CRUMBS))
+              (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags)
+                    CRUMBS))
+            (push (record 'org-mem-entry
+                          file
+                          LNUM
+                          HEADING-POS
+                          TITLE
+                          LEVEL
+                          ID
+                          CLOSED
+                          (mapcar #'butlast CRUMBS)
+                          DEADLINE
+                          PRIORITY
+                          PROPS
+                          SCHED
+                          (nreverse
+                           (delete-dups
+                            (flatten-tree
+                             (mapcar #'last (cdr CRUMBS)))))
+                          TAGS
+                          TODO-STATE
+                          INTERNAL-ENTRY-ID)
+                  found-entries)
 
-              ;; Heading and properties analyzed, now seek links in entry text.
+            ;; Heading and properties analyzed, now seek links in entry text.
 
-              (setq ID-HERE
-                    (or (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb))
-                        (throw 'entry-done t)))
-              (setq HERE (point))
-              ;; Ignore backlinks drawer, it would lead to double-counting.
-              ;; TODO: Generalize this mechanism to use configurable lists
-              ;;       `$structures-to-ignore' and `$drawers-to-ignore'.
-              ;;       Maybe via `org-node--map-matches-skip-some-regions'.
-              (setq DRAWER-BEG (re-search-forward "^[\s\t]*:BACKLINKS:" nil t))
-              (setq DRAWER-END
-                    (and DRAWER-BEG
-                         (or (search-forward ":END:" nil t)
-                             (error "Couldn't find :END: of drawer"))))
+            (setq ID-HERE
+                  (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb)))
+            (setq HERE (point))
+            ;; Ignore backlinks drawer, it would lead to double-counting.
+            ;; TODO: Generalize this mechanism to use configurable lists
+            ;;       `$structures-to-ignore' and `$drawers-to-ignore'.
+            ;;       Maybe via `org-node--map-matches-skip-some-regions'.
+            (setq DRAWER-BEG (re-search-forward "^[\s\t]*:BACKLINKS:" nil t))
+            (setq DRAWER-END
+                  (and DRAWER-BEG
+                       (or (search-forward ":END:" nil t)
+                           (error "Couldn't find :END: of drawer"))))
 
-              ;; Collect links inside the heading
-              (goto-char HEADING-POS)
-              (org-mem-parser--collect-links-until (pos-eol) ID-HERE file INTERNAL-ENTRY-ID)
-              ;; Collect links between property drawer and backlinks drawer
-              (goto-char HERE)
-              (when DRAWER-BEG
-                (org-mem-parser--collect-links-until DRAWER-BEG ID-HERE file INTERNAL-ENTRY-ID))
-              ;; Collect links until next heading
-              (goto-char (or DRAWER-END HERE))
-              (org-mem-parser--collect-links-until (point-max) ID-HERE file INTERNAL-ENTRY-ID))
+            ;; Collect links inside the heading
+            (goto-char HEADING-POS)
+            (org-mem-parser--collect-links-until (pos-eol) ID-HERE file INTERNAL-ENTRY-ID)
+            ;; Collect links between property drawer and backlinks drawer
+            (goto-char HERE)
+            (when DRAWER-BEG
+              (org-mem-parser--collect-links-until DRAWER-BEG ID-HERE file INTERNAL-ENTRY-ID))
+            ;; Collect links until next heading
+            (goto-char (or DRAWER-END HERE))
+            (org-mem-parser--collect-links-until (point-max) ID-HERE file INTERNAL-ENTRY-ID)
 
             (goto-char (point-max))
             ;; NOTE: Famously slow `line-number-at-pos' is fast in narrow.
