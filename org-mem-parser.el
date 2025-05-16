@@ -104,7 +104,7 @@ brackets."
     (when time
       (format-time-string "%FT%H:%M" (encode-time time)))))
 
-(defvar org-mem-parser--heading-re (rx bol (repeat 1 14 "*") " "))
+(defvar org-mem-parser--heading-re nil)
 (defun org-mem-parser--next-heading ()
   "Similar to `outline-next-heading'."
   (if (and (bolp) (not (eobp)))
@@ -233,32 +233,29 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 ;;; Main
 
 (defvar org-mem-parser--buf nil)
-(defun org-mem-parser--init-buf-and-switch ()
-  "Setup a throwaway buffer in which to work and make it current.
-Also set some variables, including global variables."
-  (switch-to-buffer (get-buffer-create " *org-mem-parser*" t))
-  (setq buffer-read-only t)
-  (setq case-fold-search t)
-  (setq file-name-handler-alist nil)
-  (when $inlinetask-min-level
-    (setq org-mem-parser--heading-re
-          (rx-to-string
-           `(seq bol (repeat 1 ,(1- $inlinetask-min-level) "*") " "))))
-  (current-buffer))
-
 (defun org-mem-parser--parse-file (file)
   "Gather entries, links and other data in FILE."
   (unless (eq org-mem-parser--buf (current-buffer))
-    (setq org-mem-parser--buf (org-mem-parser--init-buf-and-switch)))
+    (switch-to-buffer
+     (setq org-mem-parser--buf (get-buffer-create " *org-mem-parser*" t))))
   (setq org-mem-parser--found-links nil)
-  (let ((file-todo-option-re
+  (unless org-mem-parser--heading-re
+    (setq org-mem-parser--heading-re
+          (if $inlinetask-min-level
+              (rx-to-string
+               `(seq bol (repeat 1 ,(1- $inlinetask-min-level) "*") " "))
+            (rx bol (repeat 1 14 "*") " "))))
+  (let ((file-name-handler-alist nil)
+        (case-fold-search t)
+        (buffer-read-only t)
+        (file-todo-option-re
          (rx bol (* space) (or "#+todo: " "#+seq_todo: " "#+typ_todo: ")))
         bad-path
         found-entries
         file-data
         problem
         attrs
-        ;; Upcased names change value a lot, so take care to keep correct.
+        ;; Upcased names change value a lot, take care to keep correct.
         ID ID-HERE INTERNAL-ENTRY-ID
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
         TITLE HEADING-POS LNUM CRUMBS
@@ -271,9 +268,9 @@ Also set some variables, including global variables."
           (when (not (file-exists-p file))
             (setq bad-path file)
             (signal 'skip-file t))
-          ;; NOTE: Don't declare it bad, that'd delist it from
-          ;;       org-id-locations, which the user may not want.
           (when (not (file-readable-p file))
+            ;; NOTE: Don't declare it bad, that'd delist it from
+            ;;       org-id-locations, which the user may not want.
             (error "File not readable"))
           (when (file-symlink-p file)
             (setq bad-path file)
@@ -404,7 +401,7 @@ Also set some variables, including global variables."
           ;; list of positions and figure out everything else in real time,
           ;; because positions change.
 
-          ;; Suppose someone filters entries by an inherited tag "notes" for
+          ;; Suppose someone filters entries by an inherited tag ":notes:" for
           ;; display as completion candidates, but we can't find the ancestors
           ;; because the positions are wrong in an unsaved buffer, and then a
           ;; newly inserted heading does not show up among candidates --

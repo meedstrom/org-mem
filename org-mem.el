@@ -668,11 +668,7 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
   "Debug wrapper for `org-mem-parser--parse-file'.
 To use, first go to the source of that definition and type \\[edebug-defun].
 Then eval this expression, substituting the input for some file of yours:
-\(org-mem--debug-parse-file \"~/org/some-file.org\")
-
-Affects global state!  If you are not prepared to restart the current
-Emacs session, read source of `org-mem-parser--init-buf-and-switch' to
-see what you may want to revert."
+\(org-mem--debug-parse-file \"~/org/some-file.org\")"
   (dolist (var (org-mem--mk-work-vars))
     (set (car var) (cdr var)))
   (org-mem-parser--parse-file file))
@@ -1209,6 +1205,11 @@ What is valid?  See \"org-mem-test.el\"."
 ;;; Assorted
 
 (defun org-mem-block (who n-secs)
+  "Wait for up to N-SECS for any current org-mem subprocesses to finish.
+Symbol WHO is included in the echo area message during the wait, to help
+trace who called this function.  If in doubt, pass your package name.
+
+Return t on finish, or nil if N-SECS elapsed without finishing."
   (cl-assert (symbolp who))
   (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." who)))
 
