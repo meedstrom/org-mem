@@ -279,6 +279,7 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
                      (when heading (org-get-todo-state))
                      (cdr (assoc "DEADLINE" properties))
                      (cdr (assoc "SCHEDULED" properties))
+                     nil
                      nil))))))))
 
 (defun org-mem-x--tags-at-point-inherited-only ()
@@ -292,6 +293,9 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
     (cl-loop for tag in all-tags
              when (get-text-property 0 'inherited tag)
              collect (substring-no-properties tag))))
+
+
+;;; Utils
 
 (defvar org-element-cache-persistent)
 (defvar org-inhibit-startup)
