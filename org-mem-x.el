@@ -296,9 +296,6 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
 
 (define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-x--handle-save "2025-05-11")
 (define-obsolete-function-alias 'indexed-x--handle-delete              #'org-mem-x--handle-delete "2025-05-11")
-(define-obsolete-function-alias 'indexed-x--scan-targeted              #'org-mem-x--scan-targeted "2025-05-11")
-(define-obsolete-function-alias 'indexed-x--finalize-targeted          #'org-mem-x--finalize-targeted "2025-05-11")
-(define-obsolete-function-alias 'indexed-x--forget-files               #'org-mem-x--forget-file-contents "2025-05-11")
 (define-obsolete-function-alias 'indexed-x-ensure-buffer-file-known    #'org-mem-x-ensure-buffer-file-known "2025-05-11")
 (define-obsolete-function-alias 'indexed-x-ensure-link-at-point-known  #'org-mem-x-ensure-link-at-point-known "2025-05-11")
 (define-obsolete-function-alias 'indexed-x-ensure-entry-at-point-known #'org-mem-x-ensure-entry-at-point-known "2025-05-11")

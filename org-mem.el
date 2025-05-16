@@ -674,7 +674,7 @@ Then eval this expression, substituting the input for some file of yours:
   (org-mem-parser--parse-file file))
 
 (defvar org-mem-scratch nil
-  "Work buffer current while executing some hooks.
+  "Work buffer held current while executing some hooks.
 These are hooks called many times:
 - `org-mem-record-file-functions'
 - `org-mem-record-entry-functions'
@@ -684,7 +684,7 @@ These are hooks called many times:
 - `org-mem-forget-link-functions'
 
 This lets a function on these hooks sidestep the performance overhead of
-`with-temp-buffer' or `with-work-buffer', in favor of simply using the
+`with-temp-buffer' or `with-work-buffer', in favor of using the
 already current buffer:
     \(cl-assert (eq (current-buffer) org-mem-scratch))
     \(erase-buffer)")
@@ -785,12 +785,12 @@ No-op if Org has not loaded."
   (require 'org-id)
   (and org-id-track-globally
        (or (hash-table-p org-id-locations)
-           ;; Guard against strange bugs in org-id
            (ignore-errors
              (setq org-id-locations
                    (org-id-alist-to-hash org-id-locations)))
-           (progn (message "Shit's bugged")
-                  nil))))
+           (progn
+             (message "org-mem: Caught strange org-id bug, maybe restart Emacs")
+             nil))))
 
 (defun org-mem--mk-work-vars ()
   "Make alist of variables needed by `org-mem-parser--parse-file'."
@@ -859,8 +859,9 @@ See helper `org-mem--abbr-truename'.")
 
 ;; Biggest reason Org-mem may not support Tramp is that the parser runs in
 ;; child Elisp processes that do not inherit your Tramp setup.
-;; So a design requirement is don't touch such files -- neither analyze them,
+;; So a design requirement is don't touch Tramp files -- neither analyze them,
 ;; nor scrub them from org-id-locations or the like.
+;; Having this function return nil is one way to do that.
 (defun org-mem--abbr-truename (wild-file)
   "For existing non-Tramp WILD-FILE, return its abbreviated truename.
 Caches any non-nil result, so may return a name no longer correct."
@@ -876,7 +877,7 @@ Caches any non-nil result, so may return a name no longer correct."
 
 (defun org-mem--fast-abbrev (file-name)
   "Abbreviate the absolute file name FILE-NAME.
-Faster than `abbreviate-file-name' especially for network paths."
+Faster than `abbreviate-file-name'."
   (let ((case-fold-search nil))
     (setq file-name (directory-abbrev-apply file-name))
     (if (string-match (with-memoization (org-mem--table 0 'org-mem--fast-abbrev)
@@ -920,8 +921,8 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
 
 ;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.006 s
 ;; (benchmark-call #'org-roam-list-files)          => 4.141 s
-(defvar org-mem--daa 0)
-(defvar org-mem--tramp (featurep 'tramp))
+(defvar org-mem--last-daa 0)
+(defvar org-mem--last-trampp (featurep 'tramp))
 (defvar org-mem--dedup-tbl (make-hash-table :test 'equal))
 (defun org-mem--list-files-from-fs ()
   "Look for Org files in `org-mem-watch-dirs'.
@@ -944,14 +945,12 @@ If you have experienced such issues, it may help to set user option
 and restart.  Or make frequent use of `org-mem--abbr-truename'."
   (unless (or org-mem-watch-dirs org-mem-do-sync-with-org-id)
     (error "At least one setting must be non-nil: `org-mem-watch-dirs' or `org-mem-do-sync-with-org-id'"))
-  (unless (= org-mem--daa (sxhash directory-abbrev-alist))
-    (setq org-mem--daa (sxhash directory-abbrev-alist))
-    (clrhash org-mem--wild-filename<>abbr-truename))
-  (unless (eq org-mem--tramp (featurep 'tramp))
-    (setq org-mem--tramp (featurep 'tramp))
-    (clrhash org-mem--wild-filename<>abbr-truename))
+  (when (or (not (eq org-mem--last-trampp (featurep 'tramp)))
+            (not (eq org-mem--last-daa (sxhash directory-abbrev-alist))))
+    (clrhash org-mem--wild-filename<>abbr-truename)
+    (setq org-mem--last-trampp (featurep 'tramp))
+    (setq org-mem--last-daa (sxhash directory-abbrev-alist)))
   (clrhash org-mem--dedup-tbl)
-
   (let ((file-name-handler-alist nil))
     (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
       (dolist (file (org-mem--dir-files-recursive
@@ -1142,8 +1141,8 @@ What is valid?  See \"org-mem-test.el\"."
 ;;; Optional: Short names
 
 ;; These definitions are not used inside this file,
-;; only convenience for end users.
-;; Up to them to write code readably.  At least handy for throwaway code.
+;; only convenience for end users (and throwaway code).
+;; Up to them to write code readably.
 
 ;; I suggest that using a short getter is fine if the argument is aptly named.
 ;; I.e.:
@@ -1240,97 +1239,6 @@ Return t on finish, or nil if N-SECS elapsed without finishing."
   "Delete rows in hash table TBL that satisfy FN\(KEY VALUE)."
   (maphash (##if (funcall fn %1 %2) (remhash %1 tbl)) tbl) nil)
 
-;; (define-obsolete-function-alias 'indexed-file-data )
-;; (define-obsolete-function-alias 'indexed-heading-above )
-;; (define-obsolete-function-alias 'indexed-property-assert )
-;; (define-obsolete-function-alias 'indexed-root-heading-to )
-
-(define-obsolete-function-alias 'indexed--abbrev-file-names            #'org-mem--fast-abbrev "2025-05-11")
-(define-obsolete-function-alias 'indexed--debug-parse-file             #'org-mem--debug-parse-file "2025-05-11")
-(define-obsolete-function-alias 'indexed--dir-files-recursive          #'org-mem--dir-files-recursive "2025-05-11")
-(define-obsolete-function-alias 'indexed--finalize-full                #'org-mem--finalize-full "2025-05-11")
-(define-obsolete-function-alias 'indexed--mk-plain-re                  #'org-mem--mk-plain-re "2025-05-11")
-(define-obsolete-function-alias 'indexed--mk-work-vars                 #'org-mem--mk-work-vars "2025-05-11")
-(define-obsolete-function-alias 'indexed--record-entry                 #'org-mem--record-entry "2025-05-11")
-(define-obsolete-function-alias 'indexed--record-link                  #'org-mem--record-link "2025-05-11")
-(define-obsolete-function-alias 'indexed--relist-org-files             #'org-mem--list-files-from-fs "2025-05-11")
-(define-obsolete-function-alias 'indexed--scan-full                    #'org-mem--scan-full "2025-05-11")
-(define-obsolete-function-alias 'indexed-deadline                      #'org-mem-entry-deadline "2025-05-11")
-(define-obsolete-function-alias 'indexed-dest                          #'org-mem-link-target "2025-05-11")
-(define-obsolete-function-alias 'indexed-entries                       #'org-mem-all-entries "2025-05-11")
-(define-obsolete-function-alias 'indexed-entries-in                    #'org-mem-entries-in-files "2025-05-11")
-(define-obsolete-function-alias 'indexed-entry-by-id                   #'org-mem-entry-by-id "2025-05-11")
-(define-obsolete-function-alias 'indexed-entry-near-lnum-in-file       #'org-mem-entry-at-lnum-in-file "2025-05-11")
-(define-obsolete-function-alias 'indexed-entry-near-pos-in-file        #'org-mem-entry-at-pos-in-file "2025-05-11")
-(define-obsolete-function-alias 'indexed-file                          #'org-mem-file "2025-05-11")
-(define-obsolete-function-alias 'indexed-file-mtime                    #'org-mem-file-mtime-int "2025-05-11")
-(define-obsolete-function-alias 'indexed-file-name                     #'org-mem-file "2025-05-11")
-(define-obsolete-function-alias 'indexed-file-title                    #'org-mem-file-title-strict "2025-05-11")
-(define-obsolete-function-alias 'indexed-file-title-or-basename        #'org-mem-file-title-or-basename "2025-05-11")
-(define-obsolete-function-alias 'indexed-files                         #'org-mem-all-files "2025-05-11")
-(define-obsolete-function-alias 'indexed-heading-lvl                   #'org-mem-entry-level "2025-05-11")
-(define-obsolete-function-alias 'indexed-id                            #'org-mem-entry-id "2025-05-11")
-(define-obsolete-function-alias 'indexed-id-by-title                   #'org-mem-id-by-title "2025-05-11")
-(define-obsolete-function-alias 'indexed-id-links-to                   #'org-mem-id-links-to "2025-05-11")
-(define-obsolete-function-alias 'indexed-id-node-by-title              #'org-mem-id-node-by-title "2025-05-11")
-(define-obsolete-function-alias 'indexed-id-nodes                      #'org-mem-all-id-nodes "2025-05-11")
-(define-obsolete-function-alias 'indexed-id-nodes-in                   #'org-mem-id-nodes-in-files "2025-05-11")
-(define-obsolete-function-alias 'indexed-links                         #'org-mem-all-links "2025-05-11")
-(define-obsolete-function-alias 'indexed-links-from                    #'org-mem-links-from-id "2025-05-11")
-(define-obsolete-function-alias 'indexed-lnum                          #'org-mem-entry-lnum "2025-05-11")
-(define-obsolete-function-alias 'indexed-mtime                         #'org-mem-file-mtime-int "2025-05-11")
-(define-obsolete-function-alias 'indexed-nearby-id                     #'org-mem-link-nearby-id "2025-05-11")
-(define-obsolete-function-alias 'indexed-olpath                        #'org-mem-entry-olpath "2025-05-11")
-(define-obsolete-function-alias 'indexed-olpath-with-self              #'org-mem-entry-olpath-with-self "2025-05-11")
-(define-obsolete-function-alias 'indexed-olpath-with-self-with-title   #'org-mem-entry-olpath-with-self-with-title "2025-05-11")
-(define-obsolete-function-alias 'indexed-olpath-with-title             #'org-mem-entry-olpath-with-title "2025-05-11")
-(define-obsolete-function-alias 'indexed-olpath-with-title-with-self   #'org-mem-entry-olpath-with-title-with-self "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entries                   #'org-mem-all-entries "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-deadline            #'org-mem-entry-deadline "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-heading-lvl         #'org-mem-entry-level "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-id                  #'org-mem-entry-id "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-lnum                #'org-mem-entry-lnum "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-olpath              #'org-mem-entry-olpath "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-priority            #'org-mem-entry-priority "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-properties          #'org-mem-entry-properties "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-scheduled           #'org-mem-entry-scheduled "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-tags-inherited      #'org-mem-entry-tags-inherited "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-tags-local          #'org-mem-entry-tags-local "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-title               #'org-mem-entry-title "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-entry-todo-state          #'org-mem-entry-todo-state "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-files                     #'org-mem-all-files "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-id-nodes                  #'org-mem-all-id-nodes "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-link-dest                 #'org-mem-link-target "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-link-nearby-id            #'org-mem-link-nearby-id "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-link-origin               #'org-mem-link-nearby-id "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-link-type                 #'org-mem-link-type "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-links                     #'org-mem-all-links "2025-05-11")
-(define-obsolete-function-alias 'indexed-org-links-and-citations       #'org-mem-all-links "2025-05-11")
-(define-obsolete-function-alias 'indexed-origin                        #'org-mem-link-nearby-id "2025-05-11")
-(define-obsolete-function-alias 'indexed-pos                           #'org-mem-pos "2025-05-11")
-(define-obsolete-function-alias 'indexed-priority                      #'org-mem-entry-priority "2025-05-11")
-(define-obsolete-function-alias 'indexed-properties                    #'org-mem-entry-properties "2025-05-11")
-(define-obsolete-function-alias 'indexed-property                      #'org-mem-entry-property "2025-05-11")
-(define-obsolete-function-alias 'indexed-reset                         #'org-mem-reset "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam--forget-aliases-and-refs #'org-mem--forget-roam-aliases-and-refs "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam--record-aliases-and-refs #'org-mem--record-roam-aliases-and-refs "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-aliases                  #'org-mem-entry-roam-aliases "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-reflinks-to              #'org-mem-roam-reflinks-to-entry "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-refs                     #'org-mem-entry-roam-refs "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-split-refs-field         #'org-mem--split-roam-refs-field "2025-05-11")
-(define-obsolete-function-alias 'indexed-scheduled                     #'org-mem-entry-scheduled "2025-05-11")
-(define-obsolete-function-alias 'indexed-tags                          #'org-mem-entry-tags "2025-05-11")
-(define-obsolete-function-alias 'indexed-tags-inherited                #'org-mem-entry-tags-inherited "2025-05-11")
-(define-obsolete-function-alias 'indexed-tags-local                    #'org-mem-entry-tags-local "2025-05-11")
-(define-obsolete-function-alias 'indexed-title                         #'org-mem-entry-title "2025-05-11")
-(define-obsolete-function-alias 'indexed-todo                          #'org-mem-entry-todo-state "2025-05-11")
-(define-obsolete-function-alias 'indexed-todo-state                    #'org-mem-entry-todo-state "2025-05-11")
-(define-obsolete-function-alias 'indexed-toptitle                      #'org-mem-file-title-topmost "2025-05-11")
-(define-obsolete-function-alias 'indexed-type                          #'org-mem-link-type "2025-05-11")
-(define-obsolete-function-alias 'indexed-updater-mode                  #'org-mem-updater-mode "2025-05-11")
-(define-obsolete-function-alias 'indexed-x--tramp-file-p               #'org-mem--tramp-file-p "2025-05-11")
-(define-obsolete-function-alias 'org-mem-link-dest                     #'org-mem-link-target "2025-05-15")
-
 (defun org-mem--warn-deprec ()
   "Warn about use of deprecated variable names, and unintern them."
   (dolist (old-var (seq-filter #'boundp
@@ -1359,6 +1267,89 @@ Return t on finish, or nil if N-SECS elapsed without finishing."
 ;; So that `gethash' will error
 (defvar indexed--origin<>links :obsolete)
 (defvar indexed--file<>data :obsolete)
+
+(make-obsolete 'indexed-file-data       "removed." "2025-05-11")
+(make-obsolete 'indexed-heading-above   "removed." "2025-05-11")
+(make-obsolete 'indexed-property-assert "removed." "2025-05-11")
+(make-obsolete 'indexed-root-heading-to "removed." "2025-05-11")
+
+(define-obsolete-function-alias 'indexed--dir-files-recursive        #'org-mem--dir-files-recursive "2025-05-11")
+(define-obsolete-function-alias 'indexed--relist-org-files           #'org-mem--list-files-from-fs "2025-05-11")
+(define-obsolete-function-alias 'indexed--scan-full                  #'org-mem--scan-full "2025-05-11")
+(define-obsolete-function-alias 'indexed-deadline                    #'org-mem-entry-deadline "2025-05-11")
+(define-obsolete-function-alias 'indexed-dest                        #'org-mem-link-target "2025-05-11")
+(define-obsolete-function-alias 'indexed-entries                     #'org-mem-all-entries "2025-05-11")
+(define-obsolete-function-alias 'indexed-entries-in                  #'org-mem-entries-in-files "2025-05-11")
+(define-obsolete-function-alias 'indexed-entry-by-id                 #'org-mem-entry-by-id "2025-05-11")
+(define-obsolete-function-alias 'indexed-entry-near-lnum-in-file     #'org-mem-entry-at-lnum-in-file "2025-05-11")
+(define-obsolete-function-alias 'indexed-entry-near-pos-in-file      #'org-mem-entry-at-pos-in-file "2025-05-11")
+(define-obsolete-function-alias 'indexed-file                        #'org-mem-file "2025-05-11")
+(define-obsolete-function-alias 'indexed-file-mtime                  #'org-mem-file-mtime-int "2025-05-11")
+(define-obsolete-function-alias 'indexed-file-name                   #'org-mem-file "2025-05-11")
+(define-obsolete-function-alias 'indexed-file-title                  #'org-mem-file-title-strict "2025-05-11")
+(define-obsolete-function-alias 'indexed-file-title-or-basename      #'org-mem-file-title-or-basename "2025-05-11")
+(define-obsolete-function-alias 'indexed-files                       #'org-mem-all-files "2025-05-11")
+(define-obsolete-function-alias 'indexed-heading-lvl                 #'org-mem-entry-level "2025-05-11")
+(define-obsolete-function-alias 'indexed-id                          #'org-mem-entry-id "2025-05-11")
+(define-obsolete-function-alias 'indexed-id-by-title                 #'org-mem-id-by-title "2025-05-11")
+(define-obsolete-function-alias 'indexed-id-links-to                 #'org-mem-id-links-to "2025-05-11")
+(define-obsolete-function-alias 'indexed-id-node-by-title            #'org-mem-id-node-by-title "2025-05-11")
+(define-obsolete-function-alias 'indexed-id-nodes                    #'org-mem-all-id-nodes "2025-05-11")
+(define-obsolete-function-alias 'indexed-id-nodes-in                 #'org-mem-id-nodes-in-files "2025-05-11")
+(define-obsolete-function-alias 'indexed-links                       #'org-mem-all-links "2025-05-11")
+(define-obsolete-function-alias 'indexed-links-from                  #'org-mem-links-from-id "2025-05-11")
+(define-obsolete-function-alias 'indexed-lnum                        #'org-mem-entry-lnum "2025-05-11")
+(define-obsolete-function-alias 'indexed-mtime                       #'org-mem-file-mtime-int "2025-05-11")
+(define-obsolete-function-alias 'indexed-nearby-id                   #'org-mem-link-nearby-id "2025-05-11")
+(define-obsolete-function-alias 'indexed-olpath                      #'org-mem-entry-olpath "2025-05-11")
+(define-obsolete-function-alias 'indexed-olpath-with-self            #'org-mem-entry-olpath-with-self "2025-05-11")
+(define-obsolete-function-alias 'indexed-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-title "2025-05-11")
+(define-obsolete-function-alias 'indexed-olpath-with-title           #'org-mem-entry-olpath-with-title "2025-05-11")
+(define-obsolete-function-alias 'indexed-olpath-with-title-with-self #'org-mem-entry-olpath-with-title-with-self "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entries                 #'org-mem-all-entries "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-deadline          #'org-mem-entry-deadline "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-heading-lvl       #'org-mem-entry-level "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-id                #'org-mem-entry-id "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-lnum              #'org-mem-entry-lnum "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-olpath            #'org-mem-entry-olpath "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-priority          #'org-mem-entry-priority "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-properties        #'org-mem-entry-properties "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-scheduled         #'org-mem-entry-scheduled "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-tags-inherited    #'org-mem-entry-tags-inherited "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-tags-local        #'org-mem-entry-tags-local "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-title             #'org-mem-entry-title-maybe "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-entry-todo-state        #'org-mem-entry-todo-state "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-files                   #'org-mem-all-files "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-id-nodes                #'org-mem-all-id-nodes "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-link-dest               #'org-mem-link-target "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-link-nearby-id          #'org-mem-link-nearby-id "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-link-origin             #'org-mem-link-nearby-id "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-link-type               #'org-mem-link-type "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-links                   #'org-mem-all-links "2025-05-11")
+(define-obsolete-function-alias 'indexed-org-links-and-citations     #'org-mem-all-links "2025-05-11")
+(define-obsolete-function-alias 'indexed-origin                      #'org-mem-link-nearby-id "2025-05-11")
+(define-obsolete-function-alias 'indexed-pos                         #'org-mem-pos "2025-05-11")
+(define-obsolete-function-alias 'indexed-priority                    #'org-mem-entry-priority "2025-05-11")
+(define-obsolete-function-alias 'indexed-properties                  #'org-mem-entry-properties "2025-05-11")
+(define-obsolete-function-alias 'indexed-property                    #'org-mem-entry-property "2025-05-11")
+(define-obsolete-function-alias 'indexed-reset                       #'org-mem-reset "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-aliases                #'org-mem-entry-roam-aliases "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-reflinks-to            #'org-mem-roam-reflinks-to-entry "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-refs                   #'org-mem-entry-roam-refs "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-split-refs-field       #'org-mem--split-roam-refs-field "2025-05-11")
+(define-obsolete-function-alias 'indexed-scheduled                   #'org-mem-entry-scheduled "2025-05-11")
+(define-obsolete-function-alias 'indexed-tags                        #'org-mem-entry-tags "2025-05-11")
+(define-obsolete-function-alias 'indexed-tags-inherited              #'org-mem-entry-tags-inherited "2025-05-11")
+(define-obsolete-function-alias 'indexed-tags-local                  #'org-mem-entry-tags-local "2025-05-11")
+(define-obsolete-function-alias 'indexed-title                       #'org-mem-entry-title-maybe "2025-05-11")
+(define-obsolete-function-alias 'indexed-todo                        #'org-mem-entry-todo-state "2025-05-11")
+(define-obsolete-function-alias 'indexed-todo-state                  #'org-mem-entry-todo-state "2025-05-11")
+(define-obsolete-function-alias 'indexed-toptitle                    #'org-mem-file-title-topmost "2025-05-11")
+(define-obsolete-function-alias 'indexed-type                        #'org-mem-link-type "2025-05-11")
+(define-obsolete-function-alias 'indexed-updater-mode                #'org-mem-updater-mode "2025-05-11")
+
+(define-obsolete-function-alias 'org-mem-link-dest  #'org-mem-link-target "2025-05-15")
+(define-obsolete-function-alias 'org-mem-dest       #'org-mem-link-target "2025-05-15")
 
 (provide 'indexed)
 (provide 'org-mem)

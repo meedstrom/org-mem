@@ -413,8 +413,9 @@ With SPECIFIC-FILES, only return data that involves those files."
                     link-rows)))))
 
     (when org-mem-roamy--untitled-id-nodes
-      (message "Untitled ID nodes added to org-mem-roamy-db, org-roam does not normally support that.
-Inspect `org-mem-roamy--untitled-id-nodes'."))
+      ;; We include the node to avoid any SQL "FOREIGN KEY constraint failed"
+      ;; when there are other objects that refer to the untitled node.
+      (message "Untitled ID nodes added to org-mem-roamy-db, org-roam does not normally support that. Inspect `org-mem-roamy--untitled-id-nodes'."))
 
     (list file-rows
           node-rows
@@ -552,18 +553,12 @@ Suitable on `org-mem-post-targeted-scan-functions'."
                         :point (org-mem-link-pos link)))))))
 
 
-(define-obsolete-function-alias 'indexed-roam--re-make-db                            #'org-mem-roamy--re-make-db "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-mode                                   #'org-mem-roamy-db-mode "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam                                        #'org-mem-roamy-db "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam--configure                             #'org-mem-roamy--configure "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam--populate-usably-for-emacsql           #'org-mem-roamy--populate-usably-for-emacsql "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam--mk-singular-value-quoted-like-emacsql #'org-mem-roamy--mk-singular-value-quoted-like-emacsql "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam--mk-rows                               #'org-mem-roamy--mk-rows "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam--mk-file-row                           #'org-mem-roamy--mk-file-row "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam--update-db                             #'org-mem-roamy--update-db "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-mk-node                                #'org-mem-roamy-mk-node "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-mk-backlinks                           #'org-mem-roamy-mk-backlinks "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-mk-reflinks                            #'org-mem-roamy-mk-reflinks "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-mode          #'org-mem-roamy-db-mode       "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam               #'org-mem-roamy-db            "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam--update-db    #'org-mem-roamy--update-db    "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-mk-node       #'org-mem-roamy-mk-node       "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-mk-backlinks  #'org-mem-roamy-mk-backlinks  "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-mk-reflinks   #'org-mem-roamy-mk-reflinks   "2025-05-11")
 
 (provide 'indexed-roam)
 (provide 'org-mem-roamy)

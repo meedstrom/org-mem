@@ -278,14 +278,8 @@ With SPECIFIC-FILES, only return data that involves those files."
         (org-mem-file-id-strict file)))
 
 
-(define-obsolete-function-alias 'indexed-orgdb-mode             #'org-mem-db1-mode "2025-05-11")
-(define-obsolete-function-alias 'indexed-orgdb                  #'org-mem-db1 "2025-05-11")
-(define-obsolete-function-alias 'indexed-orgdb--open-new-db     #'org-mem-db1--re-make-db "2025-05-11")
-(define-obsolete-function-alias 'indexed-orgdb--configure       #'org-mem-db1--configure "2025-05-11")
-(define-obsolete-function-alias 'indexed-orgdb--insert-en-masse #'org-mem-db1--insert-en-masse "2025-05-11")
-(define-obsolete-function-alias 'indexed-orgdb--populate        #'org-mem-db1--populate "2025-05-11")
-(define-obsolete-function-alias 'indexed-orgdb--mk-rows         #'org-mem-db1--mk-rows "2025-05-11")
-(define-obsolete-function-alias 'indexed-orgdb--mk-file-row     #'org-mem-db1--mk-file-row "2025-05-11")
+(define-obsolete-function-alias 'indexed-orgdb-mode  #'org-mem-db1-mode  "2025-05-11")
+(define-obsolete-function-alias 'indexed-orgdb       #'org-mem-db1       "2025-05-11")
 
 (provide 'indexed-orgdb)
 (provide 'org-mem-db1)
