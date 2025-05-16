@@ -194,7 +194,8 @@ the subheading potentially has an ID of its own."
                           LINK-POS
                           LINK-DESC
                           "cite"
-                          (match-string 0)
+                          ;; Replace & with @ like `org-mem--split-roam-refs-field'
+                          (concat "@" (substring (match-string 0) 1))
                           t
                           id-here
                           internal-entry-id)
