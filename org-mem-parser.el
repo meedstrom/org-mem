@@ -30,6 +30,7 @@
 (defvar $plain-re)
 (defvar $bracket-re)
 (defvar $merged-re)
+(defvar $do-cache-text)
 (defvar $default-todo-re)
 (defvar $nonheritable-tags)
 (defvar $inlinetask-min-level)
@@ -387,7 +388,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         nil
                         TAGS
                         nil
-                        INTERNAL-ENTRY-ID)
+                        INTERNAL-ENTRY-ID
+                        (and $do-cache-text (buffer-string)))
                 found-entries)
 
           ;; There are two ways we could store inherited tags for end use.
@@ -546,7 +548,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                              (mapcar #'last (cdr CRUMBS)))))
                           TAGS
                           TODO-STATE
-                          INTERNAL-ENTRY-ID)
+                          INTERNAL-ENTRY-ID
+                          (and $do-cache-text (buffer-string)))
                   found-entries)
 
             ;; Heading and properties analyzed, now seek links in entry text.

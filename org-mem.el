@@ -84,6 +84,14 @@
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'text)
 
+(defcustom org-mem-do-cache-text nil
+  "Whether to also cache text contents of all entries.
+This makes the raw text available via accessor `org-mem-entry-text',
+which can be fontified via function `org-mem-x-fontify'.
+Likely to slow down `org-mem-reset'."
+  :type 'boolean
+  :package-version '(org-mem . "0.9.0"))
+
 (defcustom org-mem-do-warn-title-collisions t
   "Whether to print a message when two ID-nodes have the same title.
 
@@ -240,7 +248,8 @@ in `org-mem-file-mtime' and friends.")
   (tags-inherited () :read-only t :type list)
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
-  (-internal-id   () :read-only t :type integer))
+  (-internal-id   () :read-only t :type integer)
+  text)
 
 
 ;;; To find the objects to operate on
@@ -802,6 +811,7 @@ No-op if Org has not loaded."
      (cons '$bracket-re org-link-bracket-re)
      (cons '$plain-re custom-plain-re)
      (cons '$merged-re (concat org-link-bracket-re "\\|" custom-plain-re))
+     (cons '$do-cache-text org-mem-do-cache-text)
      (cons '$inlinetask-min-level (bound-and-true-p org-inlinetask-min-level))
      (cons '$nonheritable-tags (bound-and-true-p org-tags-exclude-from-inheritance))
      (cons '$use-tag-inheritance

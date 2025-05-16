@@ -293,6 +293,25 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
              when (get-text-property 0 'inherited tag)
              collect (substring-no-properties tag))))
 
+(defvar org-element-cache-persistent)
+(defvar org-inhibit-startup)
+(defvar org-mem-x--org-scratch nil)
+(defun org-mem-x-fontify (string)
+  "Return STRING with text properties from fontifying it in `org-mode'."
+  (require 'org)
+  (unless (buffer-live-p org-mem-x--org-scratch)
+    (setq org-mem-x--org-scratch (get-buffer-create " *org-mem-org-scratch*" t))
+    (with-current-buffer org-mem-x--org-scratch
+      (let ((org-element-cache-persistent nil)
+            (org-inhibit-startup t))
+        (delay-mode-hooks (org-mode))
+        (setq-local org-element-cache-persistent nil))))
+  (with-current-buffer org-mem-x--org-scratch
+    (erase-buffer)
+    (insert string)
+    (font-lock-ensure)
+    (buffer-string)))
+
 
 (define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-x--handle-save "2025-05-11")
 (define-obsolete-function-alias 'indexed-x--handle-delete              #'org-mem-x--handle-delete "2025-05-11")
