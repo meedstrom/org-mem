@@ -869,6 +869,13 @@ No-op if Org has not loaded."
   "1:1 table mapping a wild file name to its abbreviated truename.
 See helper `org-mem--abbr-truename'.")
 
+(defvar org-mem--first-run t
+  "Hack preventing the use of `file-truename' at init.
+Results are often correct anyway, and file-names found to be bad will be
+fixed by a re-scan.  As `file-truename' can be quite slow on some
+filesystems, it would be a bad idea to execute it for every individual
+file, noticeably slowing down init.")
+
 ;; Biggest reason Org-mem may not support Tramp is that the parser runs in
 ;; child Elisp processes that do not inherit your Tramp setup.
 ;; So a design requirement is don't touch Tramp files -- neither analyze them,
@@ -881,7 +888,9 @@ Caches any non-nil result, so may return a name no longer correct."
        (or (gethash wild-file org-mem--wild-filename<>abbr-truename)
            (and (not (org-mem--tramp-file-p wild-file))
                 (if-let* ((truename (and (file-exists-p wild-file)
-                                         (file-truename wild-file))))
+                                         (if org-mem--first-run
+                                             wild-file
+                                           (file-truename wild-file)))))
                     (puthash wild-file
                              (org-mem--fast-abbrev truename)
                              org-mem--wild-filename<>abbr-truename)
@@ -988,6 +997,7 @@ and restart.  Or make frequent use of `org-mem--abbr-truename'."
            do (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl))
         (message "org-mem: Could not check org-id-locations"))))
   (remhash nil org-mem--dedup-tbl)
+  (setq org-mem--first-run nil)
   (hash-table-keys org-mem--dedup-tbl))
 
 (defun org-mem--dir-files-recursive (dir suffix excludes)
