@@ -52,19 +52,8 @@
 (defvar org-id-extra-files)
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
-(define-obsolete-variable-alias 'indexed--dest<>links       'org-mem--target<>links   "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed--file<>entries     'org-mem--file<>entries   "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed--id<>entry         'org-mem--id<>entry       "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed--title<>id         'org-mem--title<>id       "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed-roam--id<>refs     'org-mem--id<>roam-refs   "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed-roam--ref<>id      'org-mem--roam-ref<>id    "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed-roam--ref<>type    'org-mem--roam-ref<>type  "0.7.0 (2025-05-11)")
 
 ;; To move into `org-mem--warn-deprec' later
-(define-obsolete-variable-alias 'indexed-org-dirs           'org-mem-watch-dirs                  "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed-org-dirs-exclude   'org-mem-watch-dirs-exclude          "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed-sync-with-org-id   'org-mem-do-sync-with-org-id         "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed-roam-overwrite     'org-mem-roamy-do-overwrite-real-db  "0.7.0 (2025-05-11)")
 
 ;; REVIEW: I wonder if we should mass-rename all uses of "dest" to "path"?  Or
 ;;         "target"?  If we ever cache link descriptions and shorten them to
@@ -630,7 +619,6 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 With TAKEOVER t, stop any already ongoing scan to start a new one."
   (when (or takeover (not (el-job-is-busy 'org-mem)))
     (setq org-mem--time-at-begin-full-scan (current-time))
-    (org-mem--warn-deprec)
     (let ((result (el-job-launch
                    :id 'org-mem
                    :if-busy 'takeover
@@ -1265,117 +1253,6 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
           (delay-mode-hooks (org-mode))
           (setq-local org-element-cache-persistent nil)
           (current-buffer)))))
-
-
-;;; Obsolete
-
-(defun org-mem--warn-deprec ()
-  "Warn about use of deprecated variable names, and unintern them."
-  (dolist (old-var (seq-filter #'boundp
-                               '(indexed-forget-entry-functions
-                                 indexed-forget-file-functions
-                                 indexed-forget-link-functions
-                                 indexed-post-full-reset-functions
-                                 indexed-post-incremental-update-functions
-                                 indexed-post-reset-functions
-                                 indexed-pre-full-reset-functions
-                                 indexed-pre-incremental-update-functions
-                                 indexed-pre-reset-functions
-                                 indexed-record-entry-functions
-                                 indexed-record-file-functions
-                                 indexed-record-link-functions
-                                 indexed-seek-link-types
-                                 indexed-warn-title-collisions
-                                 indexed-x-forget-entry-functions
-                                 indexed-x-forget-file-functions
-                                 indexed-x-forget-link-functions
-                                 indexed-x-post-update-functions
-                                 indexed-x-pre-update-functions)))
-    (lwarn 'org-mem :warning "Deprecated: %s" old-var)
-    (makunbound old-var)))
-
-;; So that `gethash' will error
-(defvar indexed--origin<>links :obsolete)
-(defvar indexed--file<>data :obsolete)
-
-(make-obsolete 'indexed-file-data       "removed." "0.7.0 (2025-05-11)")
-(make-obsolete 'indexed-heading-above   "removed." "0.7.0 (2025-05-11)")
-(make-obsolete 'indexed-property-assert "removed." "0.7.0 (2025-05-11)")
-(make-obsolete 'indexed-root-heading-to "removed." "0.7.0 (2025-05-11)")
-
-(define-obsolete-function-alias 'indexed--dir-files-recursive        #'org-mem--dir-files-recursive               "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed--relist-org-files           #'org-mem--list-files-from-fs                "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed--scan-full                  #'org-mem--scan-full                         "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-deadline                    #'org-mem-entry-deadline                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-dest                        #'org-mem-link-target                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-entries                     #'org-mem-all-entries                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-entries-in                  #'org-mem-entries-in-files                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-entry-by-id                 #'org-mem-entry-by-id                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-entry-near-lnum-in-file     #'org-mem-entry-at-lnum-in-file              "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-entry-near-pos-in-file      #'org-mem-entry-at-pos-in-file               "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-file                        #'org-mem-file                               "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-file-mtime                  #'org-mem-file-mtime-int                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-file-name                   #'org-mem-file                               "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-file-title                  #'org-mem-file-title-strict                  "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-file-title-or-basename      #'org-mem-file-title-or-basename             "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-files                       #'org-mem-all-files                          "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-heading-lvl                 #'org-mem-entry-level                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-id                          #'org-mem-entry-id                           "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-id-by-title                 #'org-mem-id-by-title                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-id-links-to                 #'org-mem-id-links-to                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-id-node-by-title            #'org-mem-id-node-by-title                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-id-nodes                    #'org-mem-all-id-nodes                       "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-id-nodes-in                 #'org-mem-id-nodes-in-files                  "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-links                       #'org-mem-all-links                          "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-links-from                  #'org-mem-links-from-id                      "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-lnum                        #'org-mem-entry-lnum                         "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-mtime                       #'org-mem-file-mtime-int                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-nearby-id                   #'org-mem-link-nearby-id                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-olpath                      #'org-mem-entry-olpath                       "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-olpath-with-self            #'org-mem-entry-olpath-with-self             "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-title  "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-olpath-with-title           #'org-mem-entry-olpath-with-title            "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-olpath-with-title-with-self #'org-mem-entry-olpath-with-title-with-self  "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entries                 #'org-mem-all-entries                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-deadline          #'org-mem-entry-deadline                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-heading-lvl       #'org-mem-entry-level                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-id                #'org-mem-entry-id                           "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-lnum              #'org-mem-entry-lnum                         "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-olpath            #'org-mem-entry-olpath                       "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-priority          #'org-mem-entry-priority                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-properties        #'org-mem-entry-properties                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-scheduled         #'org-mem-entry-scheduled                    "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-tags-inherited    #'org-mem-entry-tags-inherited               "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-tags-local        #'org-mem-entry-tags-local                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-title             #'org-mem-entry-title-maybe                  "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-entry-todo-state        #'org-mem-entry-todo-state                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-files                   #'org-mem-all-files                          "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-id-nodes                #'org-mem-all-id-nodes                       "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-link-dest               #'org-mem-link-target                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-link-nearby-id          #'org-mem-link-nearby-id                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-link-origin             #'org-mem-link-nearby-id                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-link-type               #'org-mem-link-type                          "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-links                   #'org-mem-all-links                          "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-org-links-and-citations     #'org-mem-all-links                          "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-origin                      #'org-mem-link-nearby-id                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-pos                         #'org-mem-pos                                "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-priority                    #'org-mem-entry-priority                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-properties                  #'org-mem-entry-properties                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-property                    #'org-mem-entry-property                     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-reset                       #'org-mem-reset                              "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-roam-aliases                #'org-mem-entry-roam-aliases                 "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-roam-reflinks-to            #'org-mem-roam-reflinks-to-entry             "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-roam-refs                   #'org-mem-entry-roam-refs                    "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-roam-split-refs-field       #'org-mem--split-roam-refs-field             "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-scheduled                   #'org-mem-entry-scheduled                    "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-tags                        #'org-mem-entry-tags                         "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-tags-inherited              #'org-mem-entry-tags-inherited               "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-tags-local                  #'org-mem-entry-tags-local                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-title                       #'org-mem-entry-title-maybe                  "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-todo                        #'org-mem-entry-todo-state                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-todo-state                  #'org-mem-entry-todo-state                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-toptitle                    #'org-mem-file-title-topmost                 "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-type                        #'org-mem-link-type                          "0.7.0 (2025-05-11)")
 
 (define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-dest                #'org-mem-link-target       "0.8.0 (2025-05-15)")

@@ -1,3 +1,10 @@
 ;; -*- lexical-binding: t; -*-
 (require 'org-mem-updater)
+(define-obsolete-function-alias 'org-mem-x--handle-save                #'org-mem-updater--handle-save                 "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x--handle-rename              #'org-mem-updater--handle-rename               "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x--handle-delete              #'org-mem-updater--handle-delete               "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x-ensure-buffer-file-known    #'org-mem-updater-ensure-buffer-file-known     "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x-ensure-link-at-point-known  #'org-mem-updater-ensure-link-at-point-known   "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x-ensure-entry-at-point-known #'org-mem-updater-ensure-entry-at-point-known  "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x--activate-timer             #'org-mem-updater--activate-timer              "0.10.0 (2025-05-18)")
 (provide 'org-mem-x)

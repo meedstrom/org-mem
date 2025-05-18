@@ -205,16 +205,6 @@ Optional argument REVERTER is a function to add buffer-locally to
   (when reverter (add-hook 'tabulated-list-revert-hook reverter nil t))
   (tabulated-list-print t))
 
-
-(define-obsolete-function-alias 'indexed-list--goto-file-pos           #'org-mem-list--goto-file-pos            "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-list--goto-id                 #'org-mem-list--goto-id                  "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-list-problems                 #'org-mem-list-problems                  "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-list-title-collisions         #'org-mem-list-title-collisions          "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-list-dead-id-links            #'org-mem-list-dead-id-links             "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-list-db-contents              #'org-mem-list-db-contents               "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-list-org-entries              #'org-mem-list-entries                   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-list--pop-to-tabulated-buffer #'org-mem-list--pop-to-tabulated-buffer  "0.7.0 (2025-05-11)")
-
 (provide 'org-mem-list)
 
 ;;; org-mem-list.el ends here
