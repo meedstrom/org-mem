@@ -1,4 +1,4 @@
-;;; org-mem-x.el --- Incremental indexing -*- lexical-binding: t; -*-
+;;; org-mem-updater.el --- Incremental caching -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Free Software Foundation, Inc.
 
@@ -37,40 +37,28 @@
 (declare-function org-entry-get-with-inheritance "org")
 (declare-function org-get-tags "org")
 
-(defvar org-mem-x--timer (timer-create)
-  "Timer for intermittently running `org-mem--scan-full'.")
-
-(defun org-mem-x--activate-timer (&rest _)
-  "Adjust `org-mem-x--timer' based on duration of last full scan.
-If timer not running, start it."
-  (let ((new-delay (* 20 (1+ org-mem--time-elapsed))))
-    (when (or (not (member org-mem-x--timer timer-idle-list))
-              ;; Don't enter an infinite loop -- idle timers can be a footgun.
-              (not (> (float-time (or (current-idle-time) 0))
-                      new-delay)))
-      (cancel-timer org-mem-x--timer)
-      (setq org-mem-x--timer
-            (run-with-idle-timer new-delay t #'org-mem--scan-full)))))
+
+;;; Targeted-scan
 
 ;; NOTE: When setting `delete-by-moving-to-trash' is t, `delete-file' calls
 ;;       `move-file-to-trash' which calls `rename-file'.  And it appears that
 ;;       `rename-file' can also call `delete-file'.  Happy coding!
 
-(defun org-mem-x--handle-rename (file newname &rest _)
+(defun org-mem-updater--handle-rename (file newname &rest _)
   "Arrange to scan NEWNAME for entries and links, and forget FILE."
-  (org-mem-x--handle-delete file)
+  (org-mem-updater--handle-delete file)
   (cl-assert newname)
-  (org-mem-x--handle-save newname))
+  (org-mem-updater--handle-save newname))
 
-(defun org-mem-x--handle-save (&optional file)
+(defun org-mem-updater--handle-save (&optional file)
   "Arrange to scan entries and links in FILE or current buffer file."
   (unless file (setq file buffer-file-truename))
   (when (and (string-suffix-p ".org" file)
              (not (backup-file-name-p file))
              (not (org-mem--tramp-file-p file)))
-    (org-mem-x--scan-targeted file)))
+    (org-mem-updater--scan-targeted file)))
 
-(defun org-mem-x--handle-delete (file &optional _trash)
+(defun org-mem-updater--handle-delete (file &optional _trash)
   "Forget entries and links in FILE.
 
 If FILE differs from the name by which the actual file is listed in our
@@ -87,34 +75,34 @@ In that case, there may be nothing wrong with the known name."
           (cached-true (gethash file org-mem--wild-filename<>abbr-truename)))
       (when (and cached-true (not (file-symlink-p file)))
         (push cached-true bad))
-      (org-mem-x--forget-file-contents bad)
+      (org-mem-updater--forget-file-contents bad)
       (org-mem--invalidate-file-names bad)
       (mapc #'clrhash (hash-table-values org-mem--key<>subtable)))))
 
-(defun org-mem-x--scan-targeted (files)
+(defun org-mem-updater--scan-targeted (files)
   "Arrange to scan FILES."
   (when files
-    (el-job-launch :id 'org-mem-x
+    (el-job-launch :id 'org-mem-updater
                    :inject-vars (org-mem--mk-work-vars)
                    :load-features '(org-mem-parser)
                    :inputs (ensure-list files)
                    :funcall-per-input #'org-mem-parser--parse-file
-                   :callback #'org-mem-x--finalize-targeted)))
+                   :callback #'org-mem-updater--finalize-targeted)))
 
-(defun org-mem-x--finalize-targeted (parse-results _job)
-  "Handle PARSE-RESULTS from `org-mem-x--scan-targeted'."
+(defun org-mem-updater--finalize-targeted (parse-results _job)
+  "Handle PARSE-RESULTS from `org-mem-updater--scan-targeted'."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
   (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
   (seq-let (bad-paths file-data entries links problems) parse-results
     (when bad-paths
-      (org-mem-x--forget-file-contents bad-paths)
+      (org-mem-updater--forget-file-contents bad-paths)
       (org-mem--invalidate-file-names bad-paths))
     (with-current-buffer
         (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
       (dolist (datum file-data)
         (puthash (car datum) datum org-mem--file<>metadata)
         (run-hook-with-args 'org-mem-record-file-functions datum))
-      (org-mem-x--forget-links-from-entries entries)
+      (org-mem-updater--forget-links-from-entries entries)
       (dolist (entry entries)
         (org-mem--record-entry entry)
         (run-hook-with-args 'org-mem-record-entry-functions entry))
@@ -126,14 +114,14 @@ In that case, there may be nothing wrong with the known name."
     (run-hook-with-args 'org-mem-post-targeted-scan-functions parse-results)
     (when bad-paths
       (let ((good-paths (seq-keep #'org-mem--abbr-truename bad-paths)))
-        (org-mem-x--scan-targeted (seq-difference good-paths bad-paths))))
+        (org-mem-updater--scan-targeted (seq-difference good-paths bad-paths))))
     (when problems
       (message "Scan had problems, see M-x org-mem-list-problems"))))
 
-(defun org-mem-x--forget-file-contents (files)
+(defun org-mem-updater--forget-file-contents (files)
   "Delete from tables, most info relating to FILES and their contents.
 You should also run `org-mem--invalidate-file-names'.
-and potentially `org-mem-x--forget-links-from-entries'."
+and potentially `org-mem-updater--forget-links-from-entries'."
   (setq files (ensure-list files))
   (when files
     (with-current-buffer
@@ -147,9 +135,9 @@ and potentially `org-mem-x--forget-links-from-entries'."
         (remhash file org-mem--file<>metadata)
         (run-hook-with-args 'org-mem-forget-file-functions file)))))
 
-(defvar org-mem-x--target<>old-links (make-hash-table :test 'equal))
-(defun org-mem-x--forget-links-from-entries (stale-entries)
-  (clrhash org-mem-x--target<>old-links)
+(defvar org-mem-updater--target<>old-links (make-hash-table :test 'equal))
+(defun org-mem-updater--forget-links-from-entries (stale-entries)
+  (clrhash org-mem-updater--target<>old-links)
   (let ((eids (mapcar #'org-mem-entry--internal-id stale-entries))
         targets-to-update)
     (dolist (eid eids)
@@ -166,12 +154,12 @@ and potentially `org-mem-x--forget-links-from-entries'."
        finally do
        (puthash target reduced-link-set org-mem--target<>links)
        (puthash target (nconc forgotten-links reduced-link-set)
-                org-mem-x--target<>old-links)))))
+                org-mem-updater--target<>old-links)))))
 
 
 ;;; Instant placeholders
 
-(defun org-mem-x-ensure-buffer-file-known ()
+(defun org-mem-updater-ensure-buffer-file-known ()
   "Record basic file metadata if not already known.
 Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
   (require 'org)
@@ -187,7 +175,7 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
              org-mem--file<>metadata)))
 
 (declare-function org-element-context "org-element")
-(defun org-mem-x-ensure-link-at-point-known (&rest _)
+(defun org-mem-updater-ensure-link-at-point-known (&rest _)
   "Record the link at point.
 Use this if you cannot wait for `org-mem-updater-mode' to pick it up.
 No support for citations."
@@ -200,7 +188,7 @@ No support for citations."
                 (type (org-element-property :type el)))
       (let ((desc-beg (org-element-property :contents-begin el))
             (desc-end (org-element-property :contents-end el)))
-        (org-mem-x-ensure-buffer-file-known)
+        (org-mem-updater-ensure-buffer-file-known)
         (org-mem--record-link
          (record 'org-mem-link
                  buffer-file-truename
@@ -223,14 +211,14 @@ No support for citations."
 (declare-function org-get-todo-state "org")
 (declare-function org-link-display-format "ol")
 (defvar org-outline-path-cache)
-(defun org-mem-x-ensure-entry-at-point-known ()
+(defun org-mem-updater-ensure-entry-at-point-known ()
   "Record the entry at point.
 Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
   (require 'org)
   (require 'ol)
   (when (and buffer-file-truename
              (derived-mode-p 'org-mode))
-    (org-mem-x-ensure-buffer-file-known)
+    (org-mem-updater-ensure-buffer-file-known)
     (let ((id (org-entry-get-with-inheritance "ID"))
           (case-fold-search t))
       (save-excursion
@@ -268,7 +256,7 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
                              (list (list 0 1 1 ftitle nil nil)))
                      nil ;; HACK
                      properties
-                     (org-mem-x--tags-at-point-inherited-only)
+                     (org-mem-updater--tags-at-point-inherited-only)
                      (org-get-tags nil t)
                      (when heading (org-get-todo-state))
                      (cdr (assoc "DEADLINE" properties))
@@ -278,7 +266,7 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
 
 (defvar org-use-tag-inheritance)
 (defvar org-trust-scanner-tags)
-(defun org-mem-x--tags-at-point-inherited-only ()
+(defun org-mem-updater--tags-at-point-inherited-only ()
   "Like `org-get-tags', but get only the inherited tags."
   (require 'org)
   (let ((all-tags (if org-use-tag-inheritance
@@ -291,15 +279,64 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
              collect (substring-no-properties tag))))
 
 
-(define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-x--handle-save                 "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-x--handle-save                 "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-x--handle-delete              #'org-mem-x--handle-delete               "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-x-ensure-buffer-file-known    #'org-mem-x-ensure-buffer-file-known     "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-x-ensure-link-at-point-known  #'org-mem-x-ensure-link-at-point-known   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-x-ensure-entry-at-point-known #'org-mem-x-ensure-entry-at-point-known  "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed--activate-timer               #'org-mem-x--activate-timer              "0.7.0 (2025-05-11)")
+;;; Mode
 
+(defvar org-mem-updater--timer (timer-create)
+  "Timer for intermittently running `org-mem--scan-full'.")
+
+(defun org-mem-updater--activate-timer (&rest _)
+  "Adjust `org-mem-updater--timer' based on duration of last full scan.
+If timer not running, start it."
+  (let ((new-delay (* 15 (1+ org-mem--time-elapsed))))
+    (when (or (not (member org-mem-updater--timer timer-idle-list))
+              ;; Don't enter an infinite loop -- idle timers can be a footgun.
+              (not (> (float-time (or (current-idle-time) 0))
+                      new-delay)))
+      (cancel-timer org-mem-updater--timer)
+      (setq org-mem-updater--timer
+            (run-with-idle-timer new-delay t #'org-mem--scan-full)))))
+
+;;;###autoload
+(define-minor-mode org-mem-updater-mode
+  "Keep Org-mem cache up to date."
+  :global t
+  (require 'org-mem-updater)
+  (if org-mem-updater-mode
+      (progn
+        (add-hook 'org-mem-post-full-scan-functions #'org-mem-updater--activate-timer 90)
+        (add-hook 'after-save-hook #'org-mem-updater--handle-save)
+        (advice-add 'rename-file :after #'org-mem-updater--handle-rename)
+        (advice-add 'delete-file :after #'org-mem-updater--handle-delete)
+        (advice-add 'org-insert-link :after #'org-mem-updater-ensure-link-at-point-known)
+        (org-mem-updater--activate-timer)
+        (org-mem--scan-full))
+    (remove-hook 'org-mem-post-full-scan-functions #'org-mem-updater--activate-timer)
+    (remove-hook 'after-save-hook #'org-mem-updater--handle-save)
+    (advice-remove 'rename-file #'org-mem-updater--handle-rename)
+    (advice-remove 'delete-file #'org-mem-updater--handle-delete)
+    (advice-remove 'org-insert-link #'org-mem-updater-ensure-link-at-point-known)
+    (cancel-timer org-mem-updater--timer)))
+
+
+(define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-updater--handle-save                 "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x--handle-rename              #'org-mem-updater--handle-rename               "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x--handle-delete              #'org-mem-updater--handle-delete               "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x-ensure-buffer-file-known    #'org-mem-updater-ensure-buffer-file-known     "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x-ensure-link-at-point-known  #'org-mem-updater-ensure-link-at-point-known   "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x-ensure-entry-at-point-known #'org-mem-updater-ensure-entry-at-point-known  "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed--activate-timer               #'org-mem-updater--activate-timer              "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-updater-mode                  #'org-mem-updater-mode                         "0.7.0 (2025-05-11)")
+
+(define-obsolete-function-alias 'org-mem-x--handle-save                #'org-mem-updater--handle-save                 "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x--handle-rename              #'org-mem-updater--handle-rename               "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x--handle-delete              #'org-mem-updater--handle-delete               "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x-ensure-buffer-file-known    #'org-mem-updater-ensure-buffer-file-known     "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x-ensure-link-at-point-known  #'org-mem-updater-ensure-link-at-point-known   "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x-ensure-entry-at-point-known #'org-mem-updater-ensure-entry-at-point-known  "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x--activate-timer             #'org-mem-updater--activate-timer              "0.10.0 (2025-05-18)")
+
+(provide 'org-mem-updater)
 (provide 'org-mem-x)
 (provide 'indexed-x)
 
-;;; org-mem-x.el ends here
+;;; org-mem-updater.el ends here

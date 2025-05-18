@@ -20,7 +20,7 @@
 (require 'llama)
 (require 'org-mem)
 (require 'org-mem-roamy)
-(require 'org-mem-x)
+(require 'org-mem-updater)
 
 (ert-deftest test-split-refs-field ()
   (let ((result

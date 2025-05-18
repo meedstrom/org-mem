@@ -615,37 +615,9 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 (defvar org-mem--title-collisions nil)
 (defvar org-mem--id-collisions nil)
 (defvar org-mem--time-elapsed 1.0)
-
-;; This mode keeps most logic in "org-mem-x" to keep track of what is enough
-;; for the core functionality of making a cache, vs. the added complication of
-;; keeping it up to date.
-;; REVIEW: ... maybe rename "org-mem-x.el" to "org-mem-updater.el"?
-(defvar org-mem-x--timer)
-(declare-function org-mem-x-ensure-link-at-point-known "org-mem-x")
-(declare-function org-mem-x--handle-save "org-mem-x")
-(declare-function org-mem-x--handle-rename "org-mem-x")
-(declare-function org-mem-x--handle-delete "org-mem-x")
-(declare-function org-mem-x--activate-timer "org-mem-x")
-;;;###autoload
-(define-minor-mode org-mem-updater-mode
-  "Keep Org-mem cache up to date."
-  :global t
-  (require 'org-mem-x)
-  (if org-mem-updater-mode
-      (progn
-        (add-hook 'after-save-hook #'org-mem-x--handle-save)
-        (advice-add 'rename-file :after #'org-mem-x--handle-rename)
-        (advice-add 'delete-file :after #'org-mem-x--handle-delete)
-        (advice-add 'org-insert-link :after #'org-mem-x-ensure-link-at-point-known)
-        (org-mem-x--activate-timer)
-        (org-mem--scan-full))
-    (remove-hook 'after-save-hook #'org-mem-x--handle-save)
-    (advice-remove 'rename-file #'org-mem-x--handle-rename)
-    (advice-remove 'delete-file #'org-mem-x--handle-delete)
-    (advice-remove 'org-insert-link #'org-mem-x-ensure-link-at-point-known)
-    (cancel-timer org-mem-x--timer)))
-
 (defvar org-mem--next-message nil)
+(defvar org-mem--time-at-begin-full-scan nil)
+
 (defun org-mem-reset (&optional interactively)
   "Reset cache, and if called INTERACTIVELY, print statistics."
   (interactive "p")
@@ -653,7 +625,6 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
     (setq org-mem--next-message t))
   (org-mem--scan-full))
 
-(defvar org-mem--time-at-begin-full-scan nil)
 (defun org-mem--scan-full (&optional takeover)
   "Arrange a full scan, if one is not already ongoing.
 With TAKEOVER t, stop any already ongoing scan to start a new one."
@@ -1405,11 +1376,10 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
 (define-obsolete-function-alias 'indexed-todo-state                  #'org-mem-entry-todo-state                   "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-toptitle                    #'org-mem-file-title-topmost                 "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-type                        #'org-mem-link-type                          "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-updater-mode                #'org-mem-updater-mode                       "0.7.0 (2025-05-11)")
 
 (define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-dest                #'org-mem-link-target       "0.8.0 (2025-05-15)")
-(define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.9.3 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
 
 (provide 'org-mem)
 (provide 'indexed)

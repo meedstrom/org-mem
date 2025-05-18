@@ -507,7 +507,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; "tags-inherited" can later use to figure it out.
 
             ;; Going with the former to simplify implementation of
-            ;; `org-mem-x-ensure-entry-at-point-known'.
+            ;; `org-mem-updater-ensure-entry-at-point-known'.
 
             ;; That constraint is also why we cannot just let CRUMBS be a flat
             ;; list of positions and figure out everything else in real time,
