@@ -17,6 +17,10 @@
 
 ;;; Commentary:
 
+;; https://github.com/org-roam/org-roam
+
+;; Called "roamy" to visually distinguish from "roam" easier.
+
 ;;; Code:
 
 (require 'cl-lib)
@@ -93,6 +97,22 @@ Restore org-roam functionality with: (setq org-roam-db-update-on-save t)")
          (emacsql-close org-mem-roamy--connection)))
   (org-mem-roamy-db))
 
+;; REVIEW: It may feel cleaner if the behavior of `org-mem-roamy-db' was not
+;;         gated on `org-mem-roamy-do-overwrite-real-db' at all, and we
+;;         potentially just have two separate, identical DBs.  But doing it
+;;         this way allows org-roam extensions to just talk to
+;;         `org-mem-roamy-db' and be confident that it is the same as talking
+;;         to `org-roam-db', so they can drop the strict org-roam dependency.
+;;
+;;         Though... since our DB never needs to be written-to by an extension
+;;         to keep things up to date (seeing as we wipe and rebuild it so
+;;         much), it could still be sane to allow duplicating them.
+;;
+;;         So for code simplicity, we could turn this into a small dispatch
+;;         that picks whichever connection the user configured org-mem to
+;;         make, or pick at random if both are for some reason up (untypical
+;;         case).  Still, that's *essentially* what's already happening (sans
+;;         allowing both to be up), so just a matter of readable subroutines.
 (defun org-mem-roamy-db ()
   "Return an EmacSQL connection.
 
@@ -100,7 +120,7 @@ If user option `org-mem-roamy-do-overwrite-real-db' is t, return the same
 connection as that returned by `org-roam-db'.
 
 If such a connection is not yet open, take the opportunity to delete
-the DB on disk and write a new one, then connect to that."
+the database file on disk and write a new one, then connect to that."
   (unless org-mem-roamy-db-mode
     (error "Enable `org-mem-roamy-db-mode' to use `org-mem-roamy-db'"))
   (if (and (require 'emacsql nil t)
@@ -140,7 +160,7 @@ the DB on disk and write a new one, then connect to that."
                         (delete-file org-roam-db-location))
                       (setq conn (org-roam-db))
                       (setq name org-roam-db-location)
-                      (org-mem-roamy--populate-usably-for-emacsql
+                      (org-mem-roamy--populate-db-usably-for-emacsql
                        (eieio-oref conn 'handle)
                        (org-mem-roamy--mk-rows))))
                 (error "Option `org-mem-roamy-do-overwrite-real-db' is t, but org-roam unavailable"))
@@ -153,7 +173,7 @@ the DB on disk and write a new one, then connect to that."
               (setq conn (emacsql-sqlite-open nil))
               (setq org-mem-roamy--connection conn)
               (org-mem-roamy--configure (eieio-oref conn 'handle))
-              (org-mem-roamy--populate-usably-for-emacsql
+              (org-mem-roamy--populate-db-usably-for-emacsql
                (eieio-oref conn 'handle)
                (org-mem-roamy--mk-rows))))
 
@@ -244,52 +264,52 @@ the DB on disk and write a new one, then connect to that."
 
   db)
 
-(defun org-mem-roamy--populate-usably-for-emacsql (db row-sets)
+(defun org-mem-roamy--populate-db-usably-for-emacsql (db row-sets)
   (seq-let (files nodes aliases citations refs tags links) row-sets
     (with-sqlite-transaction db
       (when files
         (sqlite-execute
          db (concat
              "INSERT INTO files VALUES "
-             (org-mem-roamy--mk-singular-value-quoted-like-emacsql files))))
+             (org-mem-roamy--mk-literal-input-quoted-like-emacsql files))))
       (when nodes
         (sqlite-execute
          db (concat
              "INSERT INTO nodes VALUES "
-             (org-mem-roamy--mk-singular-value-quoted-like-emacsql nodes))))
+             (org-mem-roamy--mk-literal-input-quoted-like-emacsql nodes))))
       (when aliases
         (sqlite-execute
          db (concat
              "INSERT INTO aliases VALUES "
-             (org-mem-roamy--mk-singular-value-quoted-like-emacsql aliases))))
+             (org-mem-roamy--mk-literal-input-quoted-like-emacsql aliases))))
       (when citations
         (sqlite-execute
          db (concat
              "INSERT INTO citations VALUES "
-             (org-mem-roamy--mk-singular-value-quoted-like-emacsql citations))))
+             (org-mem-roamy--mk-literal-input-quoted-like-emacsql citations))))
       (when refs
         (sqlite-execute
          db (concat
              "INSERT INTO refs VALUES "
-             (org-mem-roamy--mk-singular-value-quoted-like-emacsql refs))))
+             (org-mem-roamy--mk-literal-input-quoted-like-emacsql refs))))
       (when tags
         (sqlite-execute
          db (concat
              "INSERT INTO tags VALUES "
-             (org-mem-roamy--mk-singular-value-quoted-like-emacsql tags))))
+             (org-mem-roamy--mk-literal-input-quoted-like-emacsql tags))))
       (when links
         (sqlite-execute
          db (concat
              "INSERT INTO links VALUES "
-             (org-mem-roamy--mk-singular-value-quoted-like-emacsql links)))))))
+             (org-mem-roamy--mk-literal-input-quoted-like-emacsql links)))))))
 
-(defun org-mem-roamy--mk-singular-value-quoted-like-emacsql (rows)
-  "Turn ROWS into a literal \(not prepared) value for SQL INSERT.
+(defun org-mem-roamy--mk-literal-input-quoted-like-emacsql (rows)
+  "Turn ROWS into a literal \(not prepared) input for SQL INSERT.
+
 In each row, print readably any atoms that are strings or lists,
-i.e. use `prin1', to be usable to `emacsql'.
-
-That means e.g. string atoms have extraneous quote characters, making it
-difficult to use with `sqlite-select'."
+i.e. use `prin1', to be usable to `emacsql'.  That means e.g. string
+atoms have extraneous quote characters, with the consequence that the
+database will be difficult to use with `sqlite-select'."
   (with-temp-buffer
     (let ((print-level nil)
           (print-length nil)
@@ -320,8 +340,6 @@ difficult to use with `sqlite-select'."
         (delete-char -2)))
     (buffer-string)))
 
-;; TODO: Argument nil should not mean all files, but signal error.
-;;       Let it take argument t instead.
 (defvar org-mem-roamy--untitled-id-nodes nil)
 (defun org-mem-roamy--mk-rows (&optional specific-files)
   "Return rows of data suitable for inserting into `org-mem-roamy-db'.
@@ -339,12 +357,12 @@ With SPECIFIC-FILES, only return data that involves those files."
         tag-rows
         link-rows
         (print-length nil)
+        (seen-files (make-hash-table :test 'equal))
         (roam-dir (when (and (boundp 'org-roam-directory)
                              (stringp org-roam-directory))
                     (cl-assert (file-name-absolute-p org-roam-directory))
                     (abbreviate-file-name (file-truename org-roam-directory)))))
     (cl-loop
-     with seen-files = (make-hash-table :test 'equal)
      for entry in (hash-table-values org-mem--id<>entry)
      as file = (org-mem-entry-file entry)
      as id = (org-mem-entry-id entry)
@@ -388,7 +406,8 @@ With SPECIFIC-FILES, only return data that involves those files."
                             (or type "cite"))
                       ref-rows))))
 
-    ;; https://github.com/org-roam/org-roam/pull/2509
+    ;; NOTE: (:outline nil) mandatory but harms perf.
+    ;;       https://github.com/org-roam/org-roam/pull/2509
     (let ((dummy-props '(:outline nil)))
       (cl-loop
        for link in (org-mem-all-links)
@@ -412,9 +431,10 @@ With SPECIFIC-FILES, only return data that involves those files."
                           dummy-props)
                     link-rows)))))
 
+    ;; Naively, we could just not add these nodes, but we did it anyway to
+    ;; prevent SQL "FOREIGN KEY constraint failed" when there are other
+    ;; objects that refer to these nodes.
     (when org-mem-roamy--untitled-id-nodes
-      ;; We include the node to avoid any SQL "FOREIGN KEY constraint failed"
-      ;; when there are other objects that refer to the untitled node.
       (message "Untitled ID nodes added to org-mem-roamy-db, org-roam does not normally support that. Inspect `org-mem-roamy--untitled-id-nodes'."))
 
     (list file-rows
@@ -436,7 +456,7 @@ With SPECIFIC-FILES, only return data that involves those files."
   ;; See `org-roam-db-insert-file'
   (list file
         (org-mem-file-title-strict file)
-        ""                            ; HACK: Sha1 hashing is slow, skip
+        ""                            ; HACK: SHA1 hashing is slow, skip
         (org-mem-file-mtime-int file) ; HACK: org-roam doesn't use atime anyway
         (org-mem-file-mtime-int file)))
 
@@ -456,7 +476,7 @@ Suitable on `org-mem-post-targeted-scan-functions'."
              sqlite3
              (fboundp 'emacsql-close)
              (fboundp 'org-roam-db))
-        ;; Do the deletion async. Otherwise Emacs blocks for seconds
+        ;; Do the deletion async.  Otherwise Emacs blocks for seconds
         ;; waiting for sqlite to cascade-delete a big file.
         (let ((query
                (concat "PRAGMA foreign_keys = on; "
@@ -469,9 +489,9 @@ Suitable on `org-mem-post-targeted-scan-functions'."
            :name "org-mem-roamy"
            :command (list sqlite3 db-file query)
            :noquery t
-           :sentinel (lambda (&rest _)
+           :sentinel (lambda (_process _event)
                        (when org-mem-roamy--async-new-rows
-                         (org-mem-roamy--populate-usably-for-emacsql
+                         (org-mem-roamy--populate-db-usably-for-emacsql
                           (eieio-oref (org-roam-db) 'handle)
                           org-mem-roamy--async-new-rows))))
           (setq org-mem-roamy--async-new-rows
@@ -482,7 +502,7 @@ Suitable on `org-mem-post-targeted-scan-functions'."
         (sqlite-execute db "DELETE FROM files WHERE file LIKE ?;"
                         (list (prin1-to-string file))))
       (when newly-parsed-files
-        (org-mem-roamy--populate-usably-for-emacsql
+        (org-mem-roamy--populate-db-usably-for-emacsql
          db (org-mem-roamy--mk-rows newly-parsed-files))))))
 
 

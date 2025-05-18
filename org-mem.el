@@ -79,7 +79,7 @@
   "Whether to also cache text contents of all entries.
 
 This makes the raw text available via accessor `org-mem-entry-text',
-which can be fontified via function `org-mem-x-fontify-like-org'.
+which can be fontified via function `org-mem-fontify-like-org'.
 
 Likely to slow down `org-mem-reset'."
   :type 'boolean
@@ -593,10 +593,14 @@ case that there exists a file-level ID but no #+title:, or vice versa."
   "Hook passed one `org-mem-link' object after adding it to tables.")
 
 (defvar org-mem-pre-targeted-scan-functions nil
-  "Hook passed the list of parse-results, before a partial reset.")
+  "Hook passed the list of parse-results, before a partial reset.
+This occurs before scanning a targeted single file or set of files,
+hence the name.  Contrast `org-mem-pre-full-scan-functions'.")
 
 (defvar org-mem-post-targeted-scan-functions nil
-  "Hook passed the list of parse-results, after a partial reset.")
+  "Hook passed the list of parse-results, after a partial reset.
+This occurs after scanning a targeted single file or set of files,
+hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 
 (defvar org-mem-forget-file-functions nil
   "Hook passed (FILE ATTRS LINES PTMAX) after removing that info from tables.")
@@ -615,7 +619,7 @@ case that there exists a file-level ID but no #+title:, or vice versa."
 ;; This mode keeps most logic in "org-mem-x" to keep track of what is enough
 ;; for the core functionality of making a cache, vs. the added complication of
 ;; keeping it up to date.
-;; REVIEW: ... maybe call it org-mem-updater.el?
+;; REVIEW: ... maybe rename "org-mem-x.el" to "org-mem-updater.el"?
 (defvar org-mem-x--timer)
 (declare-function org-mem-x-ensure-link-at-point-known "org-mem-x")
 (declare-function org-mem-x--handle-save "org-mem-x")
@@ -695,7 +699,9 @@ This lets a function on these hooks sidestep the performance overhead of
 `with-temp-buffer' or `with-work-buffer', in favor of using the
 already current buffer:
     \(cl-assert (eq (current-buffer) org-mem-scratch))
-    \(erase-buffer)")
+    \(erase-buffer)
+
+Buffer is in `fundamental-mode.'")
 
 (defvar org-mem--caused-retry nil)
 (defun org-mem--finalize-full (parse-results _job)
@@ -1244,7 +1250,7 @@ What is valid?  See \"org-mem-test.el\"."
            file/files))
 
 
-;;; Assorted
+;;; Assorted tools for downstream packages
 
 (defun org-mem-block (who n-secs)
   "Wait for up to N-SECS for any current org-mem subprocesses to finish.
@@ -1255,10 +1261,42 @@ Return t on finish, or nil if N-SECS elapsed without finishing."
   (cl-assert (symbolp who))
   (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." who)))
 
-;; Damn handy with llama
+;; Damn handy with llama.
 (defun org-mem-delete (fn tbl)
   "Delete rows in hash table TBL that satisfy FN\(KEY VALUE)."
   (maphash (##if (funcall fn %1 %2) (remhash %1 tbl)) tbl) nil)
+
+(defun org-mem-fontify-like-org (string)
+  "Return STRING with text properties from fontifying it in `org-mode'."
+  (with-current-buffer (org-mem-org-mode-scratch)
+    (erase-buffer)
+    (insert string)
+    (font-lock-ensure)
+    (buffer-string)))
+
+(defvar org-element-cache-persistent)
+(defvar org-inhibit-startup)
+(defun org-mem-org-mode-scratch (&optional bufname)
+  "Get or create a hidden `org-mode' buffer.
+Also enable `org-mode', but ignore `org-mode-hook' and startup options.
+
+Like a temp buffer, but does not clean up.  You should probably use
+`erase-buffer' in case it already contains text.  Then finish up with
+`font-lock-ensure' if you need the contents fontified.
+
+BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
+  (require 'org)
+  (let ((bufname (or bufname " *org-mem-org-mode-scratch*"))
+        (org-inhibit-startup t)
+        (org-element-cache-persistent nil))
+    (or (get-buffer bufname)
+        (with-current-buffer (get-buffer-create bufname t)
+          (delay-mode-hooks (org-mode))
+          (setq-local org-element-cache-persistent nil)
+          (current-buffer)))))
+
+
+;;; Obsolete
 
 (defun org-mem--warn-deprec ()
   "Warn about use of deprecated variable names, and unintern them."
@@ -1369,8 +1407,9 @@ Return t on finish, or nil if N-SECS elapsed without finishing."
 (define-obsolete-function-alias 'indexed-type                        #'org-mem-link-type                          "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-updater-mode                #'org-mem-updater-mode                       "0.7.0 (2025-05-11)")
 
-(define-obsolete-function-alias 'org-mem-link-dest  #'org-mem-link-target "0.8.0 (2025-05-15)")
-(define-obsolete-function-alias 'org-mem-dest       #'org-mem-link-target "0.8.0 (2025-05-15)")
+(define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
+(define-obsolete-function-alias 'org-mem-dest                #'org-mem-link-target       "0.8.0 (2025-05-15)")
+(define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.9.3 (2025-05-18)")
 
 (provide 'org-mem)
 (provide 'indexed)
