@@ -29,6 +29,7 @@
 (require 'org-mem)
 (require 'llama)
 (declare-function eieio-oref "eieio-core")
+(defvar org-mem-updater-mode)
 
 (defcustom org-mem-roamy-do-overwrite-real-db nil
   "Whether to overwrite the database file at `org-roam-db-location'.

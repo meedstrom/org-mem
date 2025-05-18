@@ -34,6 +34,7 @@
 (require 'llama)
 (require 'org-mem)
 (require 'org-mem-parser)
+(declare-function org-element-property "org-element-ast")
 (declare-function org-entry-get-with-inheritance "org")
 (declare-function org-get-tags "org")
 
@@ -300,6 +301,7 @@ If timer not running, start it."
 (define-minor-mode org-mem-updater-mode
   "Keep Org-mem cache up to date."
   :global t
+  :group 'org-mem
   (require 'org-mem-updater)
   (if org-mem-updater-mode
       (progn
