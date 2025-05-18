@@ -1,4 +1,20 @@
-;; -*- lexical-binding: t; -*-
+;;; indexed.el --- RENAMED -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2025 Free Software Foundation, Inc.
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 (define-obsolete-variable-alias 'indexed--dest<>links       'org-mem--target<>links   "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed--file<>entries     'org-mem--file<>entries   "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed--id<>entry         'org-mem--id<>entry       "0.7.0 (2025-05-11)")
@@ -91,3 +107,5 @@
 (define-obsolete-function-alias 'indexed-toptitle                    #'org-mem-file-title-topmost                 "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-type                        #'org-mem-link-type                          "0.7.0 (2025-05-11)")
 (provide 'indexed)
+
+;;; indexed.el ends here
