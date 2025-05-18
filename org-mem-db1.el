@@ -278,8 +278,8 @@ With SPECIFIC-FILES, only return data that involves those files."
         (org-mem-file-id-strict file)))
 
 
-(define-obsolete-function-alias 'indexed-orgdb-mode  #'org-mem-db1-mode  "2025-05-11")
-(define-obsolete-function-alias 'indexed-orgdb       #'org-mem-db1       "2025-05-11")
+(define-obsolete-function-alias 'indexed-orgdb-mode  #'org-mem-db1-mode  "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-orgdb       #'org-mem-db1       "0.7.0 (2025-05-11)")
 
 (provide 'org-mem-db1)
 (provide 'indexed-orgdb)

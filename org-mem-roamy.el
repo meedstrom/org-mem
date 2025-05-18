@@ -24,7 +24,7 @@
 (require 'sqlite)
 (require 'org-mem)
 (require 'llama)
-(declare-function eieio-oref "eieio")
+(declare-function eieio-oref "eieio-core")
 
 (defcustom org-mem-roamy-do-overwrite-real-db nil
   "Whether to overwrite the database file at `org-roam-db-location'.
@@ -488,10 +488,10 @@ Suitable on `org-mem-post-targeted-scan-functions'."
 
 ;;; Translators
 
-(declare-function org-roam-node-create "org-roam-node")
-(declare-function org-roam-node-id "org-roam-node")
-(declare-function org-roam-reflink-create "org-roam-mode")
-(declare-function org-roam-backlink-create "org-roam-mode")
+(declare-function org-roam-node-create "ext:org-roam-node")
+(declare-function org-roam-node-id "ext:org-roam-node")
+(declare-function org-roam-reflink-create "ext:org-roam-mode")
+(declare-function org-roam-backlink-create "ext:org-roam-mode")
 
 (defun org-mem-roamy-mk-node (entry)
   "Make an org-roam-node object, from org-mem object ENTRY."
@@ -553,12 +553,12 @@ Suitable on `org-mem-post-targeted-scan-functions'."
                         :point (org-mem-link-pos link)))))))
 
 
-(define-obsolete-function-alias 'indexed-roam-mode          #'org-mem-roamy-db-mode       "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam               #'org-mem-roamy-db            "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam--update-db    #'org-mem-roamy--update-db    "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-mk-node       #'org-mem-roamy-mk-node       "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-mk-backlinks  #'org-mem-roamy-mk-backlinks  "2025-05-11")
-(define-obsolete-function-alias 'indexed-roam-mk-reflinks   #'org-mem-roamy-mk-reflinks   "2025-05-11")
+(define-obsolete-function-alias 'indexed-roam-mode          #'org-mem-roamy-db-mode       "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-roam               #'org-mem-roamy-db            "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-roam--update-db    #'org-mem-roamy--update-db    "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-roam-mk-node       #'org-mem-roamy-mk-node       "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-roam-mk-backlinks  #'org-mem-roamy-mk-backlinks  "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-roam-mk-reflinks   #'org-mem-roamy-mk-reflinks   "0.7.0 (2025-05-11)")
 
 (provide 'org-mem-roamy)
 (provide 'indexed-roam)

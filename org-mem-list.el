@@ -27,8 +27,9 @@
 (require 'sqlite)
 (require 'llama)
 (require 'sqlite-mode)
-(declare-function eieio-oref "eieio")
+(declare-function eieio-oref "eieio-core")
 (declare-function org-mem-roamy-db "org-mem-roamy")
+(defvar org-mem-db1--connection)
 (defvar org-mem-roamy-db-mode)
 
 (defun org-mem-list--goto-file-pos (file.pos)
@@ -205,14 +206,14 @@ Optional argument REVERTER is a function to add buffer-locally to
   (tabulated-list-print t))
 
 
-(define-obsolete-function-alias 'indexed-list--goto-file-pos           #'org-mem-list--goto-file-pos "2025-05-11")
-(define-obsolete-function-alias 'indexed-list--goto-id                 #'org-mem-list--goto-id "2025-05-11")
-(define-obsolete-function-alias 'indexed-list-problems                 #'org-mem-list-problems "2025-05-11")
-(define-obsolete-function-alias 'indexed-list-title-collisions         #'org-mem-list-title-collisions "2025-05-11")
-(define-obsolete-function-alias 'indexed-list-dead-id-links            #'org-mem-list-dead-id-links "2025-05-11")
-(define-obsolete-function-alias 'indexed-list-db-contents              #'org-mem-list-db-contents "2025-05-11")
-(define-obsolete-function-alias 'indexed-list-org-entries              #'org-mem-list-entries "2025-05-11")
-(define-obsolete-function-alias 'indexed-list--pop-to-tabulated-buffer #'org-mem-list--pop-to-tabulated-buffer "2025-05-11")
+(define-obsolete-function-alias 'indexed-list--goto-file-pos           #'org-mem-list--goto-file-pos            "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-list--goto-id                 #'org-mem-list--goto-id                  "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-list-problems                 #'org-mem-list-problems                  "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-list-title-collisions         #'org-mem-list-title-collisions          "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-list-dead-id-links            #'org-mem-list-dead-id-links             "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-list-db-contents              #'org-mem-list-db-contents               "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-list-org-entries              #'org-mem-list-entries                   "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-list--pop-to-tabulated-buffer #'org-mem-list--pop-to-tabulated-buffer  "0.7.0 (2025-05-11)")
 
 (provide 'org-mem-list)
 (provide 'indexed-list)

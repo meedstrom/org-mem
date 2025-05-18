@@ -599,8 +599,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           org-mem-parser--found-links
           (if problem (list problem)))))
 
-(define-obsolete-function-alias 'indexed-org-parser--parse-file
-  #'org-mem-parser--parse-file "2025-05-16")
+(define-obsolete-function-alias 'indexed-org-parser--parse-file  #'org-mem-parser--parse-file  "0.7.0 (2025-05-16)")
 (provide 'org-mem-parser)
 (provide 'indexed-org-parser)
 

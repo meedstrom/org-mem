@@ -34,24 +34,8 @@
 (require 'llama)
 (require 'org-mem)
 (require 'org-mem-parser)
-(defvar org-use-tag-inheritance)
-(defvar org-trust-scanner-tags)
-(defvar org-id-track-globally)
-(defvar org-id-locations)
-(defvar org-outline-path-cache)
-(declare-function org-current-level "org")
-(declare-function org-element-context "org-element")
-(declare-function org-element-property "org-element")
-(declare-function org-entry-beginning-position "org")
 (declare-function org-entry-get-with-inheritance "org")
-(declare-function org-entry-properties "org")
-(declare-function org-get-heading "org")
-(declare-function org-get-outline-path "org")
 (declare-function org-get-tags "org")
-(declare-function org-get-title "org")
-(declare-function org-get-todo-state "org")
-(declare-function org-link-display-format "ol")
-(define-obsolete-variable-alias 'indexed-x-last-removed-links 'org-mem-x--forgotten-links "2025-05-11")
 
 (defvar org-mem-x--timer (timer-create)
   "Timer for intermittently running `org-mem--scan-full'.")
@@ -202,6 +186,7 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
                    (point-max))
              org-mem--file<>metadata)))
 
+(declare-function org-element-context "org-element")
 (defun org-mem-x-ensure-link-at-point-known (&rest _)
   "Record the link at point.
 Use this if you cannot wait for `org-mem-updater-mode' to pick it up.
@@ -229,6 +214,15 @@ No support for citations."
                  ;; HACK
                  nil))))))
 
+(declare-function org-current-level "org")
+(declare-function org-entry-beginning-position "org")
+(declare-function org-entry-properties "org")
+(declare-function org-get-heading "org")
+(declare-function org-get-outline-path "org")
+(declare-function org-get-title "org")
+(declare-function org-get-todo-state "org")
+(declare-function org-link-display-format "ol")
+(defvar org-outline-path-cache)
 (defun org-mem-x-ensure-entry-at-point-known ()
   "Record the entry at point.
 Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
@@ -282,6 +276,8 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
                      nil
                      nil))))))))
 
+(defvar org-use-tag-inheritance)
+(defvar org-trust-scanner-tags)
 (defun org-mem-x--tags-at-point-inherited-only ()
   "Like `org-get-tags', but get only the inherited tags."
   (require 'org)
@@ -317,12 +313,13 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
     (buffer-string)))
 
 
-(define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-x--handle-save "2025-05-11")
-(define-obsolete-function-alias 'indexed-x--handle-delete              #'org-mem-x--handle-delete "2025-05-11")
-(define-obsolete-function-alias 'indexed-x-ensure-buffer-file-known    #'org-mem-x-ensure-buffer-file-known "2025-05-11")
-(define-obsolete-function-alias 'indexed-x-ensure-link-at-point-known  #'org-mem-x-ensure-link-at-point-known "2025-05-11")
-(define-obsolete-function-alias 'indexed-x-ensure-entry-at-point-known #'org-mem-x-ensure-entry-at-point-known "2025-05-11")
-(define-obsolete-function-alias 'indexed--activate-timer               #'org-mem-x--activate-timer "2025-05-11")
+(define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-x--handle-save                 "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-x--handle-save                 "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x--handle-delete              #'org-mem-x--handle-delete               "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x-ensure-buffer-file-known    #'org-mem-x-ensure-buffer-file-known     "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x-ensure-link-at-point-known  #'org-mem-x-ensure-link-at-point-known   "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x-ensure-entry-at-point-known #'org-mem-x-ensure-entry-at-point-known  "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed--activate-timer               #'org-mem-x--activate-timer              "0.7.0 (2025-05-11)")
 
 (provide 'org-mem-x)
 (provide 'indexed-x)
