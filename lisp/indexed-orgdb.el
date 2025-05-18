@@ -15,6 +15,8 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+;;; Code:
+
 (require 'org-mem-db1)
 (define-obsolete-function-alias 'indexed-orgdb-mode  #'org-mem-db1-mode  "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-orgdb       #'org-mem-db1       "0.7.0 (2025-05-11)")

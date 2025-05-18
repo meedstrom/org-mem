@@ -138,6 +138,7 @@ and potentially `org-mem-updater--forget-links-from-entries'."
 
 (defvar org-mem-updater--target<>old-links (make-hash-table :test 'equal))
 (defun org-mem-updater--forget-links-from-entries (stale-entries)
+  "Remove from tables, all links from STALE-ENTRIES."
   (clrhash org-mem-updater--target<>old-links)
   (let ((eids (mapcar #'org-mem-entry--internal-id stale-entries))
         targets-to-update)

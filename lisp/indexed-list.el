@@ -15,6 +15,8 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+;;; Code:
+
 (require 'org-mem-list)
 (define-obsolete-function-alias 'indexed-list--goto-file-pos           #'org-mem-list--goto-file-pos            "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-list--goto-id                 #'org-mem-list--goto-id                  "0.7.0 (2025-05-11)")

@@ -15,6 +15,8 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+;;; Code:
+
 (require 'org-mem-roamy)
 (define-obsolete-function-alias 'indexed-roam-mode          #'org-mem-roamy-db-mode       "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-roam               #'org-mem-roamy-db            "0.7.0 (2025-05-11)")

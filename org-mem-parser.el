@@ -119,7 +119,8 @@ brackets."
 
 Argument ID-HERE is the ID of the subtree where this function is being
 executed (or that of an ancestor heading, if the current subtree has
-none), to be included in each link's metadata.  FILE likewise.
+none), to be included in each link's metadata.  FILE and
+INTERNAL-ENTRY-ID likewise.
 
 It is important that END does not extend past any sub-heading, as
 the subheading potentially has an ID of its own."

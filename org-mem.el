@@ -234,9 +234,10 @@ in `org-mem-file-mtime' and friends.")
   text)
 
 
-;;; To find the objects to operate on
+;;; To find objects to operate on
 
 (defun org-mem-all-ids ()
+  "All known org-ids."
   (with-memoization (org-mem--table 0 'org-mem-all-ids)
     (hash-table-keys org-mem--id<>entry)))
 
@@ -371,6 +372,7 @@ represents the content before the first heading.
   (and entry (gethash (org-mem-entry-id entry) org-mem--target<>links)))
 
 (defun org-mem-id-links-to-id (id)
+  "All ID-links targeting ID."
   (org-mem-id-links-to-entry (org-mem-entry-by-id id)))
 
 (defun org-mem-id-node-by-title (title)
@@ -394,6 +396,7 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
 
 ;; TODO
 (defun org-mem-links-to-file (_file)
+  "(Unimplemented) All links leading into somewhere in FILE."
   ;; (let ((targets-for-file (org-mem-entries-in-file))))
   ;; (cl-loop for link in (org-mem-all-links)
   ;;          collect nil)
@@ -412,6 +415,7 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
                 (org-mem-all-links))))
 
 (defun org-mem-links-in-file (file)
+  "All links found inside FILE."
   (with-memoization (org-mem--table 19 file)
     (seq-mapcat #'org-mem-links-in-entry (org-mem-entries-in-file file))))
 
@@ -543,7 +547,7 @@ case that there exists a file-level ID but no #+title:, or vice versa."
         (ignore-errors (org-mem-entry-title (cadr entries))))))
 
 (defun org-mem-file-title-strict (file/entry)
-  "Value of #+title setting in FILE, if any."
+  "Value of #+title setting in file at FILE/ENTRY, if any."
   (org-mem-entry-title-maybe
    (car (org-mem-entries-in-file
          (if (stringp file/entry) file/entry
@@ -558,7 +562,7 @@ case that there exists a file-level ID but no #+title:, or vice versa."
         (ignore-errors (org-mem-entry-id (cadr entries))))))
 
 (defun org-mem-file-id-strict (file/entry)
-  "File-level ID property in FILE, if any."
+  "File-level ID property in file at FILE/ENTRY, if any."
   (org-mem-entry-id (car (org-mem-entries-in-file
                           (if (stringp file/entry) file/entry
                             (org-mem-entry-file file/entry))))))
@@ -638,7 +642,7 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
 (defun org-mem--debug-parse-file (file)
   "Debug wrapper for `org-mem-parser--parse-file'.
 To use, first go to the source of that definition and type \\[edebug-defun].
-Then eval this expression, substituting the input for some file of yours:
+Then eval this expression, substituting FILE for some file of yours:
 \(org-mem--debug-parse-file \"~/org/some-file.org\")"
   (dolist (var (org-mem--mk-work-vars))
     (set (car var) (cdr var)))
@@ -1039,12 +1043,15 @@ These substrings are determined by `org-mem--split-roam-refs-field'."
            append (org-mem-links-to-roam-ref ref)))
 
 (defun org-mem-entry-by-roam-ref (ref)
+  "The entry that has ROAM_REFS property matching REF."
   (org-mem-entry-by-id (gethash ref org-mem--roam-ref<>id)))
 
 (defun org-mem-links-to-roam-ref (ref)
+  "All links to REF."
   (and ref (gethash ref org-mem--target<>links)))
 
 (defun org-mem-all-roam-reflinks ()
+  "All links targeting some existing ROAM_REFS."
   (cl-loop for ref being each hash-key of org-mem--roam-ref<>id
            append (gethash ref org-mem--target<>links)))
 
@@ -1065,6 +1072,7 @@ These substrings are determined by `org-mem--split-roam-refs-field'."
         (puthash ref id org-mem--roam-ref<>id)))))
 
 (defun org-mem--forget-roam-aliases-and-refs (entry)
+  "Remove ENTRY\\='s ROAM_ALIASES and ROAM_REFS from dedicated tables."
   (dolist (ref (org-mem-entry-roam-refs entry))
     (remhash (gethash ref org-mem--roam-ref<>id) org-mem--id<>roam-refs)
     (remhash ref org-mem--roam-ref<>id))
@@ -1169,22 +1177,27 @@ What is valid?  See \"org-mem-test.el\"."
 ;;; Short names, with polymorphism
 
 (cl-defgeneric org-mem-pos (entry/link)
+  "Char position of ENTRY/LINK."
   (:method ((xx org-mem-entry)) (org-mem-entry-pos xx))
   (:method ((xx org-mem-link)) (org-mem-link-pos xx)))
 
 (cl-defgeneric org-mem-file (entry/link)
+  "File name where ENTRY/LINK found."
   (:method ((xx org-mem-entry)) (org-mem-entry-file xx))
   (:method ((xx org-mem-link)) (org-mem-link-file xx)))
 
 (cl-defgeneric org-mem-id (entry/file)
+  "ID property of ENTRY/FILE - if file name, the file-level ID."
   (:method ((xx org-mem-entry)) (org-mem-entry-id xx))
   (:method ((xx string)) (org-mem-file-id-strict xx)))
 
 (cl-defgeneric org-mem-title (entry/file)
+  "Title of ENTRY/FILE - if file name, the value of #+title setting."
   (:method ((xx org-mem-entry)) (org-mem-entry-title xx))
   (:method ((xx string)) (org-mem-file-title-strict xx)))
 
 (cl-defgeneric org-mem-roam-reflinks-to (entry/id/file)
+  "All reflinks to or into ENTRY/ID/FILE."
   (:method ((xx org-mem-entry)) (org-mem-roam-reflinks-to-entry xx))
   (:method ((xx string))
            (if-let* ((entry (org-mem-entry-by-id xx)))
@@ -1193,6 +1206,7 @@ What is valid?  See \"org-mem-test.el\"."
                          (org-mem-entries-in-file xx)))))
 
 (cl-defgeneric org-mem-links-to (entry/id/file)
+  "All links to or into ENTRY/ID/FILE."
   (:method ((xx org-mem-entry)) (org-mem-links-to-entry xx))
   (:method ((xx string))
            (if-let* ((entry (org-mem-entry-by-id xx)))
@@ -1200,10 +1214,12 @@ What is valid?  See \"org-mem-test.el\"."
              (org-mem-links-to-file xx))))
 
 (defun org-mem-id-links-to (entry/id/file)
+  "All ID-links to or into ENTRY/ID/FILE."
   (seq-filter (##equal (org-mem-link-type %) "id")
               (org-mem-links-to entry/id/file)))
 
 (defun org-mem-entries-in (file/files)
+  "All entries in FILE/FILES."
   (funcall (if (listp file/files) #'org-mem-entries-in-files
              #'org-mem-entries-in-file)
            file/files))

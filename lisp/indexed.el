@@ -15,6 +15,8 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+;;; Code:
+
 (define-obsolete-variable-alias 'indexed--dest<>links       'org-mem--target<>links   "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed--file<>entries     'org-mem--file<>entries   "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed--id<>entry         'org-mem--id<>entry       "0.7.0 (2025-05-11)")

@@ -22,6 +22,8 @@
 (require 'org-mem-roamy)
 (require 'org-mem-updater)
 
+;;; Code:
+
 (ert-deftest test-split-refs-field ()
   (let ((result
          (org-mem--split-roam-refs-field

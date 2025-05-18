@@ -15,6 +15,8 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+;;; Code:
+
 (require 'org-mem-updater)
 (define-obsolete-function-alias 'indexed-x--handle-save                #'org-mem-updater--handle-save                 "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-x--handle-rename              #'org-mem-updater--handle-rename               "0.7.0 (2025-05-11)")

@@ -266,6 +266,7 @@ the database file on disk and write a new one, then connect to that."
   db)
 
 (defun org-mem-roamy--populate-db-usably-for-emacsql (db row-sets)
+  "Insert into DB the ROW-SETS."
   (seq-let (files nodes aliases citations refs tags links) row-sets
     (with-sqlite-transaction db
       (when files
