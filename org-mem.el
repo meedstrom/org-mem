@@ -1382,6 +1382,5 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
 (define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
 
 (provide 'org-mem)
-(provide 'indexed)
 
 ;;; org-mem.el ends here

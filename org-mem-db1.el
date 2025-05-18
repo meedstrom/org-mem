@@ -282,6 +282,5 @@ With SPECIFIC-FILES, only return data that involves those files."
 (define-obsolete-function-alias 'indexed-orgdb       #'org-mem-db1       "0.7.0 (2025-05-11)")
 
 (provide 'org-mem-db1)
-(provide 'indexed-orgdb)
 
 ;;; org-mem-db1.el ends here

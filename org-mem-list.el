@@ -216,6 +216,5 @@ Optional argument REVERTER is a function to add buffer-locally to
 (define-obsolete-function-alias 'indexed-list--pop-to-tabulated-buffer #'org-mem-list--pop-to-tabulated-buffer  "0.7.0 (2025-05-11)")
 
 (provide 'org-mem-list)
-(provide 'indexed-list)
 
 ;;; org-mem-list.el ends here

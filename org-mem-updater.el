@@ -338,7 +338,5 @@ If timer not running, start it."
 (define-obsolete-function-alias 'org-mem-x--activate-timer             #'org-mem-updater--activate-timer              "0.10.0 (2025-05-18)")
 
 (provide 'org-mem-updater)
-(provide 'org-mem-x)
-(provide 'indexed-x)
 
 ;;; org-mem-updater.el ends here
