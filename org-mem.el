@@ -53,14 +53,6 @@
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
 
-;; To move into `org-mem--warn-deprec' later
-
-;; REVIEW: I wonder if we should mass-rename all uses of "dest" to "path"?  Or
-;;         "target"?  If we ever cache link descriptions and shorten them to
-;;         "desc", it'll get confusing...
-;;         Bonus with "target" is it's a full word!
-;;         Any drawback?
-
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'text)
 
