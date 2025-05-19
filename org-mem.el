@@ -978,6 +978,7 @@ No-op if Org has not loaded."
            (ignore-errors
              (setq org-id-locations
                    (org-id-alist-to-hash org-id-locations)))
+           ;; Not error because some things can still work.
            (progn
              (message "org-mem: Caught strange org-id bug, maybe restart Emacs")
              nil))))
@@ -986,7 +987,14 @@ No-op if Org has not loaded."
   "Make alist of variables needed by `org-mem-parser--parse-file'."
   (let ((org-link-bracket-re
          ;; Mmm, copy-pasta.
-         "\\[\\[\\(\\(?:[^][\\]\\|\\\\\\(?:\\\\\\\\\\)*[][]\\|\\\\+[^][]\\)+\\)]\\(?:\\[\\([^z-a]+?\\)]\\)?]")
+         (rx "[["
+	     (group (one-or-more
+                     (or (not (any "[]\\"))
+		         (and "\\" (zero-or-more "\\\\") (any "[]"))
+		         (and (one-or-more "\\") (not (any "[]"))))))
+	     "]"
+	     (opt "[" (group (+? anything)) "]")
+	     "]"))
         (custom-plain-re (org-mem--mk-plain-re org-mem-seek-link-types)))
     (list
      (cons '$bracket-re org-link-bracket-re)
@@ -1023,23 +1031,21 @@ No-op if Org has not loaded."
 ;; Modified from part of `org-link-make-regexps'
 (defun org-mem--mk-plain-re (link-types)
   "Build a moral equivalent to `org-link-plain-re', to match LINK-TYPES."
-  (let* ((non-space-bracket "[^][ \t\n()<>]")
-         (parenthesis
-	  `(seq (any "<([")
-		(0+ (or (regex ,non-space-bracket)
-			(seq (any "<([")
-			     (0+ (regex ,non-space-bracket))
-			     (any "])>"))))
-		(any "])>"))))
-    (rx-to-string
-     `(seq word-start
-	   (regexp ,(regexp-opt link-types t))
-	   ":"
-           (group
-	    (1+ (or (regex ,non-space-bracket)
-		    ,parenthesis))
-	    (or (regexp "[^[:punct:][:space:]\n]")
-                ?- ?/ ,parenthesis))))))
+  (let ((non-space-bracket "[^][ \t\n()<>]"))
+    (rx-let ((types-regexp (regexp (regexp-opt link-types t)))
+             (parenthesis (seq (any "<([")
+		               (0+ (or (regexp non-space-bracket)
+			               (seq (any "<([")
+			                    (0+ (regexp non-space-bracket))
+			                    (any "])>"))))
+		               (any "])>"))))
+      (rx (seq word-start
+               types-regexp
+               ":"
+               (group (1+ (or (regexp non-space-bracket)
+                              parenthesis))
+	              (or (regexp "[^[:punct:][:space:]\n]")
+                          ?- ?/ parenthesis)))))))
 
 
 ;;; File-name subroutines
