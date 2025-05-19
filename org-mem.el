@@ -951,12 +951,13 @@ Buffer is in `fundamental-mode.'")
     (push entry (gethash file org-mem--file<>entries))
     (when id
       (org-mem--maybe-snitch-to-org-id entry)
-      (let ((other-id (gethash title org-mem--title<>id)))
-        (when (and other-id (not (string= id other-id)))
-          (push (list (format-time-string "%H:%M") title id other-id)
-                org-mem--title-collisions)))
-      (puthash id entry org-mem--id<>entry)
-      (puthash title id org-mem--title<>id))))
+      (when title
+        (let ((other-id (gethash title org-mem--title<>id)))
+          (when (and other-id (not (string= id other-id)))
+            (push (list (format-time-string "%H:%M") title id other-id)
+                  org-mem--title-collisions)))
+        (puthash title id org-mem--title<>id))
+      (puthash id entry org-mem--id<>entry))))
 
 (defun org-mem--maybe-snitch-to-org-id (entry)
   "Add applicable ENTRY data to `org-id-locations'.
