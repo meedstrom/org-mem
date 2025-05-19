@@ -409,8 +409,6 @@ With SPECIFIC-FILES, only return data that involves those files."
                             (or type "cite"))
                       ref-rows))))
 
-    ;; NOTE: (:outline nil) mandatory but harms perf.
-    ;;       https://github.com/org-roam/org-roam/pull/2509
     (let ((dummy-props '(:outline nil)))
       (cl-loop
        for link in (org-mem-all-links)
@@ -451,8 +449,9 @@ With SPECIFIC-FILES, only return data that involves those files."
 ;; Numeric times can mix-and-match with Lisp times, i.e. these return the same:
 ;;    (format-time-string "%F %T" (time-add (time-to-seconds) 100))
 ;;    (format-time-string "%F %T" (time-add (current-time) 100))
-;; So, we skip the overhead of `prin1-to-string' and just store integer mtime,
+;; So, we skip the overhead of `prin1-to-string' and just store numeric mtime,
 ;; unlike org-roam, which stores lists.
+;; Overhead is hundreds of ms. https://github.com/org-roam/org-roam/pull/2509
 
 (defun org-mem-roamy--mk-file-row (file)
   "Return a row for the files-table, with info about FILE."

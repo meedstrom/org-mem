@@ -668,7 +668,6 @@ What is valid?  See \"org-mem-test.el\"."
   (when roam-refs
     (with-current-buffer (if (eq (current-buffer) org-mem-scratch)
                              org-mem-scratch
-                           ;; (message "org-mem: Work buffer was not current")
                            (setq org-mem-scratch
                                  (get-buffer-create " *org-mem-scratch*" t)))
       (erase-buffer)
@@ -1021,7 +1020,7 @@ No-op if Org has not loaded."
                   "LOGBOOK"))))))
 
 ;; TODO: PR? It's useful.
-;; Copied from part of `org-link-make-regexps'
+;; Modified from part of `org-link-make-regexps'
 (defun org-mem--mk-plain-re (link-types)
   "Build a moral equivalent to `org-link-plain-re', to match LINK-TYPES."
   (let* ((non-space-bracket "[^][ \t\n()<>]")
@@ -1274,6 +1273,7 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
 ;;; End-user tool
 
 ;; Just one more thing an org-id refactor should think about.
+(declare-function org-id-locations-save "org-id")
 (defun org-mem-scrub-id-locations (dir)
   "Remove all references in `org-id-locations' to any files under DIR.
 
@@ -1294,12 +1294,13 @@ org-id-locations:
  (setq org-id-files nil)
  (setq org-id-extra-files nil))"
   (interactive "DForget all IDs recursively in directory: ")
+  (require 'org-id)
   (let ((files (nconc (org-mem--dir-files-recursive dir ".org_exclude" nil)
                       (org-mem--dir-files-recursive dir ".org" nil))))
     (when files
       (setq files (nconc files (mapcar #'org-mem--abbr-truename files)))
       (message "Forgetting all IDs in directory %s..." dir)
-      (redisplay)
+      (redisplay t)
       (maphash (lambda (id file)
                  (when (member file files)
                    (remhash id org-mem--id<>entry)
