@@ -88,9 +88,9 @@ In that case, there may be nothing wrong with the known name."
                    :load-features '(org-mem-parser)
                    :inputs (ensure-list files)
                    :funcall-per-input #'org-mem-parser--parse-file
-                   :callback #'org-mem-updater--finalize-targeted)))
+                   :callback #'org-mem-updater--finalize-targeted-scan)))
 
-(defun org-mem-updater--finalize-targeted (parse-results _job)
+(defun org-mem-updater--finalize-targeted-scan (parse-results _job)
   "Handle PARSE-RESULTS from `org-mem-updater--scan-targeted'."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
   (mapc #'clrhash (hash-table-values org-mem--key<>subtable))

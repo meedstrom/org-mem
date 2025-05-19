@@ -112,6 +112,7 @@ try command \\[org-mem-scrub-id-locations]."
   :type '(repeat directory)
   :package-version '(org-mem . "0.5.0"))
 
+;; REVIEW: Use backslashes on Windows?
 (defcustom org-mem-watch-dirs-exclude
   '("/logseq/bak/"
     "/logseq/version-files/"
@@ -626,7 +627,7 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
                    :load-features '(org-mem-parser)
                    :inputs #'org-mem--list-files-from-fs
                    :funcall-per-input #'org-mem-parser--parse-file
-                   :callback #'org-mem--finalize-full)))
+                   :callback #'org-mem--finalize-full-scan)))
       (when (eq result 'inputs-were-empty)
         (if org-mem-do-sync-with-org-id
             (message "No org-ids found.  If you know they exist, try M-x %S."
@@ -663,7 +664,7 @@ already current buffer:
 Buffer is in `fundamental-mode.'")
 
 (defvar org-mem--caused-retry nil)
-(defun org-mem--finalize-full (parse-results _job)
+(defun org-mem--finalize-full-scan (parse-results _job)
   "Handle PARSE-RESULTS from `org-mem--scan-full'."
   (run-hook-with-args 'org-mem-pre-full-scan-functions parse-results)
   (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
@@ -693,12 +694,12 @@ Buffer is in `fundamental-mode.'")
     (when org-mem--next-message
       (setq org-mem--next-message
             (format
-             "Org-mem saw %d ID-nodes and %d ID-links in %d files (%d subtrees, %d links) in %.2fs"
-             (length (org-mem-all-id-nodes))
-             (length (org-mem-all-id-links))
+             "Org-mem saw %d files, %d subtrees, %d links (%d IDs, %d ID-links) in %.2fs"
              (length (org-mem-all-files))
              (seq-count #'org-mem-entry-subtree-p (org-mem-all-entries))
              (length (org-mem-all-links))
+             (length (org-mem-all-id-nodes))
+             (length (org-mem-all-id-links))
              (float-time (time-since org-mem--time-at-begin-full-scan)))))
     (run-hook-with-args 'org-mem-post-full-scan-functions parse-results)
     (message "%s" org-mem--next-message)
@@ -731,7 +732,7 @@ Buffer is in `fundamental-mode.'")
         (file  (org-mem-entry-file entry))
         (title (org-mem-entry-title-maybe entry)))
     ;; NOTE: Puts entries in correct order because we're called by
-    ;; `org-mem--finalize-full' looping over entries in reverse order.
+    ;; `org-mem--finalize-full-scan' looping over entries in reverse order.
     (push entry (gethash file org-mem--file<>entries))
     (when id
       (org-mem--maybe-snitch-to-org-id entry)
@@ -858,23 +859,24 @@ Caches any non-nil result, so may return a name no longer correct."
                              org-mem--wild-filename<>abbr-truename)
                   (remhash wild-file org-mem--wild-filename<>abbr-truename))))))
 
-(defun org-mem--fast-abbrev (file-name)
-  "Abbreviate the absolute file name FILE-NAME.
-Faster than `abbreviate-file-name'."
+(defun org-mem--fast-abbrev (absolute-file-name)
+  "Abbreviate ABSOLUTE-FILE-NAME, faster than `abbreviate-file-name'."
   (let ((case-fold-search nil))
-    (setq file-name (directory-abbrev-apply file-name))
+    (setq absolute-file-name (directory-abbrev-apply absolute-file-name))
     (if (string-match (with-memoization (org-mem--table 0 'org-mem--fast-abbrev)
                         (directory-abbrev-make-regexp (expand-file-name "~")))
-                      file-name)
-        (concat "~" (substring file-name (match-beginning 1)))
-      file-name)))
+                      absolute-file-name)
+        (concat "~" (substring absolute-file-name (match-beginning 1)))
+      absolute-file-name)))
 
-;; If user has not caused Tramp to load, the FILE we get is unlikely to be a
-;; Tramp path.  If that assumption is wrong, issues should still go away on
-;; the first reset after Tramp load.
 (declare-function tramp-tramp-file-p "tramp")
 (defun org-mem--tramp-file-p (file)
-  "Pass FILE to `tramp-tramp-file-p' if Tramp loaded, else return nil."
+  "Pass FILE to `tramp-tramp-file-p' if Tramp loaded, else return nil.
+
+The reasoning is that if the user has not done something in this session
+to cause Tramp to load, the input FILE is unlikely to be a Tramp path.
+If nevertheless it is, org-mem may have problems, but these problems
+should go away after Tramp does load and `org-mem-reset' runs again."
   (and (featurep 'tramp)
        (tramp-tramp-file-p file)))
 
@@ -1310,7 +1312,7 @@ org-id-locations:
 
 
 (define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
-(define-obsolete-function-alias 'org-mem-dest                #'org-mem-link-target       "0.8.0 (2025-05-15)")
+(define-obsolete-function-alias 'org-mem-dest                #'org-mem-target            "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
 
 (provide 'org-mem)

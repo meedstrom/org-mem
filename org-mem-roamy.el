@@ -160,7 +160,8 @@ the database file on disk and write a new one, then connect to that."
                       (when (file-exists-p org-roam-db-location)
                         (delete-file org-roam-db-location))
                       (setq conn (org-roam-db))
-                      (setq name org-roam-db-location)
+                      (setq name (and org-roam-db-location
+                                      (file-name-nondirectory org-roam-db-location)))
                       (org-mem-roamy--populate-db-usably-for-emacsql
                        (eieio-oref conn 'handle)
                        (org-mem-roamy--mk-rows))))
