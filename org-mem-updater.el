@@ -93,17 +93,18 @@ In that case, there may be nothing wrong with the known name."
 (defun org-mem-updater--finalize-targeted-scan (parse-results _job)
   "Handle PARSE-RESULTS from `org-mem-updater--scan-targeted'."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
-  (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
   (seq-let (bad-paths file-data entries links problems) parse-results
     (when bad-paths
+      (org-mem-updater--forget-links-from-files bad-paths)
       (org-mem-updater--forget-file-contents bad-paths)
       (org-mem--invalidate-file-names bad-paths))
+    (org-mem-updater--forget-links-from-files (mapcar #'car file-data))
+    (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
     (with-current-buffer
         (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
       (dolist (datum file-data)
         (puthash (car datum) datum org-mem--file<>metadata)
         (run-hook-with-args 'org-mem-record-file-functions datum))
-      (org-mem-updater--forget-links-from-entries entries)
       (dolist (entry entries)
         (org-mem--record-entry entry)
         (run-hook-with-args 'org-mem-record-entry-functions entry))
@@ -121,8 +122,8 @@ In that case, there may be nothing wrong with the known name."
 
 (defun org-mem-updater--forget-file-contents (files)
   "Delete from tables, most info relating to FILES and their contents.
-You should also run `org-mem--invalidate-file-names'.
-and potentially `org-mem-updater--forget-links-from-entries'."
+You should also run `org-mem--invalidate-file-names',
+and potentially `org-mem-updater--forget-links-from-files'."
   (setq files (ensure-list files))
   (when files
     (with-current-buffer
@@ -136,27 +137,38 @@ and potentially `org-mem-updater--forget-links-from-entries'."
         (remhash file org-mem--file<>metadata)
         (run-hook-with-args 'org-mem-forget-file-functions file)))))
 
-(defvar org-mem-updater--target<>old-links (make-hash-table :test 'equal))
-(defun org-mem-updater--forget-links-from-entries (stale-entries)
-  "Remove from tables, all links from STALE-ENTRIES."
+;; For downstream use
+(defvar org-mem-updater--target<>old-links (make-hash-table :test 'equal)
+  "Previous state of `org-mem--target<>links' for some targets.")
+
+(defun org-mem-updater--forget-links-from-files (stale-files)
+  "Remove from tables, all links in STALE-FILES.
+Also clear `org-mem-updater--target<>old-links' and stash in it the
+relevant rows from `org-mem--target<>links' prior to updating those rows
+in the latter table."
   (clrhash org-mem-updater--target<>old-links)
-  (let ((eids (mapcar #'org-mem-entry--internal-id stale-entries))
+  (let ((stale-eids (mapcar #'org-mem-entry--internal-id
+                            (org-mem-entries-in-files stale-files)))
+        stale-links
         targets-to-update)
-    (dolist (eid eids)
+    (dolist (eid stale-eids)
       (dolist (link (gethash eid org-mem--internal-entry-id<>links))
         (unless (member (org-mem-link-target link) targets-to-update)
-          (push (org-mem-link-target link) targets-to-update))))
+          (push (org-mem-link-target link) targets-to-update)))
+      ;; Be hygienic, prolly not important.
+      (remhash eid org-mem--internal-entry-id<>links))
     (dolist (target targets-to-update)
-      (cl-loop
-       for link in (gethash target org-mem--target<>links)
-       if (memq (org-mem-link--internal-entry-id link) eids)
-       collect link into forgotten-links
-       else
-       collect link into reduced-link-set
-       finally do
-       (puthash target reduced-link-set org-mem--target<>links)
-       (puthash target (nconc forgotten-links reduced-link-set)
-                org-mem-updater--target<>old-links)))))
+      (let ((links (gethash target org-mem--target<>links)))
+        (puthash target links org-mem-updater--target<>old-links)
+        (cl-loop
+         for link in links
+         if (memq (org-mem-link--internal-entry-id link) stale-eids)
+         do (push link stale-links)
+         else collect link into reduced-link-set
+         finally do
+         (puthash target reduced-link-set org-mem--target<>links))))
+    (dolist (link stale-links)
+      (run-hook-with-args 'org-mem-forget-link-functions link))))
 
 
 ;;; Instant placeholders
