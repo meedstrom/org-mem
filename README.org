@@ -231,14 +231,6 @@ When TRAMP support is fixed, we should be able to fix this too.
 
 Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot find links inside these.
 
-** Limitation: =.org_archive=
-
-Files ending in =.org_archive= are excluded from org-mem's database.  Or rather, it's more correct to say that it only includes =.org= files.
-
-It is possible that IDs here get reported as "dead" IDs.
-
-*TBD:* test that.  Easily fixable if so.
-
 ** Robustness wishlist
 
 - Make it easier to debug the dependency [[https://github.com/meedstrom/el-job][el-job]]

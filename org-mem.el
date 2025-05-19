@@ -1168,8 +1168,10 @@ help to set user option `find-file-visit-truename', quit Emacs, delete
   (clrhash org-mem--dedup-tbl)
   (let ((file-name-handler-alist nil)) ;; PERF
     (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
-      (dolist (file (org-mem--dir-files-recursive
-                     dir ".org" org-mem-watch-dirs-exclude))
+      (dolist (file (nconc (org-mem--dir-files-recursive
+                            dir ".org" org-mem-watch-dirs-exclude)
+                           (org-mem--dir-files-recursive
+                            dir ".org_archive" org-mem-watch-dirs-exclude)))
         (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl)))
     ;; Maybe check org-id-locations.
     (when org-mem-do-sync-with-org-id
@@ -1301,7 +1303,7 @@ org-id-locations:
  (setq org-id-extra-files nil))"
   (interactive "DForget all IDs recursively in directory: ")
   (require 'org-id)
-  (let ((files (nconc (org-mem--dir-files-recursive dir ".org_exclude" nil)
+  (let ((files (nconc (org-mem--dir-files-recursive dir ".org_archive" nil)
                       (org-mem--dir-files-recursive dir ".org" nil))))
     (when files
       (setq files (nconc files (mapcar #'org-mem--abbr-truename files)))

@@ -60,7 +60,8 @@ differs, try to discover the known name variant and operate on that.
 
 However, do not do so when FILE itself satisfies `file-symlink-p'.
 In that case, there may be nothing wrong with the known name."
-  (when (and (string-suffix-p ".org" file)
+  (when (and (or (string-suffix-p ".org" file)
+                 (string-suffix-p ".org_archive" file))
              ;; Don't accidentally scrub Tramp files from org-id-locations
              ;; just because we chose to know nothing about them.
              (not (org-mem--tramp-file-p file)))
@@ -75,7 +76,8 @@ In that case, there may be nothing wrong with the known name."
 (defun org-mem-updater--handle-save (&optional file)
   "Arrange to scan entries and links in FILE, or current buffer file."
   (unless file (setq file buffer-file-truename))
-  (when (and (string-suffix-p ".org" file)
+  (when (and (or (string-suffix-p ".org" file)
+                 (string-suffix-p ".org_archive" file))
              (not (backup-file-name-p file))
              (not (org-mem--tramp-file-p file)))
     (org-mem-updater--scan-targeted file)))
