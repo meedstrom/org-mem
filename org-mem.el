@@ -106,8 +106,9 @@ Benefits of configuring it anyway:
 - React when new files appear in these directories.
   - Useful if this Emacs session is not the only program
     that may create, move or rename files.
-- Avert many situations that would otherwise trigger an execution of
-  `org-id-update-id-locations', which can take a while."
+
+Tip: If past misconfiguration has recorded duplicate IDs,
+try command \\[org-mem-scrub-id-locations]."
   :type '(repeat directory)
   :package-version '(org-mem . "0.5.0"))
 
@@ -1265,6 +1266,49 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
           (setq-local org-element-cache-persistent nil)
           (current-buffer)))))
 
+
+;;; End-user tool
+
+;; Just one more thing an org-id refactor should think about.
+(defun org-mem-scrub-id-locations (dir)
+  "Remove all references in `org-id-locations' to any files under DIR.
+
+Note that if DIR descends from a member of `org-mem-watch-dirs',
+this action may make no practical impact unless you also add DIR to
+`org-mem-watch-dirs-exclude'.
+This is because with `org-mem-do-sync-with-org-id' t, they simply get
+added again on next scan.
+
+Tip: In case of unsolvable problems, eval this to thoroughly wipe
+org-id-locations:
+
+\(progn
+ (delete-file org-id-locations-file)
+ (setq org-id-locations nil)
+ (setq org-id--locations-checksum nil)
+ (setq org-agenda-text-search-extra-files nil)
+ (setq org-id-files nil)
+ (setq org-id-extra-files nil))"
+  (interactive "DForget all IDs recursively in directory: ")
+  (let ((files (nconc (org-mem--dir-files-recursive dir ".org_exclude" nil)
+                      (org-mem--dir-files-recursive dir ".org" nil))))
+    (when files
+      (setq files (nconc files (mapcar #'org-mem--abbr-truename files)))
+      (message "Forgetting all IDs in directory %s..." dir)
+      (redisplay)
+      (maphash (lambda (id file)
+                 (when (member file files)
+                   (remhash id org-mem--id<>entry)
+                   (remhash id org-id-locations)))
+               org-id-locations)
+      (dolist (file files)
+        (remhash file org-mem--file<>entries)
+        (remhash file org-mem--file<>metadata))
+      (org-id-locations-save)
+      (message "Forgetting all IDs in directory %s...done" dir)
+      (org-mem--scan-full))))
+
+
 (define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-dest                #'org-mem-link-target       "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
