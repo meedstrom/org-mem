@@ -58,11 +58,10 @@
 
 (defcustom org-mem-do-cache-text nil
   "Whether to also cache text contents of all entries.
+Likely to slow down `org-mem-reset'.
 
 This makes the raw text available via accessor `org-mem-entry-text',
-which can be fontified via function `org-mem-fontify-like-org'.
-
-Likely to slow down `org-mem-reset'."
+and it can be fontified via function `org-mem-fontify-like-org'."
   :type 'boolean
   :package-version '(org-mem . "0.9.0"))
 
@@ -119,17 +118,21 @@ Benefits of configuring it anyway:
     ".sync-conflict-"
     ".#"
     "/backup")
-  "Path substrings of files that should not be scanned.
+  "Literal substrings of file paths that should not be scanned.
+Aside from this variable, some filters are hard-coded:
 
-It is not necessary to add rules here covering autosaves that end in ~
-or # or .bak, since the workhorse `org-mem--list-files-from-fs' only
-considers files that end in precisely \".org\" anyway.
+- We only scan files that end in precisely \".org\"
+  - Thus files ending in ~, # or similar are excluded in any case
+- We exclude subdirectories that start with a period or underscore
+  - Thus directories like \".git\" \"_site\" are excluded in any case
+- We exclude symlinks
 
-You can eke out a performance boost by excluding directories with a
-humongous amount of files, such as the infamous \"node_modules\", even
-if they contain no Org files.  However, directories that start with a
-period or underscore are always ignored, so no need to add rules for
-e.g. \"/.local/\", \"/.git/\" or \"/_site/\" for that reason."
+Main reason to configure this is to prevent counting back-ups
+and autosave files as duplicate ID locations.
+
+You can also speed up `org-mem-reset' by excluding directories with a
+humongous amount of files \(on the order of 100,000), such as the
+infamous \"node_modules\", even if they contain no Org files."
   :type '(repeat string)
   :package-version '(org-mem . "0.2.0"))
 

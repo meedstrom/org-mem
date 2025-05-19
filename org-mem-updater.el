@@ -48,7 +48,7 @@
 (defun org-mem-updater--handle-rename (file newname &rest _)
   "Arrange to scan NEWNAME for entries and links, and forget FILE."
   (org-mem-updater--handle-delete file)
-  (cl-assert newname)
+  (cl-assert newname) ;; b/c below func would accept nil
   (org-mem-updater--handle-save newname))
 
 (defun org-mem-updater--handle-save (&optional file)

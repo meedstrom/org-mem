@@ -9,7 +9,7 @@ A cache of metadata about the structure of all your Org files -- headings, links
 Builds quickly, so that there is no need to persist data across sessions. My =M-x org-mem-reset=:
 
 #+begin_example
-Org-mem saw 3397 ID-nodes and 4845 ID-links in 2394 files, 8834 subtrees, 5560 links in 1.37s (+ 0.16s making SQLite DB)
+Org-mem saw 2418 files, 8388 subtrees, 8624 links (3418 IDs, 4874 ID-links) in 1.95s + 0.93s writing SQLite DB
 #+end_example
 
 This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
@@ -77,7 +77,7 @@ A design choice: Org-mem does not use Org code to analyze your files, but a [[ht
 
    In fact, =org-mem-updater-mode= does a bit of both, because it is still important that saving a file does not lag;  it does its best to update only the necessary tables on save, and an idle timer triggers a full reset every now and then.
 
-** Appendix I: A SQLite database, for free
+** A SQLite database, for free
 
 Included is a drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(org-mem-roamy-db)=.
 
@@ -126,7 +126,7 @@ A known issue when when you use multiple Emacsen: "attempt to write a readonly d
 
 Use the command =M-x org-mem-list-db-contents=.
 
-** Appendix II: Elisp API
+** Elisp API
 
 We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some simplifications:
 
@@ -213,3 +213,36 @@ As of [2025-05-15 Thu 12:04], the full list of functions:
 - =org-mem-links-with-type-and-path=
 - =org-mem-next-entry=
 - =org-mem-previous-entry=
+
+* Current limitations / future work
+** Limitation: TRAMP
+
+Files over TRAMP are excluded from org-mem's database, so as far as org-mem is concerned, it is as if they do not exist.
+
+(However, org-mem is also careful not to scrub them from your =org-id-locations=, so your ID-links should still work.)
+
+This limitation comes from the fact that org-mem parses your files in many parallel subprocesses that do not inherit your TRAMP setup.  It is fixable in theory.
+
+** Limitation: Encrypted and compressed files (=.org.gpg=, =.org.gz=)
+
+When TRAMP support is fixed, we should be able to fix this too.
+
+** Limitation: Encrypted entries
+
+Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot find links inside these.
+
+** Limitation: =.org_archive=
+
+Files ending in =.org_archive= are excluded from org-mem's database.  Or rather, it's more correct to say that it only includes =.org= files.
+
+It is possible that IDs here get reported as "dead" IDs.
+
+*TBD:* test that.  Easily fixable if so.
+
+** Robustness wishlist
+
+- Make it easier to debug the dependency [[https://github.com/meedstrom/el-job][el-job]]
+
+  - It's not so hard when you understand elisp process handling, but it can print pretty unhelpful messages when something goes wrong, leaving regular users lost.
+
+  - It uses a poll timer, which means Emacs demotes some errors to messages and won't enter the debugger.  (2.4.7)
