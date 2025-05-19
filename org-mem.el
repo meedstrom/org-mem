@@ -1050,13 +1050,14 @@ See helper `org-mem--abbr-truename'.")
 (defvar org-mem--first-run t
   "Hack preventing the use of `file-truename' at init.
 Results are often correct anyway, and file-names found to be bad will be
-fixed by a re-scan.  As `file-truename' can be quite slow on some
-filesystems, it would be a bad idea to execute it for every individual
-file, noticeably slowing down init.")
+fixed by an automatic re-scan.
 
-;; Biggest reason Org-mem may not support Tramp is that the parser runs in
-;; child Elisp processes that do not inherit your Tramp setup.
-;; So a design requirement is don't touch Tramp files -- neither analyze them,
+As `file-truename' can be quite slow in some environments, it would be a
+bad idea to execute it for every individual file on the first scan.
+This hack effectively makes it so that it never needs to execute for the
+majority of files.")
+
+;; A design requirement is don't touch Tramp files -- neither analyze them,
 ;; nor scrub them from org-id-locations or the like.
 ;; Having this function return nil is one way to do that.
 (defun org-mem--abbr-truename (wild-file)
@@ -1097,7 +1098,7 @@ should go away after Tramp does load and `org-mem-reset' runs again."
 
 (defun org-mem--invalidate-file-names (bad)
   "Scrub bad file names BAD in the tables that can pollute a reset.
-Notably, invalidate the cache used by `org-mem--abbr-truename'.
+Notably, invalidate part of the cache used by `org-mem--abbr-truename'.
 If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
   (dolist (bad bad)
     (remhash bad org-mem--wild-filename<>abbr-truename))
@@ -1120,7 +1121,7 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
 
 ;;; File discovery
 
-;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.006 s
+;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.026 s
 ;; (benchmark-call #'org-roam-list-files)          => 4.141 s
 (defvar org-mem--last-daa 0)
 (defvar org-mem--last-trampp (featurep 'tramp))
@@ -1142,18 +1143,23 @@ is possible, though unlikely, that some resulting file names cannot be
 cross-referenced with `org-id-locations' even though that is where this
 function found out about the files.
 
-If you have experienced such issues, it may help to set user option
-`find-file-visit-truename', quit Emacs, delete `org-id-locations-file',
-and restart.  Or make frequent use of `org-mem--abbr-truename'."
+If you have experienced issues programming against that reality, it may
+help to set user option `find-file-visit-truename', quit Emacs, delete
+`org-id-locations-file', and restart.  Or make frequent use of
+`org-mem--abbr-truename'."
   (unless (or org-mem-watch-dirs org-mem-do-sync-with-org-id)
     (error "At least one setting must be non-nil: `org-mem-watch-dirs' or `org-mem-do-sync-with-org-id'"))
+  ;; One of many complications we incur due to the original sin: upstream
+  ;; org-id's choice to abbreviate file names.  It is after all possible for
+  ;; `directory-abbrev-alist' to change during runtime.
   (when (or (not (eq org-mem--last-trampp (featurep 'tramp)))
             (not (eq org-mem--last-daa (sxhash directory-abbrev-alist))))
     (clrhash org-mem--wild-filename<>abbr-truename)
     (setq org-mem--last-trampp (featurep 'tramp))
     (setq org-mem--last-daa (sxhash directory-abbrev-alist)))
+
   (clrhash org-mem--dedup-tbl)
-  (let ((file-name-handler-alist nil))
+  (let ((file-name-handler-alist nil)) ;; PERF
     (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
       (dolist (file (org-mem--dir-files-recursive
                      dir ".org" org-mem-watch-dirs-exclude))
