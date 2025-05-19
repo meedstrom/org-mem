@@ -468,44 +468,72 @@ With SPECIFIC-FILES, only return data that involves those files."
 (defvar org-mem-roamy--async-new-rows nil)
 (defun org-mem-roamy--update-db (parse-results)
   "Update currently connected DB, with data from PARSE-RESULTS.
-Suitable on `org-mem-post-targeted-scan-functions'."
-  (let* ((db (eieio-oref (org-mem-roamy-db) 'handle))
-         (db-file (eieio-oref (org-mem-roamy-db) 'file))
-         (sqlite3 (and db-file (executable-find "sqlite3")))
-         (newly-parsed-files (mapcar #'car (nth 1 parse-results)))
-         (bad-paths (nth 0 parse-results)))
-    (if (and org-mem-roamy-do-try-async
-             sqlite3
-             (fboundp 'emacsql-close)
-             (fboundp 'org-roam-db))
-        ;; Do the deletion async.  Otherwise Emacs blocks for seconds
+Designed for `org-mem-post-targeted-scan-functions'."
+  (seq-let (bad-paths file-data entries) parse-results
+    (when (or bad-paths file-data)
+      (let* ((T (current-time))
+             (db (eieio-oref (org-mem-roamy-db) 'handle))
+             (db-file (eieio-oref (org-mem-roamy-db) 'file))
+             (sqlite3 (executable-find "sqlite3"))
+             (newly-parsed-files (mapcar #'car file-data))
+             (deletion-queries
+              (append
+               (cl-loop
+                for file in (append bad-paths newly-parsed-files)
+                collect (format "DELETE FROM files WHERE file LIKE '%s';"
+                                (prin1-to-string file)))
+               ;; Prevent "FOREIGN KEY constraint failed" or "UNIQUE
+               ;; constraint failed" in case an entry got refiled to a
+               ;; different file, and that file gets saved without saving the
+               ;; previous file.  In that case, we're about to add entries
+               ;; that appear to already exist in another location.
+               (cl-loop
+                for entry in entries
+                as id = (and (org-mem-entry-id entry)
+                             (not (member (org-mem-entry-file entry)
+                                          newly-parsed-files))
+                             (prin1-to-string (org-mem-entry-id entry)))
+                when id
+                collect (format "DELETE FROM nodes WHERE id LIKE '%s';"
+                                id)
+                and collect (format "DELETE FROM links WHERE source LIKE '%s';"
+                                    id)))))
+        ;; Maybe do the deletion async.  Otherwise Emacs blocks for seconds
         ;; waiting for sqlite to cascade-delete a big file.
-        (let ((query
-               (concat "PRAGMA foreign_keys = on; "
-                       (cl-loop
-                        for file in (append newly-parsed-files bad-paths)
-                        concat (format "DELETE FROM files WHERE file LIKE '%s';"
-                                       (prin1-to-string file))))))
-          (emacsql-close (org-mem-roamy-db))
-          (make-process
-           :name "org-mem-roamy"
-           :command (list sqlite3 db-file query)
-           :noquery t
-           :sentinel (lambda (_process _event)
-                       (when org-mem-roamy--async-new-rows
-                         (org-mem-roamy--populate-db-usably-for-emacsql
-                          (eieio-oref (org-roam-db) 'handle)
-                          org-mem-roamy--async-new-rows))))
-          (setq org-mem-roamy--async-new-rows
-                (and newly-parsed-files
-                     (org-mem-roamy--mk-rows newly-parsed-files))))
-      ;; Basic method
-      (dolist (file (append newly-parsed-files bad-paths))
-        (sqlite-execute db "DELETE FROM files WHERE file LIKE ?;"
-                        (list (prin1-to-string file))))
-      (when newly-parsed-files
-        (org-mem-roamy--populate-db-usably-for-emacsql
-         db (org-mem-roamy--mk-rows newly-parsed-files))))))
+        ;; Alas, an in-memory db can't be async...
+        (if (and org-mem-roamy-do-try-async
+                 db-file
+                 sqlite3
+                 (fboundp 'emacsql-close)
+                 (fboundp 'org-roam-db))
+            (progn
+              (emacsql-close (org-roam-db))
+              (make-process
+               :name "sqlite3-org-mem-roamy"
+               :command (list sqlite3
+                              db-file
+                              (concat "PRAGMA foreign_keys = on; "
+                                      (apply #'concat deletion-queries)))
+               :noquery t
+               :sentinel (lambda (_process _event)
+                           (when org-mem-roamy--async-new-rows
+                             (org-mem-roamy--populate-db-usably-for-emacsql
+                              (eieio-oref (org-roam-db) 'handle)
+                              org-mem-roamy--async-new-rows))))
+              (setq org-mem-roamy--async-new-rows
+                    (and newly-parsed-files
+                         (org-mem-roamy--mk-rows newly-parsed-files))))
+          ;; Non-async method
+          (dolist (query deletion-queries)
+            (sqlite-execute db query))
+          (let ((elapsed (float-time (time-since T))))
+            (when (> elapsed 0.5)
+              (message "org-mem-roamy--update-db: SQL DELETE took %.2fs"
+                       elapsed)))
+          (when newly-parsed-files
+            (org-mem-roamy--populate-db-usably-for-emacsql
+             db
+             (org-mem-roamy--mk-rows newly-parsed-files))))))))
 
 
 ;;; Translators
