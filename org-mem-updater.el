@@ -51,14 +51,6 @@
   (cl-assert newname) ;; b/c below func would accept nil
   (org-mem-updater--handle-save newname))
 
-(defun org-mem-updater--handle-save (&optional file)
-  "Arrange to scan entries and links in FILE or current buffer file."
-  (unless file (setq file buffer-file-truename))
-  (when (and (string-suffix-p ".org" file)
-             (not (backup-file-name-p file))
-             (not (org-mem--tramp-file-p file)))
-    (org-mem-updater--scan-targeted file)))
-
 (defun org-mem-updater--handle-delete (file &optional _trash)
   "Forget entries and links in FILE.
 
@@ -79,6 +71,14 @@ In that case, there may be nothing wrong with the known name."
       (org-mem-updater--forget-file-contents bad)
       (org-mem--invalidate-file-names bad)
       (mapc #'clrhash (hash-table-values org-mem--key<>subtable)))))
+
+(defun org-mem-updater--handle-save (&optional file)
+  "Arrange to scan entries and links in FILE, or current buffer file."
+  (unless file (setq file buffer-file-truename))
+  (when (and (string-suffix-p ".org" file)
+             (not (backup-file-name-p file))
+             (not (org-mem--tramp-file-p file)))
+    (org-mem-updater--scan-targeted file)))
 
 (defun org-mem-updater--scan-targeted (files)
   "Arrange to scan FILES."

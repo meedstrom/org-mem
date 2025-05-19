@@ -565,6 +565,221 @@ case that there exists a file-level ID but no #+title:, or vice versa."
                             (org-mem-entry-file file/entry))))))
 
 
+;;; Optional: Aliases and refs support
+
+;; This used to come with `org-mem-roamy-db-mode', but bundling it here:
+;; - allows a nicer namespace.
+;; - frees Org-node users from needing to enable that mode at all.
+
+;; Despite their names, properties ROAM_ALIASES and ROAM_REFS are not
+;; only used by Org-roam, but can be seen as an emerging standard concept.
+;; They need special handling because:
+
+;; 1. These properties' values should be transformed from string to list via
+;;    bespoke methods, not the generic `org-entry-get-multivalued-property'.
+;; 2. The refs and aliases fished out of above lists should be cached, because
+;;    they may be consulted a lot (just like vanilla IDs and titles), and it
+;;    lets us check for collisions.
+
+(defvar org-mem--id<>roam-refs (make-hash-table :test 'equal)
+  "1:1 table mapping an ID to a list of ROAM_REFS substrings.")
+
+(defvar org-mem--roam-ref<>id (make-hash-table :test 'equal)
+  "1:1 table mapping a ROAM_REFS member to the nearby ID property.")
+
+;; REVIEW: is it possible to get rid of this?
+(defvar org-mem--roam-ref<>type (make-hash-table :test 'equal)
+  "1:1 table mapping a ROAM_REFS member to its link type if any.")
+
+(defun org-mem-entry-roam-aliases (entry)
+  "Alternative titles for ENTRY, taken from property ROAM_ALIASES."
+  (when-let* ((aliases (org-mem-entry-property "ROAM_ALIASES" entry)))
+    (split-string-and-unquote aliases)))
+
+(defun org-mem-entry-roam-refs (entry)
+  "Valid substrings taken from property ROAM_REFS in ENTRY.
+These substrings are determined by `org-mem--split-roam-refs-field'."
+  (gethash (org-mem-entry-id entry) org-mem--id<>roam-refs))
+
+(defun org-mem-roam-reflinks-to-entry (entry)
+  "All links that point to a substring of ENTRY\\='s ROAM_REFS."
+  (cl-loop for ref in (org-mem-entry-roam-refs entry)
+           append (org-mem-links-to-roam-ref ref)))
+
+(defun org-mem-entry-by-roam-ref (ref)
+  "The entry that has ROAM_REFS property matching REF."
+  (org-mem-entry-by-id (gethash ref org-mem--roam-ref<>id)))
+
+(defun org-mem-links-to-roam-ref (ref)
+  "All links to REF."
+  (and ref (gethash ref org-mem--target<>links)))
+
+(defun org-mem-all-roam-reflinks ()
+  "All links targeting some existing ROAM_REFS."
+  (cl-loop for ref being each hash-key of org-mem--roam-ref<>id
+           append (gethash ref org-mem--target<>links)))
+
+(defun org-mem--record-roam-aliases-and-refs (entry)
+  "Add ENTRY\\='s ROAM_ALIASES and ROAM_REFS to tables."
+  (when-let* ((id (org-mem-entry-id entry)))
+    (dolist (alias (org-mem-entry-roam-aliases entry))
+      ;; Include aliases in the collision-checks
+      (when-let* ((other-id (gethash alias org-mem--title<>id)))
+        (unless (string= id other-id)
+          (push (list (format-time-string "%H:%M") alias id other-id)
+                org-mem--title-collisions)))
+      (puthash alias id org-mem--title<>id))
+    (when-let* ((refs (org-mem--split-roam-refs-field
+                       (org-mem-entry-property "ROAM_REFS" entry))))
+      (puthash id refs org-mem--id<>roam-refs)
+      (dolist (ref refs)
+        (puthash ref id org-mem--roam-ref<>id)))))
+
+(defun org-mem--forget-roam-aliases-and-refs (entry)
+  "Remove ENTRY\\='s ROAM_ALIASES and ROAM_REFS from dedicated tables."
+  (dolist (ref (org-mem-entry-roam-refs entry))
+    (remhash (gethash ref org-mem--roam-ref<>id) org-mem--id<>roam-refs)
+    (remhash ref org-mem--roam-ref<>id))
+  (dolist (alias (org-mem-entry-roam-aliases entry))
+    (remhash alias org-mem--title<>id)))
+
+(defun org-mem--split-roam-refs-field (roam-refs)
+  "Extract valid components of a ROAM-REFS field.
+What is valid?  See \"org-mem-test.el\"."
+  (when roam-refs
+    (with-current-buffer (if (eq (current-buffer) org-mem-scratch)
+                             org-mem-scratch
+                           ;; (message "org-mem: Work buffer was not current")
+                           (setq org-mem-scratch
+                                 (get-buffer-create " *org-mem-scratch*" t)))
+      (erase-buffer)
+      (insert roam-refs)
+      (goto-char 1)
+      (let (links beg end colon-pos)
+        ;; Extract all [[bracketed links]]
+        (while (search-forward "[[" nil t)
+          (setq beg (match-beginning 0))
+          (if (setq end (search-forward "]]" nil t))
+              (progn
+                (goto-char beg)
+                (push (buffer-substring (+ 2 beg) (1- (search-forward "]")))
+                      links)
+                (delete-region beg end))
+            (error "Missing close-bracket in ROAM_REFS property %s" roam-refs)))
+        ;; Return merged list
+        (cl-loop
+         for link? in (append links (split-string-and-unquote (buffer-string)))
+         ;; @citekey or &citekey
+         if (string-match (rx (or bol (any ";:"))
+                              (group (any "@&")
+                                     (+ (not (any " ;]")))))
+                          link?)
+         ;; Replace & with @
+         collect (let ((path (substring (match-string 1 link?) 1)))
+                   (puthash path nil org-mem--roam-ref<>type)
+                   (concat "@" path))
+         ;; Some sort of uri://path
+         else when (setq colon-pos (string-search ":" link?))
+         collect (let ((path (string-replace
+                              "%20" " "
+                              (substring link? (1+ colon-pos)))))
+                   ;; Remember the uri: prefix for pretty completions
+                   (puthash path (substring link? 0 colon-pos)
+                            org-mem--roam-ref<>type)
+                   ;; .. but the actual ref is just the //path
+                   path))))))
+
+(add-hook 'org-mem-record-entry-functions
+          #'org-mem--record-roam-aliases-and-refs -10)
+
+(add-hook 'org-mem-forget-entry-functions
+          #'org-mem--forget-roam-aliases-and-refs -10)
+
+
+;;; Optional: Short names
+
+;; These definitions are not used inside this file,
+;; only convenience for end users (and for quick prototyping).
+;; Up to them to write code readably.
+
+(defalias 'org-mem-deadline                    #'org-mem-entry-deadline)
+(defalias 'org-mem-heading-lvl                 #'org-mem-entry-level) ;; feels more legible
+(defalias 'org-mem-level                       #'org-mem-entry-level)
+(defalias 'org-mem-lnum                        #'org-mem-entry-lnum)
+(defalias 'org-mem-olpath                      #'org-mem-entry-olpath)
+(defalias 'org-mem-olpath-with-self            #'org-mem-entry-olpath-with-self)
+(defalias 'org-mem-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-title)
+(defalias 'org-mem-olpath-with-title           #'org-mem-entry-olpath-with-title)
+(defalias 'org-mem-olpath-with-title-with-self #'org-mem-entry-olpath-with-title-with-self)
+(defalias 'org-mem-priority                    #'org-mem-entry-priority)
+(defalias 'org-mem-properties                  #'org-mem-entry-properties)
+(defalias 'org-mem-roam-aliases                #'org-mem-entry-roam-aliases)
+(defalias 'org-mem-roam-refs                   #'org-mem-entry-roam-refs)
+(defalias 'org-mem-scheduled                   #'org-mem-entry-scheduled)
+(defalias 'org-mem-subtree-p                   #'org-mem-entry-subtree-p)
+(defalias 'org-mem-tags                        #'org-mem-entry-tags)
+(defalias 'org-mem-tags-inherited              #'org-mem-entry-tags-inherited)
+(defalias 'org-mem-tags-local                  #'org-mem-entry-tags-local)
+(defalias 'org-mem-text                        #'org-mem-entry-text)
+(defalias 'org-mem-title                       #'org-mem-entry-title)
+(defalias 'org-mem-todo-state                  #'org-mem-entry-todo-state)
+
+(defalias 'org-mem-target         #'org-mem-link-target)
+(defalias 'org-mem-nearby-id      #'org-mem-link-nearby-id)
+(defalias 'org-mem-type           #'org-mem-link-type)
+(defalias 'org-mem-citation-p     #'org-mem-link-citation-p)
+
+;;; Short names, with polymorphism
+
+(cl-defgeneric org-mem-pos (entry/link)
+  "Char position of ENTRY/LINK."
+  (:method ((xx org-mem-entry)) (org-mem-entry-pos xx))
+  (:method ((xx org-mem-link)) (org-mem-link-pos xx)))
+
+(cl-defgeneric org-mem-file (entry/link)
+  "File name where ENTRY/LINK found."
+  (:method ((xx org-mem-entry)) (org-mem-entry-file xx))
+  (:method ((xx org-mem-link)) (org-mem-link-file xx)))
+
+(cl-defgeneric org-mem-id (entry/file)
+  "ID property of ENTRY/FILE - if file name, the file-level ID."
+  (:method ((xx org-mem-entry)) (org-mem-entry-id xx))
+  (:method ((xx string)) (org-mem-file-id-strict xx)))
+
+(cl-defgeneric org-mem-title (entry/file)
+  "Title of ENTRY/FILE - if file name, the value of #+title setting."
+  (:method ((xx org-mem-entry)) (org-mem-entry-title xx))
+  (:method ((xx string)) (org-mem-file-title-strict xx)))
+
+(cl-defgeneric org-mem-roam-reflinks-to (entry/id/file)
+  "All reflinks to or into ENTRY/ID/FILE."
+  (:method ((xx org-mem-entry)) (org-mem-roam-reflinks-to-entry xx))
+  (:method ((xx string))
+           (if-let* ((entry (org-mem-entry-by-id xx)))
+               (org-mem-roam-reflinks-to-entry entry)
+             (seq-mapcat #'org-mem-roam-reflinks-to-entry
+                         (org-mem-entries-in-file xx)))))
+
+(cl-defgeneric org-mem-links-to (entry/id/file)
+  "All links to or into ENTRY/ID/FILE."
+  (:method ((xx org-mem-entry)) (org-mem-links-to-entry xx))
+  (:method ((xx string))
+           (if-let* ((entry (org-mem-entry-by-id xx)))
+               (org-mem-links-to-entry entry)
+             (org-mem-links-to-file xx))))
+
+(defun org-mem-id-links-to (entry/id/file)
+  "All ID-links to or into ENTRY/ID/FILE."
+  (seq-filter (##equal (org-mem-link-type %) "id")
+              (org-mem-links-to entry/id/file)))
+
+(defun org-mem-entries-in (file/files)
+  "All entries in FILE/FILES."
+  (funcall (if (listp file/files) #'org-mem-entries-in-files
+             #'org-mem-entries-in-file)
+           file/files))
+
+
 ;;; Core logic
 
 (defvar org-mem-pre-full-scan-functions nil
@@ -999,230 +1214,6 @@ Does not modify the match data."
     result))
 
 
-;;; Optional: Aliases and refs support
-
-;; This used to come with `org-mem-roamy-db-mode', but bundling it here:
-;; - allows a nicer namespace.
-;; - frees Org-node users from needing to enable that mode at all.
-
-;; Despite their names, properties ROAM_ALIASES and ROAM_REFS are not
-;; only used by Org-roam, but can be seen as an emerging standard concept.
-;; They need special handling because:
-
-;; 1. These properties' values should be transformed from string to list via
-;;    bespoke methods, not the generic `org-entry-get-multivalued-property'.
-;; 2. The refs and aliases fished out of above lists should be cached, because
-;;    they may be consulted a lot (just like vanilla IDs and titles), and it
-;;    lets us check for collisions.
-
-(defvar org-mem--id<>roam-refs (make-hash-table :test 'equal)
-  "1:1 table mapping an ID to a list of ROAM_REFS substrings.")
-
-(defvar org-mem--roam-ref<>id (make-hash-table :test 'equal)
-  "1:1 table mapping a ROAM_REFS member to the nearby ID property.")
-
-;; REVIEW: is it possible to get rid of this?
-(defvar org-mem--roam-ref<>type (make-hash-table :test 'equal)
-  "1:1 table mapping a ROAM_REFS member to its link type if any.")
-
-(defun org-mem-entry-roam-aliases (entry)
-  "Alternative titles for ENTRY, taken from property ROAM_ALIASES."
-  (when-let* ((aliases (org-mem-entry-property "ROAM_ALIASES" entry)))
-    (split-string-and-unquote aliases)))
-
-(defun org-mem-entry-roam-refs (entry)
-  "Valid substrings taken from property ROAM_REFS in ENTRY.
-These substrings are determined by `org-mem--split-roam-refs-field'."
-  (gethash (org-mem-entry-id entry) org-mem--id<>roam-refs))
-
-(defun org-mem-roam-reflinks-to-entry (entry)
-  "All links that point to a substring of ENTRY\\='s ROAM_REFS."
-  (cl-loop for ref in (org-mem-entry-roam-refs entry)
-           append (org-mem-links-to-roam-ref ref)))
-
-(defun org-mem-entry-by-roam-ref (ref)
-  "The entry that has ROAM_REFS property matching REF."
-  (org-mem-entry-by-id (gethash ref org-mem--roam-ref<>id)))
-
-(defun org-mem-links-to-roam-ref (ref)
-  "All links to REF."
-  (and ref (gethash ref org-mem--target<>links)))
-
-(defun org-mem-all-roam-reflinks ()
-  "All links targeting some existing ROAM_REFS."
-  (cl-loop for ref being each hash-key of org-mem--roam-ref<>id
-           append (gethash ref org-mem--target<>links)))
-
-(defun org-mem--record-roam-aliases-and-refs (entry)
-  "Add ENTRY\\='s ROAM_ALIASES and ROAM_REFS to tables."
-  (when-let* ((id (org-mem-entry-id entry)))
-    (dolist (alias (org-mem-entry-roam-aliases entry))
-      ;; Include aliases in the collision-checks
-      (when-let* ((other-id (gethash alias org-mem--title<>id)))
-        (unless (string= id other-id)
-          (push (list (format-time-string "%H:%M") alias id other-id)
-                org-mem--title-collisions)))
-      (puthash alias id org-mem--title<>id))
-    (when-let* ((refs (org-mem--split-roam-refs-field
-                       (org-mem-entry-property "ROAM_REFS" entry))))
-      (puthash id refs org-mem--id<>roam-refs)
-      (dolist (ref refs)
-        (puthash ref id org-mem--roam-ref<>id)))))
-
-(defun org-mem--forget-roam-aliases-and-refs (entry)
-  "Remove ENTRY\\='s ROAM_ALIASES and ROAM_REFS from dedicated tables."
-  (dolist (ref (org-mem-entry-roam-refs entry))
-    (remhash (gethash ref org-mem--roam-ref<>id) org-mem--id<>roam-refs)
-    (remhash ref org-mem--roam-ref<>id))
-  (dolist (alias (org-mem-entry-roam-aliases entry))
-    (remhash alias org-mem--title<>id)))
-
-(defun org-mem--split-roam-refs-field (roam-refs)
-  "Extract valid components of a ROAM-REFS field.
-What is valid?  See \"org-mem-test.el\"."
-  (when roam-refs
-    (with-current-buffer (if (eq (current-buffer) org-mem-scratch)
-                             org-mem-scratch
-                           ;; (message "org-mem: Work buffer was not current")
-                           (setq org-mem-scratch
-                                 (get-buffer-create " *org-mem-scratch*" t)))
-      (erase-buffer)
-      (insert roam-refs)
-      (goto-char 1)
-      (let (links beg end colon-pos)
-        ;; Extract all [[bracketed links]]
-        (while (search-forward "[[" nil t)
-          (setq beg (match-beginning 0))
-          (if (setq end (search-forward "]]" nil t))
-              (progn
-                (goto-char beg)
-                (push (buffer-substring (+ 2 beg) (1- (search-forward "]")))
-                      links)
-                (delete-region beg end))
-            (error "Missing close-bracket in ROAM_REFS property %s" roam-refs)))
-        ;; Return merged list
-        (cl-loop
-         for link? in (append links (split-string-and-unquote (buffer-string)))
-         ;; @citekey or &citekey
-         if (string-match (rx (or bol (any ";:"))
-                              (group (any "@&")
-                                     (+ (not (any " ;]")))))
-                          link?)
-         ;; Replace & with @
-         collect (let ((path (substring (match-string 1 link?) 1)))
-                   (puthash path nil org-mem--roam-ref<>type)
-                   (concat "@" path))
-         ;; Some sort of uri://path
-         else when (setq colon-pos (string-search ":" link?))
-         collect (let ((path (string-replace
-                              "%20" " "
-                              (substring link? (1+ colon-pos)))))
-                   ;; Remember the uri: prefix for pretty completions
-                   (puthash path (substring link? 0 colon-pos)
-                            org-mem--roam-ref<>type)
-                   ;; .. but the actual ref is just the //path
-                   path))))))
-
-(add-hook 'org-mem-record-entry-functions
-          #'org-mem--record-roam-aliases-and-refs -10)
-
-(add-hook 'org-mem-forget-entry-functions
-          #'org-mem--forget-roam-aliases-and-refs -10)
-
-
-;;; Optional: Short names
-
-;; These definitions are not used inside this file,
-;; only convenience for end users (and throwaway code).
-;; Up to them to write code readably.
-
-;; I suggest that using a short getter is fine if the argument is aptly named.
-;; I.e.:
-;;    (org-mem-links-to entry)
-;; is just as good as this with a poorly named argument "x":
-;;    (org-mem-links-to-entry x)
-;; and this is also fine but can feel like a lot of typing:
-;;    (org-mem-links-to-entry entry)
-;; but this is not good:
-;;    (org-mem-links-to x)
-
-(defalias 'org-mem-deadline                    #'org-mem-entry-deadline)
-(defalias 'org-mem-heading-lvl                 #'org-mem-entry-level) ;; feels more legible
-(defalias 'org-mem-level                       #'org-mem-entry-level)
-(defalias 'org-mem-lnum                        #'org-mem-entry-lnum)
-(defalias 'org-mem-olpath                      #'org-mem-entry-olpath)
-(defalias 'org-mem-olpath-with-self            #'org-mem-entry-olpath-with-self)
-(defalias 'org-mem-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-title)
-(defalias 'org-mem-olpath-with-title           #'org-mem-entry-olpath-with-title)
-(defalias 'org-mem-olpath-with-title-with-self #'org-mem-entry-olpath-with-title-with-self)
-(defalias 'org-mem-priority                    #'org-mem-entry-priority)
-(defalias 'org-mem-properties                  #'org-mem-entry-properties)
-(defalias 'org-mem-roam-aliases                #'org-mem-entry-roam-aliases)
-(defalias 'org-mem-roam-refs                   #'org-mem-entry-roam-refs)
-(defalias 'org-mem-scheduled                   #'org-mem-entry-scheduled)
-(defalias 'org-mem-subtree-p                   #'org-mem-entry-subtree-p)
-(defalias 'org-mem-tags                        #'org-mem-entry-tags)
-(defalias 'org-mem-tags-inherited              #'org-mem-entry-tags-inherited)
-(defalias 'org-mem-tags-local                  #'org-mem-entry-tags-local)
-(defalias 'org-mem-title                       #'org-mem-entry-title)
-(defalias 'org-mem-todo-state                  #'org-mem-entry-todo-state)
-
-(defalias 'org-mem-target         #'org-mem-link-target)
-(defalias 'org-mem-nearby-id      #'org-mem-link-nearby-id)
-(defalias 'org-mem-type           #'org-mem-link-type)
-(defalias 'org-mem-citation-p     #'org-mem-link-citation-p)
-
-;;; Short names, with polymorphism
-
-(cl-defgeneric org-mem-pos (entry/link)
-  "Char position of ENTRY/LINK."
-  (:method ((xx org-mem-entry)) (org-mem-entry-pos xx))
-  (:method ((xx org-mem-link)) (org-mem-link-pos xx)))
-
-(cl-defgeneric org-mem-file (entry/link)
-  "File name where ENTRY/LINK found."
-  (:method ((xx org-mem-entry)) (org-mem-entry-file xx))
-  (:method ((xx org-mem-link)) (org-mem-link-file xx)))
-
-(cl-defgeneric org-mem-id (entry/file)
-  "ID property of ENTRY/FILE - if file name, the file-level ID."
-  (:method ((xx org-mem-entry)) (org-mem-entry-id xx))
-  (:method ((xx string)) (org-mem-file-id-strict xx)))
-
-(cl-defgeneric org-mem-title (entry/file)
-  "Title of ENTRY/FILE - if file name, the value of #+title setting."
-  (:method ((xx org-mem-entry)) (org-mem-entry-title xx))
-  (:method ((xx string)) (org-mem-file-title-strict xx)))
-
-(cl-defgeneric org-mem-roam-reflinks-to (entry/id/file)
-  "All reflinks to or into ENTRY/ID/FILE."
-  (:method ((xx org-mem-entry)) (org-mem-roam-reflinks-to-entry xx))
-  (:method ((xx string))
-           (if-let* ((entry (org-mem-entry-by-id xx)))
-               (org-mem-roam-reflinks-to-entry entry)
-             (seq-mapcat #'org-mem-roam-reflinks-to-entry
-                         (org-mem-entries-in-file xx)))))
-
-(cl-defgeneric org-mem-links-to (entry/id/file)
-  "All links to or into ENTRY/ID/FILE."
-  (:method ((xx org-mem-entry)) (org-mem-links-to-entry xx))
-  (:method ((xx string))
-           (if-let* ((entry (org-mem-entry-by-id xx)))
-               (org-mem-links-to-entry entry)
-             (org-mem-links-to-file xx))))
-
-(defun org-mem-id-links-to (entry/id/file)
-  "All ID-links to or into ENTRY/ID/FILE."
-  (seq-filter (##equal (org-mem-link-type %) "id")
-              (org-mem-links-to entry/id/file)))
-
-(defun org-mem-entries-in (file/files)
-  "All entries in FILE/FILES."
-  (funcall (if (listp file/files) #'org-mem-entries-in-files
-             #'org-mem-entries-in-file)
-           file/files))
-
-
 ;;; Assorted tools for downstream packages
 
 (defun org-mem-block (who n-secs)
@@ -1238,14 +1229,6 @@ Return t on finish, or nil if N-SECS elapsed without finishing."
 (defun org-mem-delete (fn tbl)
   "Delete rows in hash table TBL that satisfy FN\(KEY VALUE)."
   (maphash (##if (funcall fn %1 %2) (remhash %1 tbl)) tbl) nil)
-
-(defun org-mem-fontify-like-org (string)
-  "Return STRING with text properties from fontifying it in `org-mode'."
-  (with-current-buffer (org-mem-org-mode-scratch)
-    (erase-buffer)
-    (insert string)
-    (font-lock-ensure)
-    (buffer-string)))
 
 (defvar org-element-cache-persistent)
 (defvar org-inhibit-startup)
@@ -1267,6 +1250,14 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
           (delay-mode-hooks (org-mode))
           (setq-local org-element-cache-persistent nil)
           (current-buffer)))))
+
+(defun org-mem-fontify-like-org (string)
+  "Return STRING with text properties from fontifying it in `org-mode'."
+  (with-current-buffer (org-mem-org-mode-scratch)
+    (erase-buffer)
+    (insert string)
+    (font-lock-ensure)
+    (buffer-string)))
 
 
 ;;; End-user tool
