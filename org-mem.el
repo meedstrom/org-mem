@@ -144,6 +144,25 @@ infamous \"node_modules\", even if they contain no Org files."
   :type '(repeat string)
   :package-version '(org-mem . "0.2.0"))
 
+(defvar org-mem-scratch nil
+  "Work buffer held current while executing some hooks.
+These are hooks called many times:
+- `org-mem-record-file-functions'
+- `org-mem-record-entry-functions'
+- `org-mem-record-link-functions'
+- `org-mem-forget-file-functions'
+- `org-mem-forget-entry-functions'
+- `org-mem-forget-link-functions'
+
+This lets a function on these hooks sidestep the performance overhead of
+`with-temp-buffer' or `with-work-buffer', in favor of using the
+already current buffer:
+    \(cl-assert (eq (current-buffer) org-mem-scratch))
+    \(erase-buffer)
+
+Buffer is in `fundamental-mode'.  For an Org buffer see function
+`org-mem-org-mode-scratch'.")
+
 
 ;;; Basics
 
@@ -859,24 +878,6 @@ Then eval this expression, substituting FILE for some file of yours:
   (dolist (var (org-mem--mk-work-vars))
     (set (car var) (cdr var)))
   (org-mem-parser--parse-file file))
-
-(defvar org-mem-scratch nil
-  "Work buffer held current while executing some hooks.
-These are hooks called many times:
-- `org-mem-record-file-functions'
-- `org-mem-record-entry-functions'
-- `org-mem-record-link-functions'
-- `org-mem-forget-file-functions'
-- `org-mem-forget-entry-functions'
-- `org-mem-forget-link-functions'
-
-This lets a function on these hooks sidestep the performance overhead of
-`with-temp-buffer' or `with-work-buffer', in favor of using the
-already current buffer:
-    \(cl-assert (eq (current-buffer) org-mem-scratch))
-    \(erase-buffer)
-
-Buffer is in `fundamental-mode.'")
 
 (defvar org-mem--caused-retry nil)
 (defun org-mem--finalize-full-scan (parse-results _job)
