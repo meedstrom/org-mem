@@ -1165,26 +1165,29 @@ help to set user option `find-file-visit-truename', quit Emacs, delete
                      dir ".org" org-mem-watch-dirs-exclude))
         (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl)))
     ;; Maybe check org-id-locations.
-    ;; I wish for Christmas: a better org-id API...
-    ;; Must be why org-roam decided to wrap around org-id rather than fight it.
-    (when (and org-mem-do-sync-with-org-id
-               (featurep 'org))
-      (require 'org-id)
-      (unless (bound-and-true-p org-id-track-globally)
-        (error "If `org-mem-do-sync-with-org-id' is t, `org-id-track-globally' must be t"))
-      (when (and org-id-locations-file (null org-id-locations))
-        (org-id-locations-load))
-      (dolist (file (if (symbolp org-id-extra-files)
-                        (symbol-value org-id-extra-files)
-                      org-id-extra-files))
-        (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl))
-      (if (org-mem--try-ensure-org-id-table-p)
+    (when org-mem-do-sync-with-org-id
+      (when (and (null org-mem-watch-dirs)
+                 (not (featurep 'org))
+                 (y-or-n-p "Option org-mem-watch-dirs unconfigured, load Org to find org-id-locations?"))
+        (require 'org))
+      ;; I wish for Christmas: a better org-id API...
+      ;; Must be why org-roam decided to wrap around rather than fight it.
+      (when (featurep 'org)
+        (require 'org-id)
+        (unless org-id-track-globally
+          (error "If `org-mem-do-sync-with-org-id' is t, `org-id-track-globally' must also be t"))
+        (when (and org-id-locations-file (null org-id-locations))
+          (org-id-locations-load))
+        (dolist (file (if (symbolp org-id-extra-files)
+                          (symbol-value org-id-extra-files)
+                        org-id-extra-files))
+          (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl))
+        (when (org-mem--try-ensure-org-id-table-p)
           (cl-loop
-           for file being each hash-value of org-id-locations
-           do (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl))
-        (message "org-mem: Could not check org-id-locations"))))
-  (remhash nil org-mem--dedup-tbl)
+           for file being each hash-value of org-id-locations do
+           (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl))))))
   (setq org-mem--first-run nil)
+  (remhash nil org-mem--dedup-tbl)
   (hash-table-keys org-mem--dedup-tbl))
 
 (defun org-mem--dir-files-recursive (dir suffix excludes)
