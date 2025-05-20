@@ -764,9 +764,15 @@ What is valid?  See \"org-mem-test.el\"."
   (:method ((xx string)) (org-mem-file-id-strict xx)))
 
 (cl-defgeneric org-mem-title (entry/file)
-  "Title of ENTRY/FILE - if file name, the value of #+title setting."
+  "Heading title, or file #+title if ENTRY/FILE is file name."
   (:method ((xx org-mem-entry)) (org-mem-entry-title xx))
-  (:method ((xx string)) (org-mem-file-title-strict xx)))
+  (:method ((xx string)) (or (org-mem-file-title-strict xx)
+                             (error "No #+title in file %s" xx))))
+
+(cl-defgeneric org-mem-title-maybe (entry/file)
+  "Heading title, or file #+title if ENTRY/FILE is file name."
+  (:method ((xx org-mem-entry)) (org-mem-entry-title-maybe xx))
+  (:method ((xx string)) (or (org-mem-file-title-strict xx))))
 
 (cl-defgeneric org-mem-roam-reflinks-to (entry/id/file)
   "All reflinks to or into ENTRY/ID/FILE."
