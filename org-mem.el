@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.11.2
+;; Package-Version: 0.11.3
 ;; Package-Requires: ((emacs "29.1") (el-job "2.4.2") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -791,7 +791,7 @@ What is valid?  See \"org-mem-test.el\"."
 (cl-defgeneric org-mem-title-maybe (entry/file)
   "Heading title, or file #+title if ENTRY/FILE is file name."
   (:method ((xx org-mem-entry)) (org-mem-entry-title-maybe xx))
-  (:method ((xx string)) (or (org-mem-file-title-strict xx))))
+  (:method ((xx string)) (org-mem-file-title-strict xx)))
 
 (cl-defgeneric org-mem-roam-reflinks-to (entry/id/file)
   "All reflinks to or into ENTRY/ID/FILE."
@@ -1190,7 +1190,7 @@ help to set user option `find-file-visit-truename', quit Emacs, delete
     (setq org-mem--last-daa (sxhash directory-abbrev-alist)))
 
   (clrhash org-mem--dedup-tbl)
-  (let ((file-name-handler-alist nil)) ;; PERF
+  (let ((file-name-handler-alist nil)) ;; perf
     (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
       (dolist (file (nconc (org-mem--dir-files-recursive
                             dir ".org_archive" org-mem-watch-dirs-exclude)
