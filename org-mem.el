@@ -728,6 +728,7 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-olpath-with-title           #'org-mem-entry-olpath-with-title)
 (defalias 'org-mem-olpath-with-title-with-self #'org-mem-entry-olpath-with-title-with-self)
 (defalias 'org-mem-priority                    #'org-mem-entry-priority)
+(defalias 'org-mem-property                    #'org-mem-entry-property)
 (defalias 'org-mem-properties                  #'org-mem-entry-properties)
 (defalias 'org-mem-roam-aliases                #'org-mem-entry-roam-aliases)
 (defalias 'org-mem-roam-refs                   #'org-mem-entry-roam-refs)
