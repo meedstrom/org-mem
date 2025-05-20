@@ -41,9 +41,10 @@
 
 ;;; Targeted-scan
 
-;; NOTE: When setting `delete-by-moving-to-trash' is t, `delete-file' calls
-;;       `move-file-to-trash' which calls `rename-file'.  And it appears that
-;;       `rename-file' can also call `delete-file'.  Happy coding!
+;; When option `delete-by-moving-to-trash' is t, `delete-file' calls
+;; `move-file-to-trash' which calls `rename-file'.  And it appears that
+;; `rename-file' can also call `delete-file'.  Happy coding!
+;; Well, it seems to work.
 
 (defun org-mem-updater--handle-rename (file newname &rest _)
   "Arrange to scan NEWNAME for entries and links, and forget FILE."
