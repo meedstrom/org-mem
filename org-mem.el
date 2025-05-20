@@ -245,7 +245,7 @@ in `org-mem-file-mtime' and friends.")
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
   (-internal-id   () :read-only t :type integer)
-  text            () :read-only t :type string)
+  (text            () :read-only t :type string))
 
 
 ;;; To find objects to operate on
