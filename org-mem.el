@@ -599,7 +599,12 @@ case that there exists a file-level ID but no #+title:, or vice versa."
 (defvar org-mem--roam-ref<>id (make-hash-table :test 'equal)
   "1:1 table mapping a ROAM_REFS member to the nearby ID property.")
 
-;; REVIEW: Smells
+;; REVIEW: Smells.  Efficient since there are usually not many refs in
+;; total, but not clean since it is possible for a ref (what we
+;; call a "link target" elsewhere) to occur twice with different types.
+;; Does not matter for org-node which only uses the table to prettify
+;; completions, and refs should ideally be unique, but the implied contract
+;; cannot be guaranteed, so other downstream uses better think carefully.
 (defvar org-mem--roam-ref<>type (make-hash-table :test 'equal)
   "1:1 table mapping a ROAM_REFS member to its link type if any.")
 
@@ -698,7 +703,7 @@ What is valid?  See \"org-mem-test.el\"."
          collect (let ((path (string-replace
                               "%20" " "
                               (substring link? (1+ colon-pos)))))
-                   ;; Remember the uri: prefix for pretty completions
+                   ;; Remember the uri: prefix
                    (puthash path
                             (substring link? 0 colon-pos)
                             org-mem--roam-ref<>type)
@@ -762,6 +767,20 @@ What is valid?  See \"org-mem-test.el\"."
   "ID property of ENTRY/FILE - if file name, the file-level ID."
   (:method ((xx org-mem-entry)) (org-mem-entry-id xx))
   (:method ((xx string)) (org-mem-file-id-strict xx)))
+
+;; REVIEW: Following definitions might be exposing a code smell resulting from
+;;         having a "title-maybe" field so that "title" can throw error,
+;;         instead of the other way around as "title-assert" or something, or
+;;         leaving the check to the user.  Is it consistent API?  Chose it
+;;         this way because it is quite likely that people write code not
+;;         realizing that `org-mem-entry-title' can return nil.  Which seems a
+;;         friendly design, so if we desire consistency, perhaps all we can do
+;;         is extend the paradigm so that lots of other functions have a
+;;         "...-maybe" variant?
+;;
+;;         A third option may be to just give "file-level entries" their own
+;;         data type, perhaps with class inheritance.
+;;         First I want to find a handier, shorter word for that concept.
 
 (cl-defgeneric org-mem-title (entry/file)
   "Heading title, or file #+title if ENTRY/FILE is file name."
