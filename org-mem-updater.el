@@ -41,11 +41,6 @@
 
 ;;; Targeted-scan
 
-;; When option `delete-by-moving-to-trash' is t, `delete-file' calls
-;; `move-file-to-trash' which calls `rename-file'.  And it appears that
-;; `rename-file' can also call `delete-file'.  Happy coding!
-;; Well, it seems to work.
-
 (defun org-mem-updater--handle-rename (file newname &rest _)
   "Arrange to scan NEWNAME for entries and links, and forget FILE."
   (org-mem-updater--handle-delete file)
@@ -70,6 +65,7 @@ In that case, there may be nothing wrong with the known name."
           (cached-true (gethash file org-mem--wild-filename<>abbr-truename)))
       (when (and cached-true (not (file-symlink-p file)))
         (push cached-true bad))
+      (org-mem-updater--forget-links-from-files bad) ;; REVIEW
       (org-mem-updater--forget-file-contents bad)
       (org-mem--invalidate-file-names bad)
       (mapc #'clrhash (hash-table-values org-mem--key<>subtable)))))
@@ -146,19 +142,17 @@ and potentially `org-mem-updater--forget-links-from-files'."
 
 (defun org-mem-updater--forget-links-from-files (stale-files)
   "Remove from tables, all links in STALE-FILES.
-Also clear `org-mem-updater--target<>old-links' and stash in it the
+Also clear `org-mem-updater--target<>old-links' and stash into it the
 relevant rows from `org-mem--target<>links' prior to updating those rows
 in the latter table."
   (clrhash org-mem-updater--target<>old-links)
   (let ((stale-eids (mapcar #'org-mem-entry--internal-id
                             (org-mem-entries-in-files stale-files)))
-        stale-links
         targets-to-update)
     (dolist (eid stale-eids)
       (dolist (link (gethash eid org-mem--internal-entry-id<>links))
         (unless (member (org-mem-link-target link) targets-to-update)
           (push (org-mem-link-target link) targets-to-update)))
-      ;; Be hygienic, prolly not important.
       (remhash eid org-mem--internal-entry-id<>links))
     (dolist (target targets-to-update)
       (let ((links (gethash target org-mem--target<>links)))
@@ -166,12 +160,10 @@ in the latter table."
         (cl-loop
          for link in links
          if (memq (org-mem-link--internal-entry-id link) stale-eids)
-         do (push link stale-links)
+         do (run-hook-with-args 'org-mem-forget-link-functions link)
          else collect link into reduced-link-set
          finally do
-         (puthash target reduced-link-set org-mem--target<>links))))
-    (dolist (link stale-links)
-      (run-hook-with-args 'org-mem-forget-link-functions link))))
+         (puthash target reduced-link-set org-mem--target<>links))))))
 
 
 ;;; Instant placeholders
@@ -228,6 +220,9 @@ No support for citations."
 (declare-function org-get-todo-state "org")
 (declare-function org-link-display-format "ol")
 (defvar org-outline-path-cache)
+;; FIXME: Now it actually ensures the ID-node at point, not entry at point,
+;;        i.e. it walks up the outline tree til finding ID.
+;;        At best, it's incorrectly named.
 (defun org-mem-updater-ensure-entry-at-point-known ()
   "Record the entry at point.
 Use this if you cannot wait for `org-mem-updater-mode' to pick it up."

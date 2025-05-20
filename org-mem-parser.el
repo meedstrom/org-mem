@@ -271,15 +271,13 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           (when (not (file-exists-p file))
             (setq bad-path file)
             (signal 'skip-file t))
+          (when (file-symlink-p file)
+            (setq bad-path file)
+            (signal 'skip-file t))
           (when (not (file-readable-p file))
             ;; NOTE: Don't declare it bad, that'd delist it from
             ;;       org-id-locations, which the user may not want.
             (error "File not readable"))
-          (when (file-symlink-p file)
-            (setq bad-path file)
-            ;; Uncomment to reveal how many symlinks you actually run into:
-            ;; (error "File is a symlink")
-            (signal 'skip-file t))
           ;; NOTE: Don't use `insert-file-contents-literally'!  It sets
           ;; `coding-system-for-read' to `no-conversion', which results in
           ;; wrong values for HEADING-POS when the file contains any multibyte.

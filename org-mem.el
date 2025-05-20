@@ -108,7 +108,7 @@ Benefits of configuring it anyway:
     that may create, move or rename files.
 
 Tip: If past misconfiguration has recorded duplicate IDs,
-try command \\[org-mem-scrub-id-locations]."
+try command \\[org-mem-forget-id-locations-recursively]."
   :type '(repeat directory)
   :package-version '(org-mem . "0.5.0"))
 
@@ -123,7 +123,7 @@ try command \\[org-mem-scrub-id-locations]."
   "Literal substrings of file paths that should not be scanned.
 Aside from this variable, some filters are hard-coded:
 
-- We only scan files that end in precisely \".org\"
+- We only scan files that end in precisely \".org\" or \".org_archive\"
   - Thus files ending in ~, # or similar are excluded in any case
 - We exclude subdirectories that start with a period or underscore
   - Thus directories like \".git\" \"_site\" are excluded in any case
@@ -187,9 +187,7 @@ In practice, it is often an org-id like
 NOTE! A future version may omit the sigil @ in citekeys.")
 
 (defvar org-mem--internal-entry-id<>links (make-hash-table :test 'eq)
-  "May become deprecated!
-1:N table mapping internal entry ID to a list of `org-mem-link' records.
-User should query via `org-mem-links-in-entry'.")
+  "1:N table mapping internal entry ID to list of `org-mem-link' records.")
 
 (defvar org-mem--key<>subtable (make-hash-table :test 'eq)
   "Big bag of memoized values, smelling faintly of cabbage.")
@@ -247,7 +245,7 @@ in `org-mem-file-mtime' and friends.")
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
   (-internal-id   () :read-only t :type integer)
-  text)
+  text            () :read-only t :type string)
 
 
 ;;; To find objects to operate on
@@ -447,9 +445,6 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
   "Non-nil if ENTRY is a subtree, nil if a \"file-level node\"."
   (not (= 0 (org-mem-entry-level entry))))
 
-;; REVIEW: To make `org-mem-entry' objects take less visual space when
-;;         printed, we could stop putting ancestor titles in CRUMBS, just look
-;;         them up at this time via cross-ref with the char positions.
 (defun org-mem-entry-olpath (entry)
   "Outline path to ENTRY."
   (with-memoization (org-mem--table 25 entry)
@@ -460,8 +455,7 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
   (with-memoization (org-mem--table 26 entry)
     (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))))
 
-(defun org-mem-entry-olpath-with-self-with-title
-    (entry &optional filename-fallback)
+(defun org-mem-entry-olpath-with-self-with-title (entry &optional filename-fallback)
   "Outline path, including file #+title, and ENTRY\\='s own heading.
 With FILENAME-FALLBACK, use file basename if there is no #+title."
   (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry)))))
@@ -508,11 +502,10 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
   "The `file-attributes' list for file at FILE/ENTRY/LINK."
   (nth 1 (org-mem--get-file-metadata file/entry/link)))
 
-;; REVIEW: Somehow uncomfortable with the name
 (defun org-mem-file-line-count (file/entry/link)
   "Count of lines in whole file at FILE/ENTRY/LINK."
   (let ((x (nth 2 (org-mem--get-file-metadata file/entry/link))))
-    (if (>= x 0) x
+    (if (> x 0) x
       (error "org-mem-file-line-count: Value not yet stored for file %s%s"
              file/entry/link
              "\nLikely due to scan errors, type M-x org-mem-list-problems"))))
@@ -521,30 +514,30 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
   "Count of characters in whole file at FILE/ENTRY/LINK.
 Often close to but not exactly the size in bytes due to text encoding."
   (let ((x (nth 3 (org-mem--get-file-metadata file/entry/link))))
-    (if (>= x 0) x
+    (if (> x 0) x
       (error "org-mem-file-ptmax: Value not yet stored for file %s%s"
              file/entry/link
              "\nLikely due to scan errors, type M-x org-mem-list-problems"))))
 
+(defun org-mem-file-size (file/entry/link)
+  "Size of file at FILE/ENTRY/LINK, in bytes."
+  (file-attribute-size (org-mem-file-attributes file/entry/link)))
+
 (defun org-mem-file-mtime (file/entry/link)
   "Modification time for file at FILE/ENTRY/LINK."
   (file-attribute-modification-time (org-mem-file-attributes file/entry/link)))
-
-(defun org-mem-file-size (file/entry/link)
-  "Modification time for file at FILE/ENTRY/LINK."
-  (file-attribute-size (org-mem-file-attributes file/entry/link)))
 
 (defun org-mem-file-mtime-int (file/entry/link)
   "Modification time for file at FILE/ENTRY/LINK, rounded-up integer."
   (ceiling (float-time (org-mem-file-mtime file/entry/link))))
 
 ;; Above getters accept a link as input, and the below could too
-;; but extra LoC, so yolo.  Mainly wanted equivalents to
+;; but that'd take extra LoC.  Mainly wanted equivalents to
 ;; `org-roam-node-file-title' and `org-roam-node-file-mtime', and got 'em.
 
 (defun org-mem-file-title-or-basename (file/entry)
   "Value of #+title in file at FILE/ENTRY; fall back on file basename.
-Unlike `org-mem-entry-file-title' which may return nil,
+Unlike `org-mem-entry-file-title-strict' which may return nil,
 this always returns a string."
   (or (org-mem-file-title-strict file/entry)
       (file-name-nondirectory
@@ -606,7 +599,7 @@ case that there exists a file-level ID but no #+title:, or vice versa."
 (defvar org-mem--roam-ref<>id (make-hash-table :test 'equal)
   "1:1 table mapping a ROAM_REFS member to the nearby ID property.")
 
-;; REVIEW: is it possible to get rid of this?
+;; REVIEW: Smells
 (defvar org-mem--roam-ref<>type (make-hash-table :test 'equal)
   "1:1 table mapping a ROAM_REFS member to its link type if any.")
 
@@ -616,14 +609,9 @@ case that there exists a file-level ID but no #+title:, or vice versa."
     (split-string-and-unquote aliases)))
 
 (defun org-mem-entry-roam-refs (entry)
-  "Valid substrings taken from property ROAM_REFS in ENTRY.
+  "Substrings taken from property ROAM_REFS in ENTRY.
 These substrings are determined by `org-mem--split-roam-refs-field'."
   (gethash (org-mem-entry-id entry) org-mem--id<>roam-refs))
-
-(defun org-mem-roam-reflinks-to-entry (entry)
-  "All links that point to a substring of ENTRY\\='s ROAM_REFS."
-  (cl-loop for ref in (org-mem-entry-roam-refs entry)
-           append (org-mem-links-to-roam-ref ref)))
 
 (defun org-mem-entry-by-roam-ref (ref)
   "The entry that has ROAM_REFS property matching REF."
@@ -633,10 +621,19 @@ These substrings are determined by `org-mem--split-roam-refs-field'."
   "All links to REF."
   (and ref (gethash ref org-mem--target<>links)))
 
+(defun org-mem-roam-reflinks-to-entry (entry)
+  "All links that point to a substring of ENTRY\\='s ROAM_REFS."
+  (cl-loop for ref in (org-mem-entry-roam-refs entry)
+           append (org-mem-links-to-roam-ref ref)))
+
 (defun org-mem-all-roam-reflinks ()
   "All links targeting some existing ROAM_REFS."
   (cl-loop for ref being each hash-key of org-mem--roam-ref<>id
            append (gethash ref org-mem--target<>links)))
+
+(defun org-mem-all-roam-refs ()
+  "All links targeting some existing ROAM_REFS."
+  (hash-table-keys org-mem--roam-ref<>id))
 
 (defun org-mem--record-roam-aliases-and-refs (entry)
   "Add ENTRY\\='s ROAM_ALIASES and ROAM_REFS to tables."
@@ -702,7 +699,8 @@ What is valid?  See \"org-mem-test.el\"."
                               "%20" " "
                               (substring link? (1+ colon-pos)))))
                    ;; Remember the uri: prefix for pretty completions
-                   (puthash path (substring link? 0 colon-pos)
+                   (puthash path
+                            (substring link? 0 colon-pos)
                             org-mem--roam-ref<>type)
                    ;; .. but the actual ref is just the //path
                    path))))))
@@ -826,7 +824,7 @@ This occurs after scanning a targeted single file or set of files,
 hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 
 (defvar org-mem-forget-file-functions nil
-  "Hook passed (FILE ATTRS LINES PTMAX) after removing that info from tables.")
+  "Hook passed a file name after removing its info from tables.")
 
 (defvar org-mem-forget-entry-functions nil
   "Hook passed one forgotten `org-mem-entry' object.")
@@ -913,9 +911,9 @@ Then eval this expression, substituting FILE for some file of yours:
              (length (org-mem-all-files))
              (seq-count #'org-mem-entry-subtree-p (org-mem-all-entries))
              (length (org-mem-all-links))
-             (length (org-mem-all-id-nodes))
+             (hash-table-count org-mem--id<>entry)
              (length (org-mem-all-id-links))
-             (float-time (time-since org-mem--time-at-begin-full-scan)))))
+             org-mem--time-elapsed)))
     (run-hook-with-args 'org-mem-post-full-scan-functions parse-results)
     (message "%s" org-mem--next-message)
     (setq org-mem--next-message nil)
@@ -1169,9 +1167,9 @@ help to set user option `find-file-visit-truename', quit Emacs, delete
   (let ((file-name-handler-alist nil)) ;; PERF
     (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
       (dolist (file (nconc (org-mem--dir-files-recursive
-                            dir ".org" org-mem-watch-dirs-exclude)
+                            dir ".org_archive" org-mem-watch-dirs-exclude)
                            (org-mem--dir-files-recursive
-                            dir ".org_archive" org-mem-watch-dirs-exclude)))
+                            dir ".org" org-mem-watch-dirs-exclude)))
         (puthash (org-mem--abbr-truename file) t org-mem--dedup-tbl)))
     ;; Maybe check org-id-locations.
     (when org-mem-do-sync-with-org-id
@@ -1280,9 +1278,8 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
 
 ;;; End-user tool
 
-;; Just one more thing an org-id refactor should think about.
 (declare-function org-id-locations-save "org-id")
-(defun org-mem-scrub-id-locations (dir)
+(defun org-mem-forget-id-locations-recursively (dir)
   "Remove all references in `org-id-locations' to any files under DIR.
 
 Note that if DIR descends from a member of `org-mem-watch-dirs',
