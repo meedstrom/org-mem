@@ -219,13 +219,13 @@ in `org-mem-file-mtime' and friends.")
         (error "org-mem: File seems not yet scanned: %s" wild-file))))
 
 (cl-defstruct (org-mem-link (:constructor nil) (:copier nil))
-  (file              () :read-only t :type string)
-  (pos               () :read-only t :type integer)
-  (type              () :read-only t :type string)
-  (target            () :read-only t :type string)
-  (description       () :read-only t :type string)
-  (citation-p        () :read-only t :type boolean)
-  (nearby-id         () :read-only t :type string)
+  (file               () :read-only t :type string)
+  (pos                () :read-only t :type integer)
+  (type               () :read-only t :type string)
+  (target             () :read-only t :type string)
+  (description        () :read-only t :type string)
+  (citation-p         () :read-only t :type boolean)
+  (nearby-id          () :read-only t :type string)
   (-internal-entry-id () :read-only t :type integer))
 
 (cl-defstruct (org-mem-entry (:constructor nil) (:copier nil))
@@ -245,7 +245,7 @@ in `org-mem-file-mtime' and friends.")
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
   (-internal-id   () :read-only t :type integer)
-  (text            () :read-only t :type string))
+  (text           () :read-only t :type string))
 
 
 ;;; To find objects to operate on
@@ -1272,9 +1272,9 @@ Return t on finish, or nil if N-SECS elapsed without finishing."
   (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." who)))
 
 ;; Damn handy with llama.
-(defun org-mem-delete (fn tbl)
-  "Delete rows in hash table TBL that satisfy FN\(KEY VALUE)."
-  (maphash (##if (funcall fn %1 %2) (remhash %1 tbl)) tbl) nil)
+(defun org-mem-delete (pred tbl)
+  "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
+  (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
 
 (defvar org-element-cache-persistent)
 (defvar org-inhibit-startup)
