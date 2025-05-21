@@ -258,6 +258,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         file-data
         problem
         attrs
+        coding
         ;; Upcased names change value a lot, take care to keep correct.
         ID ID-HERE INTERNAL-ENTRY-ID
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
@@ -283,12 +284,13 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           ;; wrong values for HEADING-POS when the file contains any multibyte.
           (let ((inhibit-read-only t))
             (erase-buffer)
-            (insert-file-contents file))
+            (insert-file-contents file)
+            (setq coding last-coding-system-used))
           (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file 0))
           (setq TODO-RE $default-todo-re)
           (setq attrs (file-attributes file))
           ;; To amend later if we make it to the end.
-          (setq file-data (list file attrs -1 -1))
+          (setq file-data (list file attrs -1 -1 coding))
 
           ;; Apply relevant dir-locals and file-locals.
           (let* ((dir-or-cache (dir-locals-find-file file))
@@ -584,7 +586,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
           ;; Done analyzing this file.
           (cl-assert (eobp))
-          (setq file-data (list file attrs LNUM (point))))
+          (setq file-data (list file attrs LNUM (point) coding)))
 
       ;; Don't crash on error signal, just report and move on to next file.
       (( error )

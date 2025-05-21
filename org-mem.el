@@ -208,7 +208,7 @@ Users have no reason to inspect this table, prefer stable API
 in `org-mem-file-mtime' and friends.")
 
 (defun org-mem--get-file-metadata (file/entry/link)
-  "Return (FILE ATTRS LINES PTMAX) if FILE/ENTRY/LINK known, else error."
+  "Return list of assorted data if FILE/ENTRY/LINK known, else error."
   (let ((wild-file (if (stringp file/entry/link)
                        file/entry/link
                      (if (org-mem-entry-p file/entry/link)
@@ -518,6 +518,10 @@ Often close to but not exactly the size in bytes due to text encoding."
       (error "org-mem-file-ptmax: Value not yet stored for file %s%s"
              file/entry/link
              "\nLikely due to scan errors, type M-x org-mem-list-problems"))))
+
+(defun org-mem-file-detected-coding (file/entry/link)
+  "Coding system of file at FILE/ENTRY/LINK."
+  (nth 4 (org-mem--get-file-metadata file/entry/link)))
 
 (defun org-mem-file-size (file/entry/link)
   "Size of file at FILE/ENTRY/LINK, in bytes."
