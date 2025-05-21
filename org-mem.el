@@ -1262,7 +1262,7 @@ Does not modify the match data."
 
 ;;; Assorted tools for downstream packages
 
-(defun org-mem-block (who n-secs)
+(defun org-mem-await (who n-secs)
   "Wait for up to N-SECS for any current org-mem subprocesses to finish.
 Symbol WHO is included in the echo area message during the wait, to help
 trace who called this function.  If in doubt, pass your package name.
@@ -1352,6 +1352,9 @@ org-id-locations:
 (define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-dest                #'org-mem-target            "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
+
+(defalias 'org-mem-block #'org-mem-await)
+;; (define-obsolete-function-alias 'org-mem-block #'org-mem-await )
 
 (provide 'org-mem)
 

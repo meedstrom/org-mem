@@ -22,6 +22,10 @@
 
 ;;; Code:
 
+;; TODO: See org manual on property syntax.  It implies you can set file-level
+;; id without a prop drawer, just a line #+PROPERTY: id asdfghjkl1234.
+;; Let's support that, that's neat.
+
 (eval-when-compile
   (require 'cl-lib)
   (require 'subr-x))
