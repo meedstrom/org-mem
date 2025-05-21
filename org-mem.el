@@ -54,7 +54,7 @@
 (declare-function org-id-hash-to-alist "org-id")
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
-  :group 'text)
+  :group 'org)
 
 (defcustom org-mem-do-cache-text nil
   "Whether to also cache text contents of all entries.
