@@ -376,18 +376,18 @@ represents the content before the first heading.
            when (equal type (org-mem-link-type link))
            collect link))
 
-(defun org-mem-links-to-entry (entry)
-  "All links that point to ENTRY."
-  (and entry (gethash (org-mem-entry--internal-id entry)
-                      org-mem--internal-entry-id<>links)))
-
 (defun org-mem-id-links-to-entry (entry)
   "All ID-links that point to ENTRY."
   (and entry (gethash (org-mem-entry-id entry) org-mem--target<>links)))
 
 (defun org-mem-id-links-to-id (id)
   "All ID-links targeting ID."
-  (org-mem-id-links-to-entry (org-mem-entry-by-id id)))
+  (with-memoization (org-mem--table 14 id)
+    (when-let* ((links (org-mem-links-to-target id)))
+      ;; Vast majority of people, this filter is safe to skip.  But it's
+      ;; possible, for example, to have a heading named identical to some ID
+      ;; that you also have, and have non-ID links targeting that.
+      (seq-filter (##equal (org-mem-link-type %) "id") links))))
 
 (defun org-mem-id-node-by-title (title)
   "The ID-node titled TITLE."
@@ -407,14 +407,6 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
   (with-memoization (org-mem--table 16 id)
     (seq-filter (##equal (org-mem-link-nearby-id %) id)
                 (org-mem-all-links))))
-
-;; TODO
-(defun org-mem-links-to-file (_file)
-  "(Unimplemented) All links leading into somewhere in FILE."
-  ;; (let ((targets-for-file (org-mem-entries-in-file))))
-  ;; (cl-loop for link in (org-mem-all-links)
-  ;;          collect nil)
-  (error "Unimplemented"))
 
 (defun org-mem-id-links-from-id (id)
   "ID-links from context where local or inherited ID property is ID."
@@ -437,6 +429,14 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
   "All links found inside ENTRY, ignoring descendant entries."
   (and entry (gethash (org-mem-entry--internal-id entry)
                       org-mem--internal-entry-id<>links)))
+
+(defun org-mem-links-to-entry (_entry)
+  "(Unimplemented)"
+  (error "Unimplemented"))
+
+(defun org-mem-links-to-file (_file)
+  "(Unimplemented)"
+  (error "Unimplemented"))
 
 
 ;;; Entry info
@@ -797,33 +797,23 @@ What is valid?  See \"org-mem-test.el\"."
   (:method ((xx org-mem-entry)) (org-mem-entry-title-maybe xx))
   (:method ((xx string)) (org-mem-file-title-strict xx)))
 
-(cl-defgeneric org-mem-roam-reflinks-to (entry/id/file)
-  "All reflinks to or into ENTRY/ID/FILE."
-  (:method ((xx org-mem-entry)) (org-mem-roam-reflinks-to-entry xx))
-  (:method ((xx string))
-           (if-let* ((entry (org-mem-entry-by-id xx)))
-               (org-mem-roam-reflinks-to-entry entry)
-             (seq-mapcat #'org-mem-roam-reflinks-to-entry
-                         (org-mem-entries-in-file xx)))))
-
-(cl-defgeneric org-mem-links-to (entry/id/file)
-  "All links to or into ENTRY/ID/FILE."
-  (:method ((xx org-mem-entry)) (org-mem-links-to-entry xx))
-  (:method ((xx string))
-           (if-let* ((entry (org-mem-entry-by-id xx)))
-               (org-mem-links-to-entry entry)
-             (org-mem-links-to-file xx))))
-
-(defun org-mem-id-links-to (entry/id/file)
-  "All ID-links to or into ENTRY/ID/FILE."
-  (seq-filter (##equal (org-mem-link-type %) "id")
-              (org-mem-links-to entry/id/file)))
-
 (defun org-mem-entries-in (file/files)
   "All entries in FILE/FILES."
   (funcall (if (listp file/files) #'org-mem-entries-in-files
              #'org-mem-entries-in-file)
            file/files))
+
+(defun org-mem-roam-reflinks-to (_)
+  "(Unimplemented)"
+  (error "Unimplemented"))
+
+(defun org-mem-links-to (_)
+  "(Unimplemented)"
+  (error "Unimplemented"))
+
+(defun org-mem-id-links-to (_)
+  "(Unimplemented)"
+  (error "Unimplemented"))
 
 
 ;;; Core logic
