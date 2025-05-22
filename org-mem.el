@@ -897,15 +897,6 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
                        'org-id-update-id-locations))
           (message "No files found under `org-mem-watch-dirs'"))))))
 
-(defun org-mem--debug-parse-file (file)
-  "Debug wrapper for `org-mem-parser--parse-file'.
-To use, first go to the source of that definition and type \\[edebug-defun].
-Then eval this expression, substituting FILE for some file of yours:
-\(org-mem--debug-parse-file \"~/org/some-file.org\")"
-  (dolist (var (org-mem--mk-work-vars))
-    (set (car var) (cdr var)))
-  (org-mem-parser--parse-file file))
-
 (defvar org-mem--caused-retry nil)
 (defun org-mem--finalize-full-scan (parse-results _job)
   "Handle PARSE-RESULTS from `org-mem--scan-full'."

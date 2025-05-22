@@ -242,6 +242,11 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 (defvar org-mem-parser--buf nil)
 (defun org-mem-parser--parse-file (file)
   "Gather entries, links and other data in FILE."
+  ;; This condition should fail in the normal case (running in a subprocess),
+  ;; but it lets us debug this function in the main process.
+  (when (fboundp 'org-mem--mk-work-vars)
+    (dolist (var (org-mem--mk-work-vars))
+      (set (car var) (cdr var))))
   (unless (eq org-mem-parser--buf (current-buffer))
     (switch-to-buffer
      (setq org-mem-parser--buf (get-buffer-create " *org-mem-parser*" t))))
