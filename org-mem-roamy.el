@@ -364,7 +364,7 @@ With SPECIFIC-FILES, only return data that involves those files."
         (roam-dir (when (and (boundp 'org-roam-directory)
                              (stringp org-roam-directory))
                     (cl-assert (file-name-absolute-p org-roam-directory))
-                    (abbreviate-file-name (file-truename org-roam-directory)))))
+                    (file-truename org-roam-directory))))
     (cl-loop
      for entry in (hash-table-values org-mem--id<>entry)
      as file = (org-mem-entry-file entry)
