@@ -238,3 +238,5 @@ Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot fin
   - It's not so hard when you understand elisp process handling, but it can print pretty unhelpful messages when something goes wrong, leaving regular users lost.
 
   - It uses a poll timer, which means Emacs demotes some errors to messages and won't enter the debugger.  (2.4.7)
+
+  - Windows frequently has issues

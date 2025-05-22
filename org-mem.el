@@ -76,14 +76,13 @@ To check manually, type \\[org-mem-list-title-collisions]."
   "Whether to exchange data with `org-id-locations'.
 
 Benefits:
-- Org-mem gets to know about files outside `org-mem-watch-dirs', so long
-  as they contain some ID and can thus be found in `org-id-locations'.
+- Org-mem gets to know about files from anywhere, so long as they
+  contain some ID and can thus be found in `org-id-locations'.
 - Help ensure that ID-links to somewhere inside `org-mem-watch-dirs'
   always work, so they never trigger a fallback attempt to run
   `org-id-update-id-locations' when clicked, which can take a while.
 
-No effect until after Org has loaded.
-Only updates `org-id-locations', never runs `org-id-locations-save'."
+No effect until after Org has loaded."
   :type 'boolean
   :package-version '(org-mem . "0.6.0"))
 
@@ -124,7 +123,7 @@ try command \\[org-mem-forget-id-locations-recursively]."
 Aside from this variable, some filters are hard-coded:
 
 - We only scan files that end in precisely \".org\" or \".org_archive\"
-  - Thus files ending in ~, # or similar are excluded in any case
+  - Thus backups ending in ~, # or similar are excluded in any case
 - We exclude subdirectories that start with a period or underscore
   - Thus directories like \".git\" \"_site\" are excluded in any case
 - We exclude symlinks
@@ -132,8 +131,8 @@ Aside from this variable, some filters are hard-coded:
 Main reason to configure this is to prevent counting back-ups
 and autosave files as duplicate ID locations.
 
-You can also speed up `org-mem-reset' by excluding directories with a
-humongous amount of files \(on the order of 100,000), such as the
+You can also speed up `org-mem-reset' a bit by excluding directories
+with a humongous amount of files \(on the order of 100,000), such as the
 infamous \"node_modules\", even if they contain no Org files."
   :type '(repeat string)
   :package-version '(org-mem . "0.2.0"))
@@ -426,7 +425,9 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
     (seq-mapcat #'org-mem-links-in-entry (org-mem-entries-in-file file))))
 
 (defun org-mem-links-in-entry (entry)
-  "All links found inside ENTRY, ignoring descendant entries."
+  "All links found inside ENTRY, ignoring descendant entries.
+Do not trust the result if used during `org-mem-forget-entry-functions'
+or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
   (and entry (gethash (org-mem-entry--internal-id entry)
                       org-mem--internal-entry-id<>links)))
 
@@ -496,7 +497,19 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
                        (org-mem-entry-tags-local entry))))
 
 
-;;; File data
+;;; File info
+
+;; These take plain file-names and we look up associated data elsewhere,
+;; because the alternative is imposing on the user to pass around some kind of
+;; "file-data" object and keep track of whether the variable they naively
+;; named "file" is such an object or a plain file name.
+
+;; These are also polymorphic because the alternative would be writing code
+;; like this to find e.g. file title given an entry:
+;; (org-mem-file-title (org-mem-entry-file-truename entry))
+;; which is... okay.  Until you also have a short alias `org-mem-file-truename'
+;; that accepts an entry, making it inconsistent that you cannot also pass
+;; an entry to `org-mem-file-title'.  So we make it so you can do that too.
 
 (defun org-mem-file-attributes (file/entry/link)
   "The `file-attributes' list for file at FILE/ENTRY/LINK."
@@ -581,7 +594,7 @@ case that there exists a file-level ID but no #+title:, or vice versa."
                             (org-mem-entry-file file/entry))))))
 
 
-;;; Optional: Aliases and refs support
+;;; Optional: Roam aliases and refs
 
 ;; This used to come with `org-mem-roamy-db-mode', but bundling it here:
 ;; - allows a nicer namespace.
@@ -603,12 +616,12 @@ case that there exists a file-level ID but no #+title:, or vice versa."
 (defvar org-mem--roam-ref<>id (make-hash-table :test 'equal)
   "1:1 table mapping a ROAM_REFS member to the nearby ID property.")
 
-;; REVIEW: Smells.  Efficient since there are usually not many refs in
-;; total, but not clean since it is possible for a ref (what we
-;; call a "link target" elsewhere) to occur twice with different types.
+;; REVIEW: Efficient since there are usually not many refs in total,
+;; but not clean since it is possible for a ref (what we call a "link target"
+;; elsewhere) to occur twice with different types.
 ;; Does not matter for org-node which only uses the table to prettify
-;; completions, and refs should ideally be unique, but the implied contract
-;; cannot be guaranteed, so other downstream uses better think carefully.
+;; completions, but since refs may not be unique, the implied contract is
+;; false, so other use cases better think carefully.
 (defvar org-mem--roam-ref<>type (make-hash-table :test 'equal)
   "1:1 table mapping a ROAM_REFS member to its link type if any.")
 
@@ -1252,7 +1265,7 @@ Return t on finish, or nil if N-SECS elapsed without finishing."
   (cl-assert (symbolp who))
   (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." who)))
 
-;; Damn handy with llama.
+;; Handy with llama.
 (defun org-mem-delete (pred tbl)
   "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
   (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)

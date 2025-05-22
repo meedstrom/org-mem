@@ -162,7 +162,7 @@ instead of default `org-mem-roamy--connection'."
         (message "No DB yet")))))
 
 ;; TODO: Could be way more detailed.
-;; Like (inspector-inspect (org-mem-all-entries))
+;;       Like (inspector-inspect (org-mem-all-entries))
 ;;;###autoload
 (defun org-mem-list-entries ()
   "List all Org entries."
