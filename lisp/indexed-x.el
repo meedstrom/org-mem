@@ -23,7 +23,7 @@
 (define-obsolete-function-alias 'indexed-x--handle-delete              #'org-mem-updater--handle-delete               "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-x-ensure-buffer-file-known    #'org-mem-updater-ensure-buffer-file-known     "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-x-ensure-link-at-point-known  #'org-mem-updater-ensure-link-at-point-known   "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-x-ensure-entry-at-point-known #'org-mem-updater-ensure-entry-at-point-known  "0.7.0 (2025-05-11)")
+(define-obsolete-function-alias 'indexed-x-ensure-entry-at-point-known #'org-mem-updater-ensure-id-node-at-point-known"0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed--activate-timer               #'org-mem-updater--activate-timer              "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-updater-mode                  #'org-mem-updater-mode                         "0.7.0 (2025-05-11)")
 (provide 'indexed-x)
