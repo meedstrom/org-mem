@@ -45,6 +45,9 @@
 (defvar org-mem-parser--found-links nil
   "Link objects found so far.")
 
+(defvar org-mem-parser--found-timestamps nil
+  "Active timestamps found so far.")
+
 (defvar org-mem-parser--all-dir-locals nil
   "Dir-local variables found so far.")
 
@@ -118,6 +121,8 @@ brackets."
   (if (re-search-forward org-mem-parser--heading-re nil 'move)
       (goto-char (pos-bol))))
 
+(defconst org-mem--org-ts-regexp
+  "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
 (defun org-mem-parser--collect-links-until (end id-here file internal-entry-id)
   "From here to buffer position END, look for forward-links.
 
@@ -205,7 +210,13 @@ the subheading potentially has an ID of its own."
                           t
                           id-here
                           internal-entry-id)
-                  org-mem-parser--found-links))))))
+                  org-mem-parser--found-links)))))
+
+    ;; New 2025-05-23: Start over and look for active timestamps
+    (goto-char beg)
+    (while (re-search-forward org-mem--org-ts-regexp end t)
+      (push (cons (point) (match-string 0))
+            org-mem-parser--found-timestamps)))
   (goto-char (or end (point-max))))
 
 (defun org-mem-parser--collect-properties (beg end)
