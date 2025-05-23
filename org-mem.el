@@ -501,9 +501,12 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
     olp))
 
 (defun org-mem-entry-title (entry)
-  "Like `org-mem-entry-title-maybe' but signal when ENTRY has no title."
+  "Like `org-mem-entry-title-maybe' but always return a string.
+In the case that ENTRY is a file-level entry with no title, return the
+file base name."
   (or (org-mem-entry-title-maybe entry)
-      (error "Entry has no title, try org-mem-entry-title-maybe: %S" entry)))
+      (progn (cl-assert (not (org-mem-entry-subtree-p entry)))
+             (file-name-nondirectory (org-mem-entry-file-truename entry)))))
 
 (defun org-mem-entry-property (prop entry)
   "Value of property PROP in ENTRY."
