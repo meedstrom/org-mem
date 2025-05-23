@@ -853,20 +853,6 @@ What is valid?  See \"org-mem-test.el\"."
   (:method ((xx org-mem-entry)) (org-mem-entry-id xx))
   (:method ((xx string)) (org-mem-file-id-strict xx)))
 
-;; REVIEW: Following definitions might be exposing a code smell resulting from
-;;         having a "title-maybe" field so that "title" can throw error,
-;;         instead of the other way around as "title-assert" or something, or
-;;         leaving the check to the user.  Is it consistent API?  Chose it
-;;         this way because it is quite likely that people write code not
-;;         realizing that `org-mem-entry-title' can return nil.  Which seems a
-;;         friendly design, so if we desire consistency, perhaps we should
-;;         extend the paradigm so that lots of other functions also have a
-;;         "...-maybe" variant?
-;;
-;;         A third option may be to just give "file-level entries" their own
-;;         data type, perhaps with class inheritance.
-;;         First I want to find a handier, shorter word for that concept.
-
 (cl-defgeneric org-mem-title (entry/file)
   "Heading title, or file #+title if ENTRY/FILE is file name."
   (:method ((xx org-mem-entry)) (org-mem-entry-title xx))
@@ -1345,9 +1331,9 @@ Return t on finish, or nil if N-SECS elapsed without finishing."
   (cl-assert (symbolp who))
   (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." who)))
 
-;; Handy with llama.
 (defun org-mem-delete (pred tbl)
   "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
+  ;; (message "`org-mem-delete' will be removed, use `ht-reject!'")
   (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
 
 (defvar org-element-cache-persistent)
@@ -1427,7 +1413,7 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvar org-mem--bump-int 1 "Not a version number, but bumped sometimes.")
+(defvar org-mem--bump-int 2 "Not a version number, but bumped sometimes.")
 (define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-dest                #'org-mem-target            "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
