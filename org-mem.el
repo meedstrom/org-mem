@@ -319,7 +319,8 @@ Citations are `org-mem-link' objects that satisfy
 (defun org-mem-next-entry (entry)
   "The next entry after ENTRY in the same file, if any."
   (with-memoization (org-mem--table 20 entry)
-    (let ((entries (gethash (org-mem-entry-file entry) org-mem--file<>entries)))
+    (let ((entries (gethash (org-mem-entry-file-truename entry)
+                            org-mem--file<>entries)))
       (while (and (car entries)
                   (not (= (org-mem-entry--internal-id (car entries))
                           (org-mem-entry--internal-id entry))))
@@ -330,7 +331,8 @@ Citations are `org-mem-link' objects that satisfy
 (defun org-mem-previous-entry (entry)
   "The next entry after ENTRY in the same file, if any."
   (with-memoization (org-mem--table 21 entry)
-    (let ((entries (gethash (org-mem-entry-file entry) org-mem--file<>entries)))
+    (let ((entries (gethash (org-mem-entry-file-truename entry)
+                            org-mem--file<>entries)))
       (while (and (cadr entries)
                   (not (= (org-mem-entry--internal-id (cadr entries))
                           (org-mem-entry--internal-id entry))))
@@ -497,7 +499,8 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
     (when (null (car olp))
       (pop olp)
       (when filename-fallback
-        (push (file-name-nondirectory (org-mem-entry-file entry)) olp)))
+        (push (file-name-nondirectory (org-mem-entry-file-truename entry))
+              olp)))
     olp))
 
 (defun org-mem-entry-title (entry)
@@ -619,7 +622,7 @@ case that there exists a file-level ID but no #+title:, or vice versa."
   "ID from file properties or topmost subtree in file at FILE/ENTRY."
   (let ((entries (org-mem-entries-in-file
                   (if (stringp file/entry) file/entry
-                    (org-mem-entry-file file/entry)))))
+                    (org-mem-entry-file-truename file/entry)))))
     (or (org-mem-entry-id (car entries))
         (ignore-errors (org-mem-entry-id (cadr entries))))))
 
@@ -627,7 +630,7 @@ case that there exists a file-level ID but no #+title:, or vice versa."
   "File-level ID property in file at FILE/ENTRY, if any."
   (org-mem-entry-id (car (org-mem-entries-in-file
                           (if (stringp file/entry) file/entry
-                            (org-mem-entry-file file/entry))))))
+                            (org-mem-entry-file-truename file/entry))))))
 
 
 ;;; Optional: Roam aliases and refs

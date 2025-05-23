@@ -352,6 +352,9 @@ created by `org-mem-roamy--configure'.
 
 With SPECIFIC-FILES, only return data that involves those files."
   (setq org-mem-roamy--untitled-id-nodes nil)
+  (setq specific-files
+        (nconc specific-files
+               (seq-keep #'org-mem--truename-maybe specific-files)))
   (let (file-rows
         node-rows
         alias-rows
@@ -367,7 +370,7 @@ With SPECIFIC-FILES, only return data that involves those files."
                     (file-truename org-roam-directory))))
     (cl-loop
      for entry in (hash-table-values org-mem--id<>entry)
-     as file = (org-mem-entry-file entry)
+     as file = (org-mem-entry-file-truename entry)
      as id = (org-mem-entry-id entry)
      as title = (org-mem-entry-title-maybe entry)
      unless (and specific-files (not (member file specific-files)))
@@ -412,7 +415,7 @@ With SPECIFIC-FILES, only return data that involves those files."
     (let ((dummy-props '(:outline nil)))
       (cl-loop
        for link in (org-mem-all-links)
-       as file = (org-mem-link-file link)
+       as file = (org-mem-link-file-truename link)
        when (org-mem-link-nearby-id link)
        unless (and specific-files (not (member file specific-files)))
        unless (and roam-dir (not (string-prefix-p roam-dir file)))
