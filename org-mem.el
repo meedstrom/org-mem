@@ -260,17 +260,15 @@ in `org-mem-file-mtime' and friends.")
     (mapcar #'org-mem--fast-abbrev (hash-table-keys org-mem--file<>metadata))))
 
 (defun org-mem-all-entries ()
-  "All entries with non-nil title."
+  "All entries."
   (with-memoization (org-mem--table 0 'org-mem-all-entries)
-    (seq-filter #'org-mem-entry-title-maybe
-                (apply #'append (hash-table-values org-mem--file<>entries)))))
+    (apply #'append (hash-table-values org-mem--file<>entries))))
 
 (defun org-mem-all-id-nodes ()
-  "All ID-nodes with non-nil title.
-An ID-node is simply an entry that has an ID property."
+  "All ID-nodes.
+An ID-node is an entry that has an ID property."
   (with-memoization (org-mem--table 0 'org-mem-all-id-nodes)
-    (seq-filter #'org-mem-entry-title-maybe
-                (hash-table-values org-mem--id<>entry))))
+    (hash-table-values org-mem--id<>entry)))
 
 (defun org-mem-all-links ()
   "All links and citations.

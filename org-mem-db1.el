@@ -103,8 +103,7 @@ LOC, write the database as a file to LOC."
                             (float-time (time-since T)) name))))
     db))
 
-;; This needs more eyes, very sure the schemata can be much better designed
-;; than this.
+;; This needs more eyes, very sure the schemata can be better designed.
 
 ;; One thing in pipeline is auto-creating tables for each Org
 ;; property discovered, so we'd automatically get equivalents of org-roam's
@@ -206,9 +205,6 @@ TABLE-SYM must be a list of lists of exactly N-COLS items."
 (defun org-mem-db1--mk-rows (&optional specific-files)
   "Return rows of data suitable for inserting into `org-mem-db1' DB.
 
-Specifically, return seven lists of rows, one for each SQL table
-defined by `org-mem-db1--configure'.
-
 With SPECIFIC-FILES, only return data that involves those files."
   (let (file-rows
         entry-rows
@@ -220,9 +216,10 @@ With SPECIFIC-FILES, only return data that involves those files."
     (cl-loop
      with seen-files = (make-hash-table :test 'equal)
      for entry in (org-mem-all-id-nodes)
-     as file = (org-mem-entry-file entry)
+     as file = (org-mem-entry-file-truename entry)
      as id = (org-mem-entry-id entry)
-     when (or (not specific-files) (member file specific-files))
+     when (or (not specific-files)
+              (member file (mapcar #'org-mem--truename-maybe specific-files)))
      do (progn
           (unless (gethash file seen-files)
             (puthash file t seen-files)
@@ -230,7 +227,7 @@ With SPECIFIC-FILES, only return data that involves those files."
           (cl-loop for tag in (org-mem-entry-tags entry) do
                    (push (list id tag) tag-rows))
           (push (list id
-                      (org-mem-entry-file entry)
+                      (org-mem-entry-file-truename entry)
                       (org-mem-entry-level entry)
                       (org-mem-entry-pos entry)
                       (org-mem-entry-todo-state entry)
@@ -244,22 +241,24 @@ With SPECIFIC-FILES, only return data that involves those files."
                    do (push (list id prop val) prop-rows))))
     
     (cl-loop for link in (org-mem-all-links)
-             as file-name = (org-mem-link-file link)
+             as file-name = (org-mem-link-file-truename link)
+             as nearby-id = (org-mem-link-nearby-id link)
              when (or (not specific-files)
                       (member file-name specific-files))
-             do (if (org-mem-link-type link)
-                    (push (list (org-mem-link-pos link)
-                                (org-mem-link-nearby-id link)
-                                (org-mem-link-target link)
-                                (org-mem-link-type link)
-                                file-name)
-                          link-rows)
-                  (when (org-mem-link-nearby-id link)
-                    (push (list (org-mem-link-nearby-id link)
+             when nearby-id
+             do (if (org-mem-link-citation-p link)
+                    (push (list nearby-id
                                 (substring (org-mem-link-target link) 1)
                                 (org-mem-link-pos link)
                                 file-name)
-                          citation-rows))))
+                          citation-rows)
+                  (when (org-mem-link-type link)
+                    (push (list (org-mem-link-pos link)
+                                nearby-id
+                                (org-mem-link-target link)
+                                (org-mem-link-type link)
+                                file-name)
+                          link-rows))))
 
     (list file-rows
           entry-rows
