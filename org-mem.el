@@ -1033,7 +1033,7 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
 (defun org-mem--record-entry (entry)
   "Add info related to ENTRY to various tables."
   (let ((id    (org-mem-entry-id entry))
-        (file  (org-mem-entry-file entry))
+        (file  (org-mem-entry-file-truename entry))
         (title (org-mem-entry-title-maybe entry)))
     ;; NOTE: Puts entries in correct order because we're called by
     ;; `org-mem--finalize-full-scan' looping over entries in reverse order.
