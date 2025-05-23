@@ -156,6 +156,7 @@ Values may be in different order.")
 Even if the ID or ref is old, it would previously have had no presence
 in table `org-mem--target<>links'.")
 
+;; FIXME: It seems to remove too many, or they don't all get re-added or something
 (defun org-mem-updater--forget-links-from-files (stale-files)
   "Remove from tables, all links in STALE-FILES.
 Also clear `org-mem-updater--id-or-ref-target<>old-links' and stash into it the

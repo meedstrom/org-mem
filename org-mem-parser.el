@@ -223,13 +223,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         (error "Possibly malformed property drawer"))
       (setq START (point))
       (setq EOL (pos-eol))
-      ;; TODO: accept multiple colons
-      ;; (while (progn (or (search-forward ":" EOL t)
-      ;;                   (error "Possibly malformed property drawer"))
-      ;;               (not (looking-at-p "[\s\n]"))))
       (or (search-forward ":" EOL t)
           (error "Possibly malformed property drawer"))
-      (when (looking-at-p " ") ;; Ignore if :MULTIPLE:COLONS:IN:NAME:
+      ;; In the wild you see some :MULTIPLE:COLONS:IN:NAME: properties,
+      ;; but they are illegal according to `org-property-drawer-re'.
+      ;; So no need to handle that case, skip.
+      (when (looking-at-p " ")
         (push (cons (upcase (buffer-substring START (1- (point))))
                     (string-trim (buffer-substring (point) EOL)))
               result))
