@@ -334,7 +334,7 @@ It is not associated with any links or files, however."
 (defvar org-mem-updater--timer (timer-create)
   "Timer for intermittently running `org-mem--scan-full'.")
 
-(defun org-mem-updater--activate-timer (&rest _)
+(defun org-mem-updater--adjust-timer (&rest _)
   "Adjust `org-mem-updater--timer' based on duration of last full scan.
 If timer not running, start it.
 Override this if you prefer different timer delays, or no timer."
@@ -355,13 +355,13 @@ Override this if you prefer different timer delays, or no timer."
   (require 'org-mem-updater)
   (if org-mem-updater-mode
       (progn
-        (add-hook 'org-mem-post-full-scan-functions #'org-mem-updater--activate-timer 90)
+        (add-hook 'org-mem-post-full-scan-functions #'org-mem-updater--adjust-timer 90)
         (add-hook 'after-save-hook                  #'org-mem-updater--handle-save)
         (advice-add 'rename-file :after             #'org-mem-updater--handle-rename)
         (advice-add 'delete-file :after             #'org-mem-updater--handle-delete)
-        (org-mem-updater--activate-timer)
+        (org-mem-updater--adjust-timer)
         (org-mem--scan-full))
-    (remove-hook 'org-mem-post-full-scan-functions #'org-mem-updater--activate-timer)
+    (remove-hook 'org-mem-post-full-scan-functions #'org-mem-updater--adjust-timer)
     (remove-hook 'after-save-hook                  #'org-mem-updater--handle-save)
     (advice-remove 'rename-file                    #'org-mem-updater--handle-rename)
     (advice-remove 'delete-file                    #'org-mem-updater--handle-delete)
@@ -369,6 +369,8 @@ Override this if you prefer different timer delays, or no timer."
 
 (define-obsolete-function-alias 'org-mem-updater-ensure-entry-at-point-known
   #'org-mem-updater-ensure-id-node-at-point-known "2025-05-21")
+(define-obsolete-function-alias 'org-mem-updater--activate-timer
+  #'org-mem-updater--adjust-timer "2025-05-24")
 
 (provide 'org-mem-updater)
 
