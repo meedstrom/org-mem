@@ -32,9 +32,31 @@ Example setup:
 
 That's it -- now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  Check the many defuns in [[https://github.com/meedstrom/org-mem/blob/main/org-mem.el][org-mem.el]] for what you can do with that!
 
---------
+*** Example: Let org-agenda cast its net wide
 
-Two different APIs to access the same data.
+You can't put 2,000 files in =org-agenda-files=, but most contain nothing of interest for the agenda anyway, right?
+
+Turns out I have only about 30 files worth checking, the challenge was always knowing /which/ files ahead-of-time.
+
+Now it's easy:
+
+#+begin_src elisp
+(defun my-set-agenda-files (&rest _)
+  (setq org-agenda-files
+        (cl-loop for file in (org-mem-all-files)
+                 unless (string-search "noagenda" file)
+                 as entries = (org-mem-entries-in-file file)
+                 when (seq-find (##or (org-mem-entry-active-timestamps %)
+                                      (org-mem-entry-todo-state %)
+                                      (org-mem-entry-scheduled %)
+                                      (org-mem-entry-deadline %))
+                                entries)
+                 collect file)))
+(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
+#+end_src
+
+** Two APIs
+You get two different APIs to pick from, to access the same data.
 
 - Emacs Lisp
 - SQL
