@@ -36,15 +36,13 @@ That's it -- now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and var
 
 You can't put 2,000 files in =org-agenda-files=, but most contain nothing of interest for the agenda anyway, right?
 
-Turns out I have only about 30 files worth checking, the challenge was always knowing /which/ files ahead-of-time.
-
-Now it's easy:
+Turns out I have only about 30 files worth checking, the challenge was always knowing /which/ files ahead-of-time.  Now it's easy:
 
 #+begin_src elisp
 (defun my-set-agenda-files (&rest _)
   (setq org-agenda-files
         (cl-loop for file in (org-mem-all-files)
-                 unless (string-search "noagenda" file)
+                 unless (string-search "archive" file)
                  as entries = (org-mem-entries-in-file file)
                  when (seq-find (##or (org-mem-entry-active-timestamps %)
                                       (org-mem-entry-todo-state %)
