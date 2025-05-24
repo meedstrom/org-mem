@@ -161,28 +161,6 @@ instead of default `org-mem-roamy--connection'."
             (sqlite-mode-list-tables))
         (message "No DB yet")))))
 
-;; TODO: Could be way more detailed.
-;;       Like (inspector-inspect (org-mem-all-entries))
-;;;###autoload
-(defun org-mem-list-entries ()
-  "List all Org entries."
-  (interactive)
-  (org-mem-list--pop-to-tabulated-buffer
-   :buffer "*org-mem entries*"
-   :format [("Entry" 30 t) ("File" 30 t) ("Outline path" 0 t)]
-   :reverter #'org-mem-list-entries
-   :entries
-   (cl-loop
-    for entry in (org-mem-all-entries)
-    collect
-    (list (sxhash entry)
-          (vector (buttonize (org-mem-entry-title entry)
-                             #'org-mem-list--goto-file-pos
-                             (cons (org-mem-entry-file entry)
-                                   (org-mem-entry-pos entry)))
-                  (file-name-nondirectory (org-mem-entry-file entry))
-                  (string-join (org-mem-entry-olpath entry) " > "))))))
-
 (cl-defun org-mem-list--pop-to-tabulated-buffer (&key buffer format entries reverter)
   "Create, populate and display a `tabulated-list-mode' buffer.
 
