@@ -244,7 +244,8 @@ in `org-mem-file-mtime' and friends.")
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
   (-internal-id   () :read-only t :type integer)
-  (text           () :read-only t :type string))
+  (text           () :read-only t :type string)
+  (active-timestamps () :read-only t :type list))
 
 
 ;;; To find objects to operate on
@@ -867,6 +868,15 @@ What is valid?  See \"org-mem-test.el\"."
   (funcall (if (listp file/files) #'org-mem-entries-in-files
              #'org-mem-entries-in-file)
            file/files))
+
+(defun org-mem-entries-with-active-timestamps ()
+  (seq-filter #'org-mem-entry-active-timestamps (org-mem-all-entries)))
+
+(defun org-mem-files-with-active-timestamps ()
+  (cl-loop for file in (org-mem-all-files)
+           as entries = (org-mem-entries-in-file file)
+           when (seq-find #'org-mem-entry-active-timestamps entries)
+           collect file))
 
 (defun org-mem-roam-reflinks-to (_)
   "(Unimplemented)"

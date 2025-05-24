@@ -123,6 +123,7 @@ brackets."
 
 (defconst org-mem--org-ts-regexp
   "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
+
 (defun org-mem-parser--collect-links-until (end id-here file internal-entry-id)
   "From here to buffer position END, look for forward-links.
 
@@ -215,7 +216,7 @@ the subheading potentially has an ID of its own."
     ;; New 2025-05-23: Start over and look for active timestamps
     (goto-char beg)
     (while (re-search-forward org-mem--org-ts-regexp end t)
-      (push (cons (point) (match-string 0))
+      (push (org-mem-parser--stamp-to-iso8601 (match-string 0))
             org-mem-parser--found-timestamps)))
   (goto-char (or end (point-max))))
 
@@ -261,6 +262,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
     (switch-to-buffer
      (setq org-mem-parser--buf (get-buffer-create " *org-mem-parser*" t))))
   (setq org-mem-parser--found-links nil)
+  (setq org-mem-parser--found-timestamps nil)
   (unless org-mem-parser--heading-re
     (setq org-mem-parser--heading-re
           (if $inlinetask-min-level
@@ -409,8 +411,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         TAGS
                         nil
                         INTERNAL-ENTRY-ID
-                        (and $do-cache-text (buffer-string)))
+                        (and $do-cache-text (buffer-string))
+                        org-mem-parser--found-timestamps)
                 found-entries)
+          (setq org-mem-parser--found-timestamps nil)
 
           (let ((heritable-tags
                  (and USE-TAG-INHERITANCE
@@ -548,29 +552,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (cl-loop until (> LEVEL (caar CRUMBS)) do (pop CRUMBS))
               (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags)
                     CRUMBS))
-            (push (record 'org-mem-entry
-                          file
-                          LNUM
-                          HEADING-POS
-                          TITLE
-                          LEVEL
-                          ID
-                          CLOSED
-                          (mapcar #'butlast CRUMBS)
-                          DEADLINE
-                          PRIORITY
-                          PROPS
-                          SCHED
-                          ;; Inherited tags
-                          (nreverse
-                           (delete-dups
-                            (flatten-tree
-                             (mapcar #'last (cdr CRUMBS)))))
-                          TAGS
-                          TODO-STATE
-                          INTERNAL-ENTRY-ID
-                          (and $do-cache-text (buffer-string)))
-                  found-entries)
 
             ;; Heading and properties analyzed, now seek links in entry text.
 
@@ -598,6 +579,31 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (goto-char (or DRAWER-END HERE))
             (org-mem-parser--collect-links-until (point-max) ID-HERE file INTERNAL-ENTRY-ID)
 
+            (push (record 'org-mem-entry
+                          file
+                          LNUM
+                          HEADING-POS
+                          TITLE
+                          LEVEL
+                          ID
+                          CLOSED
+                          (mapcar #'butlast CRUMBS)
+                          DEADLINE
+                          PRIORITY
+                          PROPS
+                          SCHED
+                          ;; Inherited tags
+                          (nreverse
+                           (delete-dups
+                            (flatten-tree
+                             (mapcar #'last (cdr CRUMBS)))))
+                          TAGS
+                          TODO-STATE
+                          INTERNAL-ENTRY-ID
+                          (and $do-cache-text (buffer-string))
+                          org-mem-parser--found-timestamps)
+                  found-entries)
+            (setq org-mem-parser--found-timestamps nil)
             (goto-char (point-max))
             ;; NOTE: Famously slow `line-number-at-pos' is fast in narrow.
             (setq LNUM (+ LNUM -1 (line-number-at-pos)))
