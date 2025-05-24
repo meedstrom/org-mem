@@ -9,7 +9,7 @@ A cache of metadata about the structure of all your Org files -- headings, links
 Builds quickly, so that there is no need to persist data across sessions. My =M-x org-mem-reset=:
 
 #+begin_example
-Org-mem saw 2418 files, 8388 subtrees, 8624 links (3418 IDs, 4874 ID-links) in 1.95s + 0.93s writing SQLite DB
+Org-mem saw 2418 files, 8388 subtrees, 8624 links (3418 IDs, 4874 ID-links) in 1.95s
 #+end_example
 
 This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
@@ -84,15 +84,15 @@ A design choice: Org-mem does not use Org code to analyze your files, but a [[ht
 
 1. *Fast init*.  Since I want Emacs init to be fast, it's not allowed to load Org.  Yet, I want to be able to use a command like =org-node-find= to browse my Org stuff immediately after init.
 
-   That means the data must exist before Org has loaded.
+   Or be warned about a deadline even if I don't.
 
-   - Future milestone: I want to be told at init if there's a dangling Org clock or missed deadline somewhere.
+   That means the data must exist before Org has loaded.
 
 2. *Robustness.*  Many users heavily customize Org, so no surprise that it sometimes breaks.  In my experience, it's very nice then to have an alternative way to browse, that does not depend on a functional Org setup.
 
 3. *Fast rebuild.*  As they say, there are two hard things in computer science: cache invalidation and naming things.
 
-   Org-mem must update its cache as the user saves, renames and deletes files.  Not difficult, until you realize that files may change due to a Git operation, OS file operations, a =rm= command on the terminal, edits by another Emacs instance, or remote edits by Logseq.
+   Org-mem must update its cache as the user saves, renames and deletes files.  Not difficult, until you realize that files and directory listings may change due to a Git operation, OS file operations, a =mv= command on the terminal, edits by another Emacs instance, or remote edits by Logseq.
 
    A robust approach to cache invalidation is to avoid trying: ensure that a full rebuild is fast enough that you can just do /that/ instead.
 
@@ -102,7 +102,7 @@ A design choice: Org-mem does not use Org code to analyze your files, but a [[ht
 
 Included is a drop-in for [[https://github.com/org-roam/org-roam][org-roam's]] =(org-roam-db)=, called =(org-mem-roamy-db)=.
 
-In the future we may also do a drop-in for [[https://github.com/ndwarshuis/org-sql/blob/80bea9996de7fa8bc7ff891a91cfaff91111dcd8/org-sql.el#L141][org-sql]]'s DB, or something custom, but we'll see!
+In the future we may also create something that fits [[https://github.com/ndwarshuis/org-sql/blob/80bea9996de7fa8bc7ff891a91cfaff91111dcd8/org-sql.el#L141][org-sql]]'s DB schemata, or something custom, but we'll see!
 
 *** Without org-roam installed
 
