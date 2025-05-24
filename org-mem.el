@@ -321,22 +321,24 @@ Citations are `org-mem-link' objects that satisfy
     (let ((entries (gethash (org-mem-entry-file-truename entry)
                             org-mem--file<>entries)))
       (while (and (car entries)
-                  (not (= (org-mem-entry--internal-id (car entries))
-                          (org-mem-entry--internal-id entry))))
+                  (not (= (org-mem-entry-pos (car entries))
+                          (org-mem-entry-pos entry))))
         (pop entries))
       (pop entries)
       (car entries))))
 
 (defun org-mem-previous-entry (entry)
-  "The next entry after ENTRY in the same file, if any."
+  "The entry before ENTRY in the same file, if any."
   (with-memoization (org-mem--table 21 entry)
     (let ((entries (gethash (org-mem-entry-file-truename entry)
                             org-mem--file<>entries)))
-      (while (and (cadr entries)
-                  (not (= (org-mem-entry--internal-id (cadr entries))
-                          (org-mem-entry--internal-id entry))))
-        (pop entries))
-      (car entries))))
+      (if (= (org-mem-entry-pos entry) 1)
+          nil
+        (while (and (cadr entries)
+                    (not (= (org-mem-entry-pos (cadr entries))
+                            (org-mem-entry-pos entry))))
+          (pop entries))
+        (car entries)))))
 
 (defun org-mem-entries-in-file (file)
   "List of entries in same order as they appear in FILE, if FILE known.
