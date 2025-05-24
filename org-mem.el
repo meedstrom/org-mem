@@ -50,8 +50,12 @@
 (defvar org-id-track-globally)
 (defvar org-id-locations-file)
 (defvar org-id-extra-files)
+(defvar org-element-cache-persistent)
+(defvar org-inhibit-startup)
+(declare-function org-id-locations-load "org-id")
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
+(declare-function org-id-locations-save "org-id")
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
@@ -216,6 +220,18 @@ in `org-mem-file-mtime' and friends.")
     (or (gethash wild-file org-mem--file<>metadata)
         (gethash (org-mem--truename-maybe wild-file) org-mem--file<>metadata)
         (error "org-mem: File seems not yet scanned: %s" wild-file))))
+
+(defun org-mem--fast-abbrev (absolute-file-name)
+  "Abbreviate ABSOLUTE-FILE-NAME, faster than `abbreviate-file-name'."
+  (let ((case-fold-search nil))
+    (setq absolute-file-name (directory-abbrev-apply absolute-file-name))
+    (if (string-match (with-memoization (org-mem--table 0 'org-mem--fast-abbrev)
+                        (with-temp-buffer ;; No buffer-env
+                          (directory-abbrev-make-regexp
+                           (expand-file-name "~"))))
+                      absolute-file-name)
+        (concat "~" (substring absolute-file-name (match-beginning 1)))
+      absolute-file-name)))
 
 (cl-defstruct (org-mem-link (:constructor nil) (:copier nil))
   (file-truename      () :read-only t :type string)
@@ -1059,19 +1075,6 @@ No-op if Org has not loaded."
              (org-mem-entry-file entry)
              org-id-locations)))
 
-(defun org-mem--try-ensure-org-id-table-p ()
-  "Coerce `org-id-locations' into hash table form, return nil on fail."
-  (require 'org-id)
-  (and org-id-track-globally
-       (or (hash-table-p org-id-locations)
-           (ignore-errors
-             (setq org-id-locations
-                   (org-id-alist-to-hash org-id-locations)))
-           ;; Not error because some things can still work.
-           (progn
-             (message "org-mem: Caught strange org-id bug, maybe restart Emacs")
-             nil))))
-
 (defun org-mem--mk-work-vars ()
   "Make alist of variables needed by `org-mem-parser--parse-file'."
   (let ((custom-plain-re (org-mem--mk-plain-re org-mem-seek-link-types))
@@ -1135,7 +1138,7 @@ No-op if Org has not loaded."
                           ?- ?/ parenthesis)))))))
 
 
-;;; File-name subroutines
+;;; File discovery subroutines
 
 (defvar org-mem--wild-filename<>truename (make-hash-table :test 'equal)
   "1:1 table mapping a wild file name to its abbreviated truename.
@@ -1147,10 +1150,7 @@ Results are often correct anyway, and file-names found to be bad will be
 fixed by an automatic re-scan.
 
 As `file-truename' can be quite slow in some environments, it would be a
-bad idea to execute it for every individual file on the first scan.
-
-Another impact on the first scan may be `org-mem--tramp-file-p'
-skipping the regexp searches on all those names.")
+bad idea to execute it for every individual file on the first scan.")
 
 ;; A design requirement is don't touch Tramp files -- neither analyze them,
 ;; nor scrub them from org-id-locations or the like.
@@ -1170,7 +1170,7 @@ changing the meaning of \"~\" or \"~USER\", or runtime changes to
 Optional boolean EXPAND-ON-FIRST-RUN comes into play only when
 `org-mem--first-run' is still t, and means to use `expand-file-name'
 with a nil `file-name-handler-alist', rather than accept WILD-FILE
-as-is.  This is a relatively performant way to convert most absolute
+as-is.  This is a relatively performant way to convert most
 file-names to probable true names."
   (or (gethash wild-file org-mem--wild-filename<>truename)
       (and (stringp wild-file)
@@ -1187,18 +1187,6 @@ file-names to probable true names."
                         (file-truename wild-file))))
                  (puthash wild-file truename org-mem--wild-filename<>truename))
              (remhash wild-file org-mem--wild-filename<>truename)))))
-
-(defun org-mem--fast-abbrev (absolute-file-name)
-  "Abbreviate ABSOLUTE-FILE-NAME, faster than `abbreviate-file-name'."
-  (let ((case-fold-search nil))
-    (setq absolute-file-name (directory-abbrev-apply absolute-file-name))
-    (if (string-match (with-memoization (org-mem--table 0 'org-mem--fast-abbrev)
-                        (with-temp-buffer ;; No buffer-env
-                          (directory-abbrev-make-regexp
-                           (expand-file-name "~"))))
-                      absolute-file-name)
-        (concat "~" (substring absolute-file-name (match-beginning 1)))
-      absolute-file-name)))
 
 (declare-function tramp-tramp-file-p "tramp")
 (declare-function org-mem--tramp-file-p "org-mem")
@@ -1238,13 +1226,24 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
                     unless (member (car cell) bad)
                     collect cell)))))
 
+(defun org-mem--try-ensure-org-id-table-p ()
+  "Coerce `org-id-locations' into hash table form, return nil on fail."
+  (require 'org-id)
+  (and org-id-track-globally
+       (or (hash-table-p org-id-locations)
+           (ignore-errors
+             (setq org-id-locations
+                   (org-id-alist-to-hash org-id-locations)))
+           ;; No error because some things can still work.
+           (progn (message "org-mem: Strange org-id bug, maybe restart Emacs")
+                  nil))))
+
 
 ;;; File discovery
 
 ;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.026 s
 ;; (benchmark-call #'org-roam-list-files)          => 4.141 s
 (defvar org-mem--dedup-tbl (make-hash-table :test 'equal))
-(declare-function org-id-locations-load "org-id")
 (defun org-mem--list-files-from-fs ()
   "Look for Org files in `org-mem-watch-dirs'.
 
@@ -1259,18 +1258,16 @@ This means you cannot cross-correlate the results with file names in
   (clrhash org-mem--dedup-tbl)
   (let ((file-name-handler-alist nil)) ;; perf
     (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
+      ;; NOTE: It is possible to have a true dir name /home/org/,
+      ;; then a symlink subdir /home/org/current/ -> /home/org/2025/.
+      ;; And while `org-mem-parser--parse-file' does check `file-symlink-p' on
+      ;; individual files, that does not catch the subdir being a symlink.
+      ;; Fortunately, `org-mem--dir-files-recursive' will not enter
+      ;; /home/org/current/ in the first place.
       (dolist (file (nconc (org-mem--dir-files-recursive
                             dir ".org_archive" org-mem-watch-dirs-exclude)
                            (org-mem--dir-files-recursive
                             dir ".org" org-mem-watch-dirs-exclude)))
-        ;; NOTE: See `org-mem--first-run'; this may not actually check truename.
-        ;;       It is possible to have a true dir name /home/org/,
-        ;;       then a symlink subdir /home/org/current/ -> /home/org/2025/.
-        ;;       And while `org-mem-parser--parse-file' does check
-        ;;       `file-symlink-p' on individual files, that does not catch
-        ;;       the subdir being a symlink.
-        ;;       Fortunately, `org-mem--dir-files-recursive' will not
-        ;;       enter /home/org/current/ in the first place.
         (puthash (org-mem--truename-maybe file) t org-mem--dedup-tbl)))
     ;; Maybe check org-id-locations.
     (when org-mem-do-sync-with-org-id
@@ -1348,8 +1345,6 @@ If there was no running process, return t too."
   ;; (message "`org-mem-delete' will be removed, use `ht-reject!'")
   (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
 
-(defvar org-element-cache-persistent)
-(defvar org-inhibit-startup)
 (defun org-mem-org-mode-scratch (&optional bufname)
   "Get or create a hidden `org-mode' buffer.
 Also enable `org-mode', but ignore `org-mode-hook' and startup options.
@@ -1380,7 +1375,6 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
 
 ;;; End-user tool
 
-(declare-function org-id-locations-save "org-id")
 (defun org-mem-forget-id-locations-recursively (dir)
   "Remove all references in `org-id-locations' to any files under DIR.
 
