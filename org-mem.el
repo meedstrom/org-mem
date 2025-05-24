@@ -826,7 +826,6 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-tags-inherited              #'org-mem-entry-tags-inherited)
 (defalias 'org-mem-tags-local                  #'org-mem-entry-tags-local)
 (defalias 'org-mem-text                        #'org-mem-entry-text)
-(defalias 'org-mem-title                       #'org-mem-entry-title)
 (defalias 'org-mem-todo-state                  #'org-mem-entry-todo-state)
 
 (defalias 'org-mem-target         #'org-mem-link-target)
@@ -857,13 +856,13 @@ What is valid?  See \"org-mem-test.el\"."
   (:method ((xx string)) (org-mem-file-id-strict xx)))
 
 (cl-defgeneric org-mem-title (entry/file)
-  "Heading title, or file #+title if ENTRY/FILE is file name."
+  "Heading title, or file title or basename if ENTRY/FILE is a file name.
+Like `org-mem-entry-title', it always returns a string."
   (:method ((xx org-mem-entry)) (org-mem-entry-title xx))
-  (:method ((xx string)) (or (org-mem-file-title-strict xx)
-                             (error "No #+title in file %s" xx))))
+  (:method ((xx string)) (org-mem-file-title-or-basename xx)))
 
 (cl-defgeneric org-mem-title-maybe (entry/file)
-  "Heading title, or file #+title if ENTRY/FILE is file name."
+  "Heading title, or file #+title if ENTRY/FILE is a file name."
   (:method ((xx org-mem-entry)) (org-mem-entry-title-maybe xx))
   (:method ((xx string)) (org-mem-file-title-strict xx)))
 
