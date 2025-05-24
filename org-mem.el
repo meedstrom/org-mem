@@ -512,11 +512,13 @@ name you input to the org-mem API."
 (defun org-mem-entry-olpath-with-self-with-title (entry &optional filename-fallback)
   "Outline path, including file #+title, and ENTRY\\='s own heading.
 With FILENAME-FALLBACK, use file basename if there is no #+title."
-  (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry)))))
+  (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
+        file-name-handler-alist) ;; perf
     (when (null (car olp))
       (pop olp)
       (when filename-fallback
-        (push (file-name-nondirectory (org-mem-entry-file entry)) olp)))
+        (push (file-name-nondirectory (org-mem-entry-file-truename entry))
+              olp)))
     olp))
 
 (defalias 'org-mem-entry-olpath-with-title-with-self
@@ -525,7 +527,8 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
 (defun org-mem-entry-olpath-with-title (entry &optional filename-fallback)
   "Outline path to ENTRY, including file #+title.
 With FILENAME-FALLBACK, use file basename if there is no #+title."
-  (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry))))))
+  (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
+        file-name-handler-alist) ;; perf
     (when (null (car olp))
       (pop olp)
       (when filename-fallback
@@ -539,7 +542,8 @@ In the case that ENTRY is a file-level entry with no title, return the
 file base name."
   (or (org-mem-entry-title-maybe entry)
       (progn (cl-assert (not (org-mem-entry-subtree-p entry)))
-             (file-name-nondirectory (org-mem-entry-file-truename entry)))))
+             (let (file-name-handler-alist)
+               (file-name-nondirectory (org-mem-entry-file-truename entry))))))
 
 (defun org-mem-entry-property (prop entry)
   "Value of property PROP in ENTRY."
@@ -726,9 +730,8 @@ These link-targets are determined by `org-mem--split-roam-refs-field'."
   "The entry that has a ROAM_REFS property containing REF, and an ID."
   (org-mem-entry-by-id (gethash ref org-mem--roam-ref<>id)))
 
-(defun org-mem-links-to-roam-ref (ref)
-  "All links to REF."
-  (and ref (gethash ref org-mem--target<>links)))
+(defalias 'org-mem-links-to-roam-ref 'org-mem-links-to-target
+  "All links to REF.")
 
 (defun org-mem-roam-reflinks-to-entry (entry)
   "All links that point to a substring of ENTRY\\='s ROAM_REFS."
@@ -742,13 +745,13 @@ These link-targets are determined by `org-mem--split-roam-refs-field'."
 
 (defun org-mem-roam-reflinks-into-file (file)
   "Reflinks from anywhere, leading into somewhere in FILE."
-  (seq-mapcat #'org-mem-roam-reflinks-to-entry
-              (org-mem-entries-in-file file)))
+  (mapcan #'org-mem-roam-reflinks-to-entry
+          (org-mem-entries-in-file file)))
 
 (defun org-mem-roam-reflinks-into-files (files)
   "Reflinks from anywhere, leading into somewhere in FILES."
-  (seq-mapcat #'org-mem-roam-reflinks-to-entry
-              (org-mem-entries-in-files files)))
+  (mapcan #'org-mem-roam-reflinks-to-entry
+          (org-mem-entries-in-files files)))
 
 (defun org-mem--record-roam-aliases-and-refs (entry)
   "Add ENTRY\\='s ROAM_ALIASES and ROAM_REFS to tables."
@@ -1027,7 +1030,7 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
     (message "%s" org-mem--next-message)
     (setq org-mem--next-message nil)
     (when bad-paths
-      ;; Scan again to catch relocated files, but guard against repeating.
+      ;; Scan again to catch real symlink targets, but guard against repeating.
       (unless (seq-intersection bad-paths org-mem--caused-retry)
         (setq org-mem--caused-retry (append bad-paths org-mem--caused-retry))
         (org-mem--scan-full)))
