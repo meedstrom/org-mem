@@ -1424,7 +1424,7 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvar org-mem--bump-int 2 "Not a version number, but bumped sometimes.")
+(defvar org-mem--bump-int 3 "Not a version number, but bumped sometimes.")
 (define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-dest                #'org-mem-target            "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
