@@ -1347,7 +1347,7 @@ If there was no running process, return t too."
 
 (defun org-mem-delete (pred tbl)
   "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
-  ;; (message "`org-mem-delete' will be removed, use `ht-reject!'")
+  (message "`org-mem-delete' will be removed, use `ht-reject!'")
   (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
 
 (defun org-mem-org-mode-scratch (&optional bufname)
@@ -1355,9 +1355,7 @@ If there was no running process, return t too."
 Also enable `org-mode', but ignore `org-mode-hook' and startup options.
 
 Like a temp buffer, but does not clean up.  You should probably use
-`erase-buffer' in case it already contains text.  Then finish up with
-`font-lock-ensure' if you need the contents fontified.
-
+`erase-buffer' in case it already contains text.
 BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
   (require 'org)
   (let ((bufname (or bufname " *org-mem-org-mode-scratch*"))
