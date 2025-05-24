@@ -56,6 +56,8 @@
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
 (declare-function org-id-locations-save "org-id")
+(define-obsolete-variable-alias 'org-mem--file<>metadata 'org-mem--truename<>metadata "2025-05-24")
+(define-obsolete-variable-alias 'org-mem--file<>entries  'org-mem--truename<>entries  "2025-05-24")
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
@@ -175,7 +177,7 @@ Buffer is in `fundamental-mode'.  For an Org buffer see function
 (defvar org-mem--id<>entry (make-hash-table :test 'equal)
   "1:1 table mapping an ID to an `org-mem-entry' record.")
 
-(defvar org-mem--file<>entries (make-hash-table :test 'equal)
+(defvar org-mem--truename<>entries (make-hash-table :test 'equal)
   "1:N table mapping a file name to a sorted list of `org-mem-entry' records.
 Sorted by field `org-mem-entry-pos'.")
 
@@ -204,7 +206,7 @@ Note: All tables cleared often, meant for memoizations."
                         (puthash ,key (make-hash-table :test 'equal)
                                  org-mem--key<>subtable)))))
 
-(defvar org-mem--file<>metadata (make-hash-table :test 'equal)
+(defvar org-mem--truename<>metadata (make-hash-table :test 'equal)
   "1:1 table mapping a file name to a list of assorted data.
 
 Users have no reason to inspect this table, prefer stable API
@@ -217,8 +219,8 @@ in `org-mem-file-mtime' and friends.")
                      (if (org-mem-entry-p file/entry/link)
                          (org-mem-entry-file-truename file/entry/link)
                        (org-mem-link-file-truename file/entry/link)))))
-    (or (gethash wild-file org-mem--file<>metadata)
-        (gethash (org-mem--truename-maybe wild-file) org-mem--file<>metadata)
+    (or (gethash wild-file org-mem--truename<>metadata)
+        (gethash (org-mem--truename-maybe wild-file) org-mem--truename<>metadata)
         (error "org-mem: File seems not yet scanned: %s" wild-file))))
 
 (defun org-mem--fast-abbrev (absolute-file-name)
@@ -276,12 +278,12 @@ perfectly with `org-id-locations'."
 (defun org-mem-all-files ()
   "All Org files."
   (with-memoization (org-mem--table 0 'org-mem-all-files)
-    (mapcar #'org-mem--fast-abbrev (hash-table-keys org-mem--file<>metadata))))
+    (mapcar #'org-mem--fast-abbrev (hash-table-keys org-mem--truename<>metadata))))
 
 (defun org-mem-all-entries ()
   "All entries."
   (with-memoization (org-mem--table 0 'org-mem-all-entries)
-    (apply #'append (hash-table-values org-mem--file<>entries))))
+    (apply #'append (hash-table-values org-mem--truename<>entries))))
 
 (defun org-mem-all-id-nodes ()
   "All ID-nodes.
@@ -337,7 +339,7 @@ Citations are `org-mem-link' objects that satisfy
   "The next entry after ENTRY in the same file, if any."
   (with-memoization (org-mem--table 20 entry)
     (let ((entries (gethash (org-mem-entry-file-truename entry)
-                            org-mem--file<>entries)))
+                            org-mem--truename<>entries)))
       (while (and (car entries)
                   (not (= (org-mem-entry-pos (car entries))
                           (org-mem-entry-pos entry))))
@@ -349,7 +351,7 @@ Citations are `org-mem-link' objects that satisfy
   "The entry before ENTRY in the same file, if any."
   (with-memoization (org-mem--table 22 entry)
     (let ((entries (gethash (org-mem-entry-file-truename entry)
-                            org-mem--file<>entries)))
+                            org-mem--truename<>entries)))
       (if (= (org-mem-entry-pos entry) 1)
           nil
         (while (and (cadr entries)
@@ -364,7 +366,7 @@ The list always contains at least one entry, which
 represents the content before the first heading.
 Note 2025-05-13: The last fact may change in the future."
   (cl-assert (stringp file))
-  (gethash (org-mem--truename-maybe file) org-mem--file<>entries))
+  (gethash (org-mem--truename-maybe file) org-mem--truename<>entries))
 
 (defalias 'org-mem-file-entries #'org-mem-entries-in-file)
 
@@ -373,7 +375,7 @@ Note 2025-05-13: The last fact may change in the future."
   (with-memoization (org-mem--table 13 files)
     (cl-loop for file in (delete-dups (mapcar #'org-mem--truename-maybe files))
              when (stringp file)
-             append (gethash file org-mem--file<>entries))))
+             append (gethash file org-mem--truename<>entries))))
 
 (defun org-mem-file-by-id (id)
   "The file that contains an :ID: property matching ID."
@@ -990,8 +992,8 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
   (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
   (clrhash org-mem--title<>id)
   (clrhash org-mem--id<>entry)
-  (clrhash org-mem--file<>metadata)
-  (clrhash org-mem--file<>entries)
+  (clrhash org-mem--truename<>metadata)
+  (clrhash org-mem--truename<>entries)
   (clrhash org-mem--internal-entry-id<>links)
   (clrhash org-mem--target<>links)
   (setq org-mem--title-collisions nil)
@@ -1001,7 +1003,7 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
     (with-current-buffer
         (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
       (dolist (fdata file-data)
-        (puthash (car fdata) fdata org-mem--file<>metadata)
+        (puthash (car fdata) fdata org-mem--truename<>metadata)
         (run-hook-with-args 'org-mem-record-file-functions fdata))
       (dolist (entry entries)
         (org-mem--record-entry entry)
@@ -1053,7 +1055,7 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
         (title (org-mem-entry-title-maybe entry)))
     ;; NOTE: Puts entries in correct order because we're called by
     ;; `org-mem--finalize-full-scan' looping over entries in reverse order.
-    (push entry (gethash file org-mem--file<>entries))
+    (push entry (gethash file org-mem--truename<>entries))
     (when id
       (org-mem--maybe-snitch-to-org-id entry)
       (when title
@@ -1409,11 +1411,11 @@ org-id-locations:
                org-id-locations)
       ;; Bonus
       (dolist (file files)
-        (dolist (entry (gethash file org-mem--file<>entries))
+        (dolist (entry (gethash file org-mem--truename<>entries))
           (remhash (org-mem-entry--internal-id entry)
                    org-mem--internal-entry-id<>links))
-        (remhash file org-mem--file<>entries)
-        (remhash file org-mem--file<>metadata))
+        (remhash file org-mem--truename<>entries)
+        (remhash file org-mem--truename<>metadata))
       (org-id-locations-save)
       (message "Forgetting all IDs in directory %s...done" dir)
       (org-mem--scan-full))))

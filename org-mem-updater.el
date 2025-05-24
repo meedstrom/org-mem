@@ -105,7 +105,7 @@ In that case, there may be nothing wrong with the known name."
     (with-current-buffer
         (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
       (dolist (datum file-data)
-        (puthash (car datum) datum org-mem--file<>metadata)
+        (puthash (car datum) datum org-mem--truename<>metadata)
         (run-hook-with-args 'org-mem-record-file-functions datum))
       (dolist (entry entries)
         (org-mem--record-entry entry)
@@ -137,12 +137,12 @@ and potentially `org-mem-updater--forget-links-from-files'."
     (with-current-buffer
         (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
       (dolist (file files)
-        (dolist (entry (gethash file org-mem--file<>entries))
+        (dolist (entry (gethash file org-mem--truename<>entries))
           (remhash (org-mem-entry-id entry) org-mem--id<>entry)
           (remhash (org-mem-entry-title-maybe entry) org-mem--title<>id)
           (run-hook-with-args 'org-mem-forget-entry-functions entry))
-        (remhash file org-mem--file<>entries)
-        (remhash file org-mem--file<>metadata)
+        (remhash file org-mem--truename<>entries)
+        (remhash file org-mem--truename<>metadata)
         (run-hook-with-args 'org-mem-forget-file-functions file)))))
 
 ;; For downstream use
@@ -216,13 +216,13 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
              (derived-mode-p 'org-mode)
              (file-exists-p buffer-file-name))
     (let ((file (file-truename buffer-file-name)))
-      (unless (gethash file org-mem--file<>metadata)
+      (unless (gethash file org-mem--truename<>metadata)
         (puthash file
                  (list file
                        (file-attributes file)
                        (line-number-at-pos (point-max) t)
                        (point-max))
-                 org-mem--file<>metadata)))))
+                 org-mem--truename<>metadata)))))
 
 (defun org-mem-updater-ensure-link-at-point-known (&rest _)
   "Record the link at point.

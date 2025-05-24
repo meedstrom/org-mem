@@ -64,7 +64,7 @@
                       (format "%s" signal)))))
     (message "Congratulations, no problems scanning %d entries in %d files!"
              (length (org-mem-all-entries))
-             (hash-table-count org-mem--file<>metadata))))
+             (hash-table-count org-mem--truename<>metadata))))
 
 ;;;###autoload
 (defun org-mem-list-title-collisions ()

@@ -18,7 +18,7 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'indexed--dest<>links       'org-mem--target<>links   "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed--file<>entries     'org-mem--file<>entries   "0.7.0 (2025-05-11)")
+(define-obsolete-variable-alias 'indexed--file<>entries     'org-mem--truename<>entries   "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed--id<>entry         'org-mem--id<>entry       "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed--title<>id         'org-mem--title<>id       "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed-roam--id<>refs     'org-mem--id<>roam-refs   "0.7.0 (2025-05-11)")
