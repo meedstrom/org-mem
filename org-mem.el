@@ -468,6 +468,15 @@ or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
   (and entry (gethash (org-mem-entry--internal-id entry)
                       org-mem--internal-entry-id<>links)))
 
+(defun org-mem-entries-with-active-timestamps ()
+  (seq-filter #'org-mem-entry-active-timestamps (org-mem-all-entries)))
+
+(defun org-mem-files-with-active-timestamps ()
+  (cl-loop for file in (org-mem-all-files)
+           as entries = (org-mem-entries-in-file file)
+           when (seq-find #'org-mem-entry-active-timestamps entries)
+           collect file))
+
 (defun org-mem-links-to-entry (_entry)
   "(Unimplemented)"
   (error "Unimplemented"))
@@ -889,15 +898,6 @@ Like `org-mem-entry-title', it always returns a string."
   (funcall (if (listp file/files) #'org-mem-entries-in-files
              #'org-mem-entries-in-file)
            file/files))
-
-(defun org-mem-entries-with-active-timestamps ()
-  (seq-filter #'org-mem-entry-active-timestamps (org-mem-all-entries)))
-
-(defun org-mem-files-with-active-timestamps ()
-  (cl-loop for file in (org-mem-all-files)
-           as entries = (org-mem-entries-in-file file)
-           when (seq-find #'org-mem-entry-active-timestamps entries)
-           collect file))
 
 (defun org-mem-roam-reflinks-to (_)
   "(Unimplemented)"
