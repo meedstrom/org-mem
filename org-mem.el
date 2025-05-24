@@ -331,7 +331,7 @@ Citations are `org-mem-link' objects that satisfy
 
 (defun org-mem-previous-entry (entry)
   "The entry before ENTRY in the same file, if any."
-  (with-memoization (org-mem--table 21 entry)
+  (with-memoization (org-mem--table 22 entry)
     (let ((entries (gethash (org-mem-entry-file-truename entry)
                             org-mem--file<>entries)))
       (if (= (org-mem-entry-pos entry) 1)
