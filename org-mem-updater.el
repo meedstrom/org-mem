@@ -220,7 +220,7 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
         (puthash file
                  (list file
                        (file-attributes file)
-                       (line-number-at-pos (point-max))
+                       (line-number-at-pos (point-max) t)
                        (point-max))
                  org-mem--file<>metadata)))))
 

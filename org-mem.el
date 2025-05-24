@@ -251,12 +251,14 @@ in `org-mem-file-mtime' and friends.")
 ;;; To find objects to operate on
 
 (defun org-mem-all-ids ()
-  "All known org-ids."
+  "All org-ids known to org-mem.
+If `org-mem-do-sync-with-org-id' is nil, the output may NOT overlap
+perfectly with `org-id-locations'."
   (with-memoization (org-mem--table 0 'org-mem-all-ids)
     (hash-table-keys org-mem--id<>entry)))
 
 (defun org-mem-all-files ()
-  "All Org files that have been found."
+  "All Org files."
   (with-memoization (org-mem--table 0 'org-mem-all-files)
     (mapcar #'org-mem--fast-abbrev (hash-table-keys org-mem--file<>metadata))))
 
