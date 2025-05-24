@@ -1339,7 +1339,8 @@ Does not modify the match data."
 Symbol WHO is included in the echo area message during the wait, to help
 trace who called this function.  If in doubt, pass your package name.
 
-Return t on finish, or nil if N-SECS elapsed without finishing."
+Return t on finish, or nil if N-SECS elapsed without finishing.
+If there was no running process, return t too."
   (cl-assert (symbolp who))
   (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." who)))
 
