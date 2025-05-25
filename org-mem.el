@@ -62,12 +62,22 @@
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
 
+;; REVIEW: I wonder if it may be worth making `org-mem-entry-text' into a
+;; function that actually does `insert-file-contents' in a hidden buffer, then
+;; keeps one such buffer alive for every file accessed so far.  Because slow
+;; resets run counter to the package's philosophy.
+;; FWIW, this only makes the reset so slow because interprocess communication
+;; implies the child must do `prin1' on the whole text string before sending
+;; it to the parent.  If it could send a raw string, it'd probably be fast.
+;; Come to think, since the parent process is doing nothing while the children
+;; are working, perhaps it could get the texts itself.
+;; Into an "org-mem--file<>content" table, at least, not bothering to carve
+;; them up by entry until later.
 (defcustom org-mem-do-cache-text nil
   "Whether to also cache text contents of all entries.
 Likely to slow down `org-mem-reset'.
 
-This makes the raw text available via accessor `org-mem-entry-text',
-and it can be fontified via function `org-mem-fontify-like-org'."
+This makes the raw text available via accessor `org-mem-entry-text'."
   :type 'boolean
   :package-version '(org-mem . "0.9.0"))
 
@@ -1300,6 +1310,15 @@ This means you cannot cross-correlate the results with file names in
   (remhash nil org-mem--dedup-tbl)
   (hash-table-keys org-mem--dedup-tbl))
 
+;; REVIEW: We can get rid of this.  In past benchmarks, it only seemed 3-5x
+;; faster than `directory-files-recursively' (for our use case, with EXCLUDES etc).
+;; In real numbers on my machine, that's adding 0.05s to one `org-mem-reset'
+;; which takes about 1.90s total.
+;; It was cooler back in org-node before 2.2.0 when the total was only ~0.90s
+;; due to collecting less data.
+;; Starting to see why it is that all software gets slower as it gets more
+;; sophisticated!  Not only due to the sophistication, but other optimizations
+;; look relatively less worth the LoC burden.
 (defun org-mem--dir-files-recursive (dir suffix excludes)
   "Faster, purpose-made variant of `directory-files-recursively'.
 Return a list of all files under directory DIR, its
@@ -1347,9 +1366,16 @@ If there was no running process, return t too."
 
 (defun org-mem-delete (pred tbl)
   "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
+  (declare (obsolete nil "2025-05-25"))
   (message "`org-mem-delete' will be removed, use `ht-reject!'")
   (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
 
+;; REVIEW: Mixed feelings about including this tool, but it's the obvious tool
+;; to use with `org-mem-entry-text' to generate backlink previews, for
+;; example, and it is apparently rare to realize the perf impact of
+;; opening many Org buffers.
+;; Maybe if Org doesn't fix or can't fix the startup perf, they can ship an
+;; "org-scratch" function like this?
 (defun org-mem-org-mode-scratch (&optional bufname)
   "Get or create a hidden `org-mode' buffer.
 Also enable `org-mode', but ignore `org-mode-hook' and startup options.
@@ -1360,6 +1386,7 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
   (require 'org)
   (let ((bufname (or bufname " *org-mem-org-mode-scratch*"))
         (org-inhibit-startup t)
+        (org-agenda-files nil)
         (org-element-cache-persistent nil))
     (or (get-buffer bufname)
         (with-current-buffer (get-buffer-create bufname t)
