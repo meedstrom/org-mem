@@ -92,7 +92,7 @@ A design choice: Org-mem does not use Org code to analyze your files, but a [[ht
 
 3. *Fast rebuild.*  As they say, there are two hard things in computer science: cache invalidation and naming things.
 
-   Org-mem must update its cache as the user saves, renames and deletes files.  Not difficult, until you realize that files and directory listings may change due to a Git operation, OS file operations, a =mv= command on the terminal, edits by another Emacs instance, or remote edits by Logseq.
+   Org-mem must update its cache as the user saves, renames and deletes files.  Not difficult, until you realize that files and directory listings may change due to a Git operation, OS file operations, a =mv= or =cp -a= command on the terminal, edits by another Emacs instance, or remote edits by Logseq.
 
    A robust approach to cache invalidation is to avoid trying: ensure that a full rebuild is fast enough that you can just do /that/ instead.
 
@@ -151,12 +151,14 @@ Use the command =M-x org-mem-list-db-contents=.
 
 We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some simplifications:
 
+- An =org-mem-link= object corresponds either to a valid Org link, or to a citation fragment.
+  - Check with =org-mem-link-citation-p=.
+
 - The content before the first heading counts as an entry with heading level zero.
   - Some predictable differences from normal entries: the zeroth-level entry obviously cannot have a TODO state, so =org-mem-entry-todo-state= always returns nil, and so on.
   - Check with =org-mem-entry-subtree-p=.
-
-- An =org-mem-link= object corresponds either to a valid Org link, or to a citation fragment.
-  - Check with =org-mem-link-citation-p=.
+    - Or if you're looking at the output of =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always such an entry.  The rest (the =cdr=) are necessarily subtrees.
+      - If the zeroth-level entry is absolutely empty, such that the first proper Org entry is on line 1, then =(org-mem-entry-at-lnum-in-file 1 FILE)= returns that entry instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
 
 TODO: Some get-started examples.
 
@@ -256,7 +258,7 @@ Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot fin
 
 - Make it easier to debug the dependency [[https://github.com/meedstrom/el-job][el-job]]
 
-  - It's not so hard when you understand elisp process handling, but it can print pretty unhelpful messages when something goes wrong, leaving regular users lost.
+  - Not that it's unusually hard when you understand elisp process handling, but it can print pretty unhelpful messages when something goes wrong, leaving regular users lost.
 
   - It uses a poll timer, which means Emacs demotes some errors to messages and won't enter the debugger.  (2.4.7)
 
