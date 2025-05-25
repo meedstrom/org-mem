@@ -290,6 +290,13 @@ perfectly with `org-id-locations'."
   (with-memoization (org-mem--table 0 'org-mem-all-files)
     (mapcar #'org-mem--fast-abbrev (hash-table-keys org-mem--truename<>metadata))))
 
+(defun org-mem-all-file-truenames ()
+  "Truename of all Org files.
+When in doubt, you should prefer `org-mem-all-files', because
+`directory-abbrev-alist' exists for a reason.
+However, org-mem uses truenames internally. See `org-mem-file-known-p'."
+  (hash-table-keys org-mem--truename<>metadata))
+
 (defun org-mem-all-entries ()
   "All entries."
   (with-memoization (org-mem--table 0 'org-mem-all-entries)
@@ -675,6 +682,18 @@ case that there exists a file-level ID but no #+title:, or vice versa."
   (org-mem-entry-id (car (org-mem-entries-in-file
                           (if (stringp file/entry) file/entry
                             (org-mem-entry-file-truename file/entry))))))
+
+;; REVIEW: If someone thinks this scheme is silly, you're probably on to something.
+;;         PR welcome.  IDK what, but I sense room for simplification.
+(defun org-mem-file-known-p (file)
+  "Return non-nil when FILE is known to org-mem.
+Specifically, return the name by which it is known.  This is technically
+more restrictive than `org-mem--truename-maybe' by only returning if the
+file has been scanned, but in practice they may be identical."
+  (cl-assert (stringp file))
+  (or (and (gethash file org-mem--truename<>entries) file)
+      (when-let* ((file (org-mem--truename-maybe file)))
+        (and (gethash file org-mem--truename<>entries) file))))
 
 
 ;;; Optional: Roam aliases and refs
