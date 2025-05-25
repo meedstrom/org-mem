@@ -52,6 +52,7 @@
 (defvar org-id-extra-files)
 (defvar org-element-cache-persistent)
 (defvar org-inhibit-startup)
+(defvar org-agenda-files)
 (declare-function org-id-locations-load "org-id")
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")

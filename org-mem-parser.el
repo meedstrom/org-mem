@@ -561,7 +561,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; Ignore backlinks drawer, it would lead to double-counting.
             ;; TODO: Generalize this mechanism to use configurable lists
             ;;       `$structures-to-ignore' and `$drawers-to-ignore'.
-            ;;       Maybe via `org-node--map-matches-skip-some-regions'.
             (setq DRAWER-BEG (re-search-forward "^[\s\t]*:BACKLINKS:" nil t))
             (setq DRAWER-END
                   (and DRAWER-BEG
