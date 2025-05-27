@@ -44,6 +44,11 @@
     (goto-char (org-mem-entry-pos entry))))
 
 ;;;###autoload
+(defun org-mem-list-entries ()
+  (interactive)
+  (message "Command org-mem-list-entries removed, try (inspector-inspect (org-mem-all-entries))"))
+
+;;;###autoload
 (defun org-mem-list-problems ()
   "List problems encountered while parsing."
   (interactive)
