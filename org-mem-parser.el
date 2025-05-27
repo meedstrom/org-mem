@@ -26,6 +26,8 @@
 ;; id without a prop drawer, just a line #+PROPERTY: id asdfghjkl1234.
 ;; Let's support that, that's neat.
 
+;; TODO: count-words in each entry, disregarding properties/logbook drawers
+
 (eval-when-compile
   (require 'cl-lib)
   (require 'subr-x))

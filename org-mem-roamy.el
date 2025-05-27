@@ -435,12 +435,6 @@ With SPECIFIC-FILES, only return data that involves those files."
                           dummy-props)
                     link-rows)))))
 
-    ;; Naively, we could just not add these nodes, but we did it anyway to
-    ;; prevent SQL "FOREIGN KEY constraint failed" when there are other
-    ;; objects that refer to these nodes.
-    (when org-mem-roamy--untitled-id-nodes
-      (message "Untitled ID nodes added to org-mem-roamy-db, org-roam does not normally support that. Inspect `org-mem-roamy--untitled-id-nodes'."))
-
     (list file-rows
           node-rows
           alias-rows
