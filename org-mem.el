@@ -1348,8 +1348,8 @@ sub-directories, sub-sub-directories and so on, with provisos:
 - Don\\='t enter directories whose name start with dot or underscore.
 - Don\\='t enter directories where some substring of the full name
   matches one of strings EXCLUDES literally.
-- Don\\='t collect any file where some substring of the basename
-  matches one of strings EXCLUDES literally.
+- Don\\='t collect any file where some substring of the non-directory
+  name matches one of strings EXCLUDES literally.
 - Collect only files that end in SUFFIX literally.
 - Don\\='t sort final results in any particular order.
 
