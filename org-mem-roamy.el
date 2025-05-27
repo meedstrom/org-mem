@@ -390,7 +390,7 @@ With SPECIFIC-FILES, only return data that involves those files."
               (push (list id tag) tag-rows))
      ;; See `org-roam-db-insert-file-node' and `org-roam-db-insert-node-data'
      (push (list id
-                 (org-mem-entry-file entry)
+                 (org-mem-entry-file-truename entry)
                  (org-mem-entry-level entry)
                  (org-mem-entry-pos entry)
                  (org-mem-entry-todo-state entry)
