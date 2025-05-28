@@ -150,7 +150,7 @@ the subheading potentially has an ID of its own."
           ;; Link is the [[bracketed]] kind.
           (let ((colon-pos (string-search ":" LINK-PATH)))
             (if (and colon-pos
-                     (length> LINK-PATH colon-pos)
+                     (length> LINK-PATH (1+ colon-pos))
                      (not (eq ?: (aref LINK-PATH (1+ colon-pos))))
                      (not (eq ?\s (aref LINK-PATH (1+ colon-pos)))))
                 ;; Guess that this is a valid URI: type link
