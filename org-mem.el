@@ -142,16 +142,15 @@ Aside from this variable, some filters are hard-coded:
 
 - We only scan files that end in precisely \".org\" or \".org_archive\"
   - Thus backups ending in ~, # or similar are excluded in any case
-- We exclude subdirectories that start with a period or underscore
-  - Thus directories like \".git\" \"_site\" are excluded in any case
 - We exclude symlinks
 
 Main reason to configure this is to prevent counting back-ups
-and autosave files as duplicate ID locations.
+and autosave files as duplicate ID locations,
+especially inside `org-mem-watch-dirs'.
 
 You can also speed up `org-mem-reset' a bit by excluding directories
-with a humongous amount of files \(on the order of 100,000), such as the
-infamous \"node_modules\", even if they contain no Org files."
+found inside `org-mem-watch-dirs' with a very large amount of files \(on
+the order of 100,000), such as the infamous \"node_modules\"."
   :type '(repeat string)
   :package-version '(org-mem . "0.13.0"))
 
