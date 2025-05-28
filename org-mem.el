@@ -531,7 +531,7 @@ name you input to the org-mem API."
   (with-memoization (org-mem--table 26 entry)
     (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))))
 
-(defun org-mem-entry-olpath-with-self-with-title (entry &optional filename-fallback)
+(defun org-mem-entry-olpath-with-self-with-file-title (entry &optional filename-fallback)
   "Outline path, including file #+title, and ENTRY\\='s own heading.
 With FILENAME-FALLBACK, use file basename if there is no #+title."
   (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
@@ -543,10 +543,10 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
               olp)))
     olp))
 
-(defalias 'org-mem-entry-olpath-with-title-with-self
-  #'org-mem-entry-olpath-with-self-with-title)
+(defalias 'org-mem-entry-olpath-with-file-title-with-self
+  #'org-mem-entry-olpath-with-self-with-file-title)
 
-(defun org-mem-entry-olpath-with-title (entry &optional filename-fallback)
+(defun org-mem-entry-olpath-with-file-title (entry &optional filename-fallback)
   "Outline path to ENTRY, including file #+title.
 With FILENAME-FALLBACK, use file basename if there is no #+title."
   (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
@@ -878,9 +878,9 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-lnum                        #'org-mem-entry-lnum)
 (defalias 'org-mem-olpath                      #'org-mem-entry-olpath)
 (defalias 'org-mem-olpath-with-self            #'org-mem-entry-olpath-with-self)
-(defalias 'org-mem-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-title)
-(defalias 'org-mem-olpath-with-title           #'org-mem-entry-olpath-with-title)
-(defalias 'org-mem-olpath-with-title-with-self #'org-mem-entry-olpath-with-title-with-self)
+(defalias 'org-mem-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-file-title)
+(defalias 'org-mem-olpath-with-title           #'org-mem-entry-olpath-with-file-title)
+(defalias 'org-mem-olpath-with-title-with-self #'org-mem-entry-olpath-with-file-title-with-self)
 (defalias 'org-mem-priority                    #'org-mem-entry-priority)
 (defalias 'org-mem-property                    #'org-mem-entry-property)
 (defalias 'org-mem-properties                  #'org-mem-entry-properties)
@@ -1477,12 +1477,15 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvar org-mem--bump-int 3 "Not a version number, but bumped sometimes.")
+(defvar org-mem--bump-int 4 "Not a version number, but bumped sometimes.")
 (define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-dest                #'org-mem-target            "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
 (define-obsolete-function-alias 'org-mem-block               #'org-mem-await             "0.12.0 (2025-05-22)")
 (define-obsolete-function-alias 'org-mem--abbr-truename      #'org-mem--truename-maybe   "0.12.0 (2025-05-22)")
+(define-obsolete-function-alias 'org-mem-olpath-with-title-with-self #'org-mem-olpath-with-file-title-with-self "2025-05-28")
+(define-obsolete-function-alias 'org-mem-olpath-with-self-with-title #'org-mem-olpath-with-self-with-file-title "2025-05-28")
+(define-obsolete-function-alias 'org-mem-olpath-with-title           #'org-mem-olpath-with-file-title           "2025-05-28")
 
 (provide 'org-mem)
 

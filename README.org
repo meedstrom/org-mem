@@ -184,10 +184,10 @@ As of [2025-05-15 Thu 12:04], the full list of functions:
 - =org-mem-entry-id=
 - =org-mem-entry-level=
 - =org-mem-entry-lnum=
-- =org-mem-entry-olpath-with-self-with-title=
+- =org-mem-entry-olpath-with-self-with-file-title=
 - =org-mem-entry-olpath-with-self=
-- =org-mem-entry-olpath-with-title-with-self=
-- =org-mem-entry-olpath-with-title=
+- =org-mem-entry-olpath-with-file-title-with-self=
+- =org-mem-entry-olpath-with-file-title=
 - =org-mem-entry-olpath=
 - =org-mem-entry-pos=
 - =org-mem-entry-priority=
