@@ -157,7 +157,7 @@ infamous \"node_modules\", even if they contain no Org files."
 
 (defcustom org-mem-seek-link-types
   '("http" "https" "id" "file")
-  "Which types of plain links to look for."
+  "Which types of plain \(un-bracketed\) links to look for."
   :type '(repeat string)
   :package-version '(org-mem . "0.2.0"))
 
@@ -1089,11 +1089,11 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
 (defun org-mem--record-entry (entry)
   "Add info related to ENTRY to various tables."
   (let ((id    (org-mem-entry-id entry))
-        (file  (org-mem-entry-file-truename entry))
+        (truename  (org-mem-entry-file-truename entry))
         (title (org-mem-entry-title-maybe entry)))
     ;; NOTE: Puts entries in correct order because we're called by
     ;; `org-mem--finalize-full-scan' looping over entries in reverse order.
-    (push entry (gethash file org-mem--truename<>entries))
+    (push entry (gethash truename org-mem--truename<>entries))
     (when id
       (org-mem--maybe-snitch-to-org-id entry)
       (when title

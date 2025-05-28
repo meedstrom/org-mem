@@ -207,6 +207,7 @@ in the latter table."
 (declare-function org-element-property "org-element-ast")
 (declare-function org-entry-get-with-inheritance "org")
 (declare-function org-get-tags "org")
+(declare-function org-before-first-heading-p "org")
 (defvar org-entry-property-inherited-from)
 (defvar org-outline-path-cache)
 (defvar org-trust-scanner-tags)
@@ -260,9 +261,8 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
       (save-excursion
         (without-restriction
           (goto-char org-entry-property-inherited-from)
-          (let ((entry (org-mem-updater-mk-entry-atpt)))
-            (org-mem-updater-ensure-buffer-file-known)
-            (org-mem--record-entry (org-mem-updater-mk-entry-atpt))))))))
+          (org-mem-updater-ensure-buffer-file-known)
+          (org-mem--record-entry (org-mem-updater-mk-entry-atpt)))))))
 
 (defun org-mem-updater-mk-link-atpt ()
   "Return an `org-mem-link' object appropriate for link at point.
