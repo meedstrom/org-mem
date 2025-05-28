@@ -1044,11 +1044,9 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
         (puthash (car fdata) fdata org-mem--truename<>metadata)
         (run-hook-with-args 'org-mem-record-file-functions fdata))
       (dolist (entry entries)
-        (org-mem--record-entry entry)
-        (run-hook-with-args 'org-mem-record-entry-functions entry))
+        (org-mem--record-entry entry))
       (dolist (link links)
-        (org-mem--record-link link)
-        (run-hook-with-args 'org-mem-record-link-functions link)))
+        (org-mem--record-link link)))
     (setq org-mem--time-elapsed
           (float-time (time-since org-mem--time-at-begin-full-scan)))
     (when org-mem--next-message
@@ -1084,7 +1082,8 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
   "Add info related to LINK to various tables."
   (push link (gethash (org-mem-link-target link) org-mem--target<>links))
   (push link (gethash (org-mem-link--internal-entry-id link)
-                      org-mem--internal-entry-id<>links)))
+                      org-mem--internal-entry-id<>links))
+  (run-hook-with-args 'org-mem-record-link-functions link))
 
 (defun org-mem--record-entry (entry)
   "Add info related to ENTRY to various tables."
@@ -1102,7 +1101,8 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
             (push (list (format-time-string "%H:%M") title id other-id)
                   org-mem--title-collisions)))
         (puthash title id org-mem--title<>id))
-      (puthash id entry org-mem--id<>entry))))
+      (puthash id entry org-mem--id<>entry))
+    (run-hook-with-args 'org-mem-record-entry-functions entry)))
 
 (defun org-mem--maybe-snitch-to-org-id (entry)
   "Add applicable ENTRY data to `org-id-locations'.

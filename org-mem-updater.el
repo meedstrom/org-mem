@@ -105,11 +105,9 @@ In that case, there may be nothing wrong with the known name."
         (puthash (car datum) datum org-mem--truename<>metadata)
         (run-hook-with-args 'org-mem-record-file-functions datum))
       (dolist (entry entries)
-        (org-mem--record-entry entry)
-        (run-hook-with-args 'org-mem-record-entry-functions entry))
+        (org-mem--record-entry entry))
       (dolist (link links)
         (org-mem--record-link link)
-        (run-hook-with-args 'org-mem-record-link-functions link)
         (unless (gethash (org-mem-link-target link)
                          org-mem-updater--id-or-ref-target<>old-links)
           (when (or (org-mem-roam-reflink-p link)
@@ -263,17 +261,19 @@ No support for citations."
             (target (org-element-property :path el)))
       (let ((type (org-element-property :type el))
             (desc-beg (org-element-property :contents-begin el))
-            (desc-end (org-element-property :contents-end el)))
+            (desc-end (org-element-property :contents-end el))
+            (truename (file-truename buffer-file-name)))
         (record 'org-mem-link
-                (file-truename buffer-file-name)
+                truename
                 (point)
                 type
                 target
                 (and desc-beg (buffer-substring-no-properties desc-beg desc-end))
                 nil
                 (org-entry-get-with-inheritance "ID")
-                ;; HACK
-                nil))
+                (org-mem-parser--mk-id
+                 truename (if (org-before-first-heading-p) 0
+                            (org-entry-beginning-position)))))
     (error "No link at point %d in %s" (point) (current-buffer))))
 
 (defun org-mem-updater-mk-entry-atpt ()
@@ -286,11 +286,12 @@ It is not associated with any links or files, however."
          (olp-w-self (and heading (org-get-outline-path t t)))
          (properties (org-entry-properties))
          (ftitle (org-get-title))
-         (title (or heading ftitle)))
+         (title (or heading ftitle))
+         (truename (file-truename buffer-file-name)))
     (when title
       (setq title (org-link-display-format (substring-no-properties title))))
     (record 'org-mem-entry
-            (file-truename buffer-file-name)
+            truename
             (if heading (line-number-at-pos pos t) 1)
             (if heading pos 1)
             title
@@ -312,7 +313,9 @@ It is not associated with any links or files, however."
             (when heading (org-get-todo-state))
             (cdr (assoc "DEADLINE" properties))
             (cdr (assoc "SCHEDULED" properties))
-            nil ;; HACK
+            (org-mem-parser--mk-id truename (if heading pos 0))
+            ;; HACK: nils are fine
+            nil
             nil)))
 
 (defun org-mem-updater--tags-at-point-inherited-only ()
