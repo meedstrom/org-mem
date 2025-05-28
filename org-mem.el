@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.12.8
+;; Package-Version: 0.13.0
 ;; Package-Requires: ((emacs "29.1") (el-job "2.4.2") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -153,7 +153,7 @@ You can also speed up `org-mem-reset' a bit by excluding directories
 with a humongous amount of files \(on the order of 100,000), such as the
 infamous \"node_modules\", even if they contain no Org files."
   :type '(repeat string)
-  :package-version '(org-mem . "0.2.0"))
+  :package-version '(org-mem . "0.13.0"))
 
 (defcustom org-mem-seek-link-types
   '("http" "https" "id" "file")
