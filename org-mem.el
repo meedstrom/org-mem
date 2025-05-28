@@ -408,8 +408,9 @@ Note 2025-05-13: The last fact may change in the future."
 (defun org-mem-id-nodes-in-files (files)
   "All ID-nodes in FILES."
   (with-memoization (org-mem--table 15 files)
-    (setq files (ensure-list files))
-    (seq-filter (##member (org-mem-entry-file %) files)
+    (setq files (delete-dups
+                 (seq-keep #'org-mem--truename-maybe (ensure-list files))))
+    (seq-filter (##member (org-mem-entry-file-truename %) files)
                 (org-mem-all-id-nodes))))
 
 (defun org-mem-links-with-type-and-path (type path)
