@@ -422,7 +422,8 @@ Note 2025-05-13: The last fact may change in the future."
 
 (defun org-mem-id-links-to-entry (entry)
   "All ID-links that point to ENTRY."
-  (and entry (gethash (org-mem-entry-id entry) org-mem--target<>links)))
+  (and-let* ((id (org-mem-entry-id entry)))
+    (org-mem-id-links-to-id id)))
 
 (defun org-mem-links-to-target (target)
   (cl-assert (stringp target))
