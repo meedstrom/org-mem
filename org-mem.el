@@ -1049,7 +1049,7 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
     (when org-mem--next-message
       (setq org-mem--next-message
             (format
-             "Org-mem saw %d files, %d subtrees, %d links (%d IDs, %d ID-links) in %.2fs"
+             "Org-mem saw %d files, %d headings, %d links (%d IDs, %d ID-links) in %.2fs"
              (length (org-mem-all-files))
              (seq-count #'org-mem-entry-subtree-p (org-mem-all-entries))
              (length (org-mem-all-links))
@@ -1376,11 +1376,11 @@ Does not modify the match data."
 
 (defun org-mem-await (who n-secs)
   "Wait for up to N-SECS for any current org-mem subprocesses to finish.
-Symbol WHO is included in the echo area message during the wait, to help
-trace who called this function.  If in doubt, pass your package name.
-
 Return t on finish, or nil if N-SECS elapsed without finishing.
-If there was no running process, return t too."
+If there was no running process, return t.
+
+Symbol WHO is included in the echo area message during the wait, to help
+inform the user why Emacs hangs.  If in doubt, pass your package name."
   (cl-assert (symbolp who))
   (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." who)))
 
