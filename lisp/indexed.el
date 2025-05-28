@@ -25,7 +25,7 @@
 (define-obsolete-variable-alias 'indexed-roam--ref<>id      'org-mem--roam-ref<>id    "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed-roam--ref<>type    'org-mem--roam-ref<>type  "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed-org-dirs           'org-mem-watch-dirs                  "0.7.0 (2025-05-11)")
-(define-obsolete-variable-alias 'indexed-org-dirs-exclude   'org-mem-watch-dirs-exclude          "0.7.0 (2025-05-11)")
+(define-obsolete-variable-alias 'indexed-org-dirs-exclude   'org-mem-exclude                     "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed-sync-with-org-id   'org-mem-do-sync-with-org-id         "0.7.0 (2025-05-11)")
 (define-obsolete-variable-alias 'indexed-roam-overwrite     'org-mem-roamy-do-overwrite-real-db  "0.7.0 (2025-05-11)")
 (defvar indexed--origin<>links :obsolete)

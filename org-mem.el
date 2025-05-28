@@ -57,8 +57,9 @@
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
 (declare-function org-id-locations-save "org-id")
-(define-obsolete-variable-alias 'org-mem--file<>metadata 'org-mem--truename<>metadata "2025-05-24")
-(define-obsolete-variable-alias 'org-mem--file<>entries  'org-mem--truename<>entries  "2025-05-24")
+(define-obsolete-variable-alias 'org-mem--file<>metadata 'org-mem--truename<>metadata "0.12.6 (May 2025)")
+(define-obsolete-variable-alias 'org-mem--file<>entries  'org-mem--truename<>entries  "0.12.6 (May 2025)")
+(define-obsolete-variable-alias 'org-mem-watch-dirs-exclude 'org-mem-exclude          "0.13.0 (May 2025)")
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
@@ -113,7 +114,7 @@ Exceptions:
 - Subdirectories starting with underscore or dot, such as \".emacs.d\".
   To check such a directory, add its full path explicitly.
 - Subdirectories that are symlinks.
-- Anything matching `org-mem-watch-dirs-exclude'.
+- Anything matching `org-mem-exclude'.
 
 Can be left at nil, if `org-mem-do-sync-with-org-id' is t.
 Benefits of configuring it anyway:
@@ -129,7 +130,7 @@ try command \\[org-mem-forget-id-locations-recursively]."
   :package-version '(org-mem . "0.5.0"))
 
 ;; REVIEW: Use backslashes on Windows?
-(defcustom org-mem-watch-dirs-exclude
+(defcustom org-mem-exclude
   '("/logseq/bak/"
     "/logseq/version-files/"
     "/node_modules/"
@@ -1305,9 +1306,9 @@ This means you cannot cross-correlate the results with file names in
       ;; Fortunately, `org-mem--dir-files-recursive' will not enter
       ;; /home/org/current/ in the first place.
       (dolist (file (nconc (org-mem--dir-files-recursive
-                            dir ".org_archive" org-mem-watch-dirs-exclude)
+                            dir ".org_archive" org-mem-exclude)
                            (org-mem--dir-files-recursive
-                            dir ".org" org-mem-watch-dirs-exclude)))
+                            dir ".org" org-mem-exclude)))
         (puthash (org-mem--truename-maybe file) t org-mem--dedup-tbl)))
     ;; Maybe check org-id-locations.
     (when org-mem-do-sync-with-org-id
@@ -1326,11 +1327,13 @@ This means you cannot cross-correlate the results with file names in
         (dolist (file (if (symbolp org-id-extra-files)
                           (symbol-value org-id-extra-files)
                         org-id-extra-files))
-          (puthash (org-mem--truename-maybe file t) t org-mem--dedup-tbl))
+          (when (cl-notany (##string-search % file) org-mem-exclude)
+            (puthash (org-mem--truename-maybe file t) t org-mem--dedup-tbl)))
         (when (org-mem--try-ensure-org-id-table-p)
           (cl-loop
            for file being each hash-value of org-id-locations do
-           (puthash (org-mem--truename-maybe file t) t org-mem--dedup-tbl))))))
+           (when (cl-notany (##string-search % file) org-mem-exclude)
+             (puthash (org-mem--truename-maybe file t) t org-mem--dedup-tbl)))))))
   (setq org-mem--first-run nil)
   (remhash nil org-mem--dedup-tbl)
   (hash-table-keys org-mem--dedup-tbl))
@@ -1435,7 +1438,7 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
 
 Note that if DIR descends from a member of `org-mem-watch-dirs',
 this action may make no practical impact unless you also add DIR to
-`org-mem-watch-dirs-exclude'.
+`org-mem-exclude'.
 This is because with `org-mem-do-sync-with-org-id' t, they simply get
 added again on next scan.
 

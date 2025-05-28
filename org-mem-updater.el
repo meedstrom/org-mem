@@ -76,16 +76,22 @@ In that case, there may be nothing wrong with the known name."
   (when (and (or (string-suffix-p ".org" file)
                  (string-suffix-p ".org_archive" file))
              (not (backup-file-name-p file))
-             (not (org-mem--tramp-file-p file)))
-    (org-mem-updater--scan-targeted (org-mem--truename-maybe file))))
+             (not (org-mem--tramp-file-p file)) ;; superfluous
+             (cl-notany (##string-search % file) org-mem-exclude))
+    (org-mem-updater--scan-targeted file)))
 
-(defun org-mem-updater--scan-targeted (files)
-  "Arrange to scan FILES."
-  (when files
+(defun org-mem-updater--scan-targeted (file)
+  "Arrange to scan FILE or FILEs."
+  (let ((truenames (thread-last
+                     (ensure-list file)
+                     (seq-keep #'org-mem--truename-maybe)
+                     (seq-uniq)
+                     (seq-filter (##cl-loop for xclude in org-mem-exclude
+                                            never (string-search xclude %))))))
     (el-job-launch :id 'org-mem-updater
                    :inject-vars (org-mem--mk-work-vars)
                    :load-features '(org-mem-parser)
-                   :inputs (ensure-list files)
+                   :inputs truenames
                    :funcall-per-input #'org-mem-parser--parse-file
                    :callback #'org-mem-updater--finalize-targeted-scan)))
 
@@ -231,7 +237,11 @@ No support for citations."
   (when (and buffer-file-name
              (derived-mode-p 'org-mode))
     (let ((el (org-element-context)))
-      (when (org-element-property :path el)
+      (when (and (org-element-property :path el)
+                 (cl-notany (##string-search % buffer-file-name)
+                            org-mem-exclude)
+                 (cl-notany (##string-search % (file-truename buffer-file-name))
+                          org-mem-exclude))
         (org-mem-updater-ensure-buffer-file-known)
         (org-mem--record-link (org-mem-updater-mk-link-atpt))))))
 
@@ -242,7 +252,11 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
   (require 'ol)
   (when (and buffer-file-name
              (derived-mode-p 'org-mode))
-    (when (org-entry-get-with-inheritance "ID")
+    (when (and (org-entry-get-with-inheritance "ID")
+               (cl-notany (##string-search % buffer-file-name)
+                          org-mem-exclude)
+               (cl-notany (##string-search % (file-truename buffer-file-name))
+                          org-mem-exclude))
       (save-excursion
         (without-restriction
           (goto-char org-entry-property-inherited-from)
