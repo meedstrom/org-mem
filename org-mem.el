@@ -193,10 +193,11 @@ Buffer is in `fundamental-mode'.  For an Org buffer see function
 Sorted by field `org-mem-entry-pos'.")
 
 (defvar org-mem--target<>links (make-hash-table :test 'equal)
-  "1:N table mapping a destination to a list of `org-mem-link' records.
+  "1:N table mapping a link target to a list of `org-mem-link' records.
+The list represents all links from anywhere that have that exact target.
 
-A destination is a citekey or the path component of a valid Org link.
-In practice, it is often an org-id like
+A target is a citekey or the path component of an Org link \(see Group 2
+in `org-link-plain-re').  In practice, it is often an org-id like
 \"57707152-9c05-43f5-9f88-5d4f3a0d019a\", an URI path like
 \"//www.gnu.org\", or a citekey like \"@ioannidis2005\".
 
@@ -491,10 +492,11 @@ or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
   (seq-filter #'org-mem-entry-active-timestamps (org-mem-all-entries)))
 
 (defun org-mem-files-with-active-timestamps ()
-  (cl-loop for file in (org-mem-all-files)
-           as entries = (org-mem-entries-in-file file)
-           when (seq-find #'org-mem-entry-active-timestamps entries)
-           collect file))
+  (with-memoization (org-mem--table 0 'org-mem-files-with-active-timestamps)
+    (cl-loop for file in (org-mem-all-files)
+             when (seq-find #'org-mem-entry-active-timestamps
+                            (org-mem-entries-in-file file))
+             collect file)))
 
 (defun org-mem-links-to-entry (_entry)
   "(Unimplemented)"
@@ -650,7 +652,8 @@ Unlike `org-mem-entry-file-title-strict' which may return nil,
 this always returns a string."
   (or (org-mem-file-title-strict file/entry)
       (file-name-nondirectory
-       (if (stringp file/entry) file/entry (org-mem-entry-file file/entry)))))
+       (if (stringp file/entry) file/entry
+         (org-mem-entry-file-truename file/entry)))))
 
 (defun org-mem-file-title-topmost (file/entry)
   "Topmost title in file at FILE/ENTRY, be that a heading or a #+title.
@@ -694,8 +697,9 @@ more restrictive than `org-mem--truename-maybe' by only returning if the
 file has been scanned, but in practice they may be identical."
   (cl-assert (stringp file))
   (or (and (gethash file org-mem--truename<>entries) file)
-      (when-let* ((file (org-mem--truename-maybe file)))
-        (and (gethash file org-mem--truename<>entries) file))))
+      (and (setq file (org-mem--truename-maybe file))
+           (gethash file org-mem--truename<>entries)
+           file)))
 
 
 ;;; Optional: Roam aliases and refs
