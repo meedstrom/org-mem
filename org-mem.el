@@ -872,6 +872,7 @@ What is valid?  See \"org-mem-test.el\"."
 ;; only convenience for end users (and quick prototyping).
 ;; Up to them to write code readably.
 
+(defalias 'org-mem-active-timestamps                #'org-mem-entry-active-timestamps)
 (defalias 'org-mem-deadline                         #'org-mem-entry-deadline)
 (defalias 'org-mem-heading-lvl                      #'org-mem-entry-level) ;; feels more legible
 (defalias 'org-mem-level                            #'org-mem-entry-level)
