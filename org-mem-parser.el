@@ -360,9 +360,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         (forward-line 1)
                         (org-mem-parser--collect-properties
                          (point)
-                         (if (re-search-forward "^[\s\t]*:END:" FAR t)
-                             (pos-bol)
-                           (error "Couldn't find :END: of drawer"))))
+                         (re-search-forward "^[\s\t]*:END:" FAR)))
                     nil))
             (setq HERE (point))
             (setq TAGS
