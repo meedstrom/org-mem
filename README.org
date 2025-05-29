@@ -9,7 +9,7 @@ A cache of metadata about the structure of all your Org files -- headings, links
 Builds quickly, so that there is no need to persist data across sessions. My =M-x org-mem-reset=:
 
 #+begin_example
-Org-mem saw 2418 files, 8388 subtrees, 8624 links (3418 IDs, 4874 ID-links) in 1.95s
+Org-mem saw 2418 files, 8388 headings, 8624 links (3418 IDs, 4874 ID-links) in 1.95s
 #+end_example
 
 This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
