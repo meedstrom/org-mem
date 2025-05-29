@@ -342,12 +342,17 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (when (org-mem-parser--next-heading)
               (narrow-to-region 1 (point))
               (goto-char 1))
-            ;; Rough equivalent of `org-end-of-meta-data' for the file
-            ;; level front matter, can jump somewhat too far but that's ok
-            (setq FAR (if (re-search-forward "^ *?[^#:\n]" nil t)
-                          (1- (point))
-                        ;; There's no content other than front matter
-                        (point-max)))
+            ;; Skip past front matter
+            (while (looking-at-p (rx (*? space) (or "# " "\n")))
+              (forward-line))
+            (while (looking-at-p "^[ \t]*:[_[:word:]-]+:[ \t]*$")
+              (if (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+                  (forward-line)
+                (error "Missing :END:")))
+            (while (looking-at-p (rx (*? space) (or "#+" "# " "\n")))
+              (forward-line))
+            (setq FAR (point))
+
             (goto-char 1)
             (setq PROPS
                   (if (re-search-forward "^[\s\t]*:PROPERTIES:" FAR t)
