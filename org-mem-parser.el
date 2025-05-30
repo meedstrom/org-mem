@@ -113,7 +113,7 @@ brackets."
 
 (defun org-mem-parser--stamp-to-iso8601 (s)
   "Parse the first Org timestamp in string S and return as ISO8601."
-  (format-time-string "%FT%H:%MZ"
+  (format-time-string "%FT%H:%M"
                       (encode-time (org-mem-parser--org-parse-time-string s))))
 
 (defun org-mem-parser--stamp-to-integer (s)
@@ -510,8 +510,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (when (or SCHED DEADLINE CLOSED)
               ;; Alright, so there was a planning-line, meaning any
               ;; :PROPERTIES: are not on this line but the next.
-              (forward-line 1)
-              (setq FAR (pos-eol)))
+              (forward-line 1))
             (skip-chars-forward "\s\t")
             (setq PROPS
                   (if (looking-at-p ":PROPERTIES:")
