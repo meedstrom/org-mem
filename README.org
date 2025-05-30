@@ -30,45 +30,7 @@ Example setup:
 (org-mem-updater-mode)
 #+end_src
 
-That's it -- now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  Check the many defuns in [[https://github.com/meedstrom/org-mem/blob/main/org-mem.el][org-mem.el]] for what you can do with that!
-
-*** Example: Let org-agenda cast its net wide
-
-You can't put 2,000 files in =org-agenda-files=, but most contain nothing of interest for the agenda anyway, right?
-
-Turns out I have only about 30 files worth checking, the challenge was always knowing /which/ files ahead-of-time.  Now it's easy:
-
-#+begin_src elisp
-(defun my-set-agenda-files (&rest _)
-  (setq org-agenda-files
-        (cl-loop
-         for file in (org-mem-all-files)
-         unless (string-search "archive" file)
-         when (seq-find (lambda (entry)
-                          (or (org-mem-entry-active-timestamps entry)
-                              (org-mem-entry-todo-state entry)
-                              (org-mem-entry-scheduled entry)
-                              (org-mem-entry-deadline entry)))
-                        (org-mem-entries-in file))
-         collect file)))
-(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
-#+end_src
-
-*** Example: Warn about dangling clocks at init
-
-While Org can warn about dangling clocks through the =org-clock-persist= setting, that requires loading Org at some point during your session.  Which means that if it is a point of concern for you to forget you had a clock going, that you effectively have to put =(require 'org)= in your initfiles, /just in case/.
-
-Now the following is an alternative:
-
-#+begin_src elisp
-(defun my-warn-dangling-clock (&rest _)
-  (when-let* ((not-clocked-out (org-mem-all-entries-with-dangling-clock)))
-    (warn "Didn't clock out in files: %S"
-          (delete-dups (mapcar #'org-mem-entry-file not-clocked-out)))))
-(add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
-(org-mem-updater-mode)
-#+end_src
-
+That's it -- now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  See examples of how to use them at section [[https://github.com/meedstrom/org-mem#elisp-api][Elisp API]]!
 
 ** Two APIs
 You get two different APIs to pick from, to access the same data.
@@ -164,6 +126,44 @@ A known issue when when you use multiple Emacsen: "attempt to write a readonly d
 Use the command =M-x org-mem-list-db-contents=.
 
 ** Elisp API
+*** Example: Let org-agenda cast its net wide
+
+You can't put 2,000 files in =org-agenda-files=, but most contain nothing of interest for the agenda anyway, right?
+
+Turns out I have only about 30 files worth checking, the challenge was always knowing /which/ files ahead-of-time.  Now it's easy:
+
+#+begin_src elisp
+(defun my-set-agenda-files (&rest _)
+  (setq org-agenda-files
+        (cl-loop
+         for file in (org-mem-all-files)
+         unless (string-search "archive" file)
+         when (seq-find (lambda (entry)
+                          (or (org-mem-entry-active-timestamps entry)
+                              (org-mem-entry-todo-state entry)
+                              (org-mem-entry-scheduled entry)
+                              (org-mem-entry-deadline entry)))
+                        (org-mem-entries-in file))
+         collect file)))
+(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
+#+end_src
+
+*** Example: Warn about dangling clocks at init
+
+While Org can warn about dangling clocks through the =org-clock-persist= setting, that requires loading Org at some point during your session.  Which means that if it is a point of concern for you to forget you had a clock going, that you effectively have to put =(require 'org)= in your initfiles, /just in case/.
+
+Now the following is an alternative:
+
+#+begin_src elisp
+(defun my-warn-dangling-clock (&rest _)
+  (when-let* ((not-clocked-out (org-mem-all-entries-with-dangling-clock)))
+    (warn "Didn't clock out in files: %S"
+          (delete-dups (mapcar #'org-mem-entry-file not-clocked-out)))))
+(add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
+(org-mem-updater-mode)
+#+end_src
+
+*** Two object types
 
 We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some simplifications:
 
@@ -176,23 +176,27 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
     - Or if you're looking at the output of =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always such an entry.  The rest (the =cdr=) are necessarily subtrees.
       - If the zeroth-level entry is absolutely empty, such that the first proper Org entry is on line 1, then =(org-mem-entry-at-lnum-in-file 1 FILE)= returns that entry instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
 
-TODO: Some get-started examples.
+*** Full list of functions [2025-05-30 Fri 11:26]
 
-As of [2025-05-15 Thu 12:04], the full list of functions:
-
+- =org-mem-all-entries-with-active-timestamps=
+- =org-mem-all-entries-with-dangling-clock=
 - =org-mem-all-entries=
 - =org-mem-all-files=
 - =org-mem-all-id-links=
 - =org-mem-all-id-nodes=
 - =org-mem-all-ids=
 - =org-mem-all-links=
+- =org-mem-all-roam-reflinks=
+- =org-mem-all-roam-refs=
 - =org-mem-entries-in-file=
 - =org-mem-entries-in-files=
+- =org-mem-entries-in=
 - =org-mem-entry-at-file-lnum=
 - =org-mem-entry-at-file-pos=
 - =org-mem-entry-at-lnum-in-file=
 - =org-mem-entry-at-pos-in-file=
 - =org-mem-entry-by-id=
+- =org-mem-entry-by-roam-ref=
 - =org-mem-entry-closed=
 - =org-mem-entry-crumbs=
 - =org-mem-entry-deadline=
@@ -200,21 +204,23 @@ As of [2025-05-15 Thu 12:04], the full list of functions:
 - =org-mem-entry-id=
 - =org-mem-entry-level=
 - =org-mem-entry-lnum=
-- =org-mem-entry-olpath-with-self-with-file-title=
-- =org-mem-entry-olpath-with-self=
 - =org-mem-entry-olpath-with-file-title-with-self=
 - =org-mem-entry-olpath-with-file-title=
+- =org-mem-entry-olpath-with-self-with-file-title=
+- =org-mem-entry-olpath-with-self=
 - =org-mem-entry-olpath=
 - =org-mem-entry-pos=
 - =org-mem-entry-priority=
 - =org-mem-entry-properties=
 - =org-mem-entry-property=
+- =org-mem-entry-roam-refs=
 - =org-mem-entry-scheduled=
 - =org-mem-entry-subtree-p=
 - =org-mem-entry-tags-inherited=
 - =org-mem-entry-tags-local=
 - =org-mem-entry-tags=
 - =org-mem-entry-that-contains-link=
+- =org-mem-entry-title-maybe=
 - =org-mem-entry-title=
 - =org-mem-entry-todo-state=
 - =org-mem-file-attributes=
@@ -230,6 +236,7 @@ As of [2025-05-15 Thu 12:04], the full list of functions:
 - =org-mem-file-title-or-basename=
 - =org-mem-file-title-strict=
 - =org-mem-file-title-topmost=
+- =org-mem-file-truename=
 - =org-mem-id-by-title=
 - =org-mem-id-links-from-id=
 - =org-mem-id-links-to-entry=
@@ -247,11 +254,13 @@ As of [2025-05-15 Thu 12:04], the full list of functions:
 - =org-mem-links-in-entry=
 - =org-mem-links-in-file=
 - =org-mem-links-of-type=
-- =org-mem-links-to-entry=
-- =org-mem-links-to-file=
+- =org-mem-links-to-target=
 - =org-mem-links-with-type-and-path=
 - =org-mem-next-entry=
 - =org-mem-previous-entry=
+- =org-mem-roam-reflinks-into-file=
+- =org-mem-roam-reflinks-to-entry=
+- =org-mem-roam-reflinks-to-id=
 
 * Current limitations / future work
 ** Limitation: TRAMP
