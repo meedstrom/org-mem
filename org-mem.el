@@ -986,6 +986,11 @@ Like `org-mem-entry-title', it always returns a string."
 
 ;;; Core logic
 
+(defvar org-mem-initial-scan-hook nil
+  "Hook called after the first full scan, possibly also second scan.
+The second scan occurs only in some cases where symlinks had to be
+resolved, and then it occurs immediately after the first.")
+
 (defvar org-mem-pre-full-scan-functions nil
   "Hook passed the list of parse-results, before a full reset.")
 
@@ -1096,11 +1101,13 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
     (run-hook-with-args 'org-mem-post-full-scan-functions parse-results)
     (message "%s" org-mem--next-message)
     (setq org-mem--next-message nil)
-    (when bad-paths
-      ;; Scan again to catch real symlink targets, but guard against repeating.
-      (unless (seq-intersection bad-paths org-mem--caused-retry)
-        (setq org-mem--caused-retry (append bad-paths org-mem--caused-retry))
-        (org-mem--scan-full)))
+    (run-hooks 'org-mem-initial-scan-hook)
+    (if bad-paths
+        ;; Scan again to catch symlink targets, but guard against repeating.
+        (unless (seq-intersection bad-paths org-mem--caused-retry)
+          (setq org-mem--caused-retry (append bad-paths org-mem--caused-retry))
+          (org-mem--scan-full))
+      (setq org-mem-initial-scan-hook nil))
     (when (and org-mem--title-collisions org-mem-do-warn-title-collisions)
       (message "Some IDs share title, see M-x org-mem-list-title-collisions"))
     (when problems

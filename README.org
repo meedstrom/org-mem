@@ -32,6 +32,16 @@ Example setup:
 
 That's it -- now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  Check the many defuns in [[https://github.com/meedstrom/org-mem/blob/main/org-mem.el][org-mem.el]] for what you can do with that!
 
+*** Example: Warn about dangling clocks
+
+#+begin_src elisp
+  (defun my-warn-dangling-clock (&rest _)
+    (when-let* ((not-clocked-out (org-mem-all-entries-with-dangling-clock)))
+      (warn "Didn't clock out in files: %S"
+            (delete-dups (mapcar #'org-mem-entry-file not-clocked-out)))))
+  (add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
+#+end_src
+
 *** Example: Let org-agenda cast its net wide
 
 You can't put 2,000 files in =org-agenda-files=, but most contain nothing of interest for the agenda anyway, right?
