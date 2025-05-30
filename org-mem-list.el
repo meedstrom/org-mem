@@ -46,7 +46,9 @@
 ;;;###autoload
 (defun org-mem-list-entries ()
   (interactive)
-  (message "Command org-mem-list-entries removed, try (inspector-inspect (org-mem-all-entries))"))
+  (if (fboundp 'inspector-inspect)
+      (inspector-inspect (org-mem-all-entries))
+    (message "Command org-mem-list-entries removed, try (inspector-inspect (org-mem-all-entries))")))
 
 ;;;###autoload
 (defun org-mem-list-problems ()
