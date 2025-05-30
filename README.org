@@ -217,7 +217,7 @@ As of [2025-05-15 Thu 12:04], the full list of functions:
 - =org-mem-file-id-strict=
 - =org-mem-file-id-topmost=
 - =org-mem-file-line-count=
-- =org-mem-file-mtime-int=
+- =org-mem-file-mtime-floor=
 - =org-mem-file-mtime=
 - =org-mem-file-ptmax=
 - =org-mem-file-size=

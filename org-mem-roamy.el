@@ -454,13 +454,13 @@ With SPECIFIC-FILES, only return data that involves those files."
   "Return a row for the files-table, with info about FILE."
   ;; See `org-roam-db-insert-file'
   (let ((atime (file-attribute-access-time (org-mem-file-attributes file)))
-        (mtime (org-mem-file-mtime file))))
-  (list file
-        (org-mem-file-title-strict file)
-        ""                            ; HACK: SHA1 hashing is slow, skip
-        ;; HACK: So things don't appear newer b/c of rounding
-        (1+ (time-convert atime 'integer))
-        (1+ (time-convert mtime 'integer))))
+        (mtime (org-mem-file-mtime file)))
+    (list file
+          (org-mem-file-title-strict file)
+          ""                            ; HACK: SHA1 hashing is slow, skip
+          ;; HACK: So things don't appear newer b/c of rounding
+          (1+ (time-convert atime 'integer))
+          (1+ (time-convert mtime 'integer)))))
 
 
 ;;; Update-on-save
