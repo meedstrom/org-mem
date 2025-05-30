@@ -639,8 +639,14 @@ Often close to but not exactly the size in bytes due to text encoding."
   "Modification time for file at FILE/ENTRY/LINK."
   (file-attribute-modification-time (org-mem-file-attributes file/entry/link)))
 
+(defun org-mem-file-mtime-floor (file/entry/link)
+  "Modification time for file at FILE/ENTRY/LINK, as floor integer."
+  (time-convert (org-mem-file-mtime file/entry/link) 'integer))
+
+;; TODO: Upstream `time-convert' docstring should say it takes the floor...
 (defun org-mem-file-mtime-int (file/entry/link)
-  "Modification time for file at FILE/ENTRY/LINK, rounded-up integer."
+  "Modification time for file at FILE/ENTRY/LINK, as ceiling integer."
+  (declare (obsolete org-mem-file-mtime-floor "2025-05-30"))
   (ceiling (float-time (org-mem-file-mtime file/entry/link))))
 
 ;; Above getters accept a link as input, and the below could too

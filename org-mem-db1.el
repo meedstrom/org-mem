@@ -272,7 +272,7 @@ With SPECIFIC-FILES, only return data that involves those files."
   (list file
         (org-mem-file-title-strict file)
         (org-mem-file-line-count file)
-        (org-mem-file-mtime-int file)
+        (1+ (org-mem-file-mtime-floor file))
         (org-mem-file-ptmax file)
         (org-mem-file-id-strict file)))
 
