@@ -642,6 +642,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           CLOCK-LINES)
                   found-entries)
             (setq org-mem-parser--found-timestamps nil)
+            (setq CLOCK-LINES nil)
             (goto-char (point-max))
             ;; NOTE: Famously slow `line-number-at-pos' is fast in narrow.
             (setq LNUM (+ LNUM -1 (line-number-at-pos)))
