@@ -32,16 +32,6 @@ Example setup:
 
 That's it -- now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  Check the many defuns in [[https://github.com/meedstrom/org-mem/blob/main/org-mem.el][org-mem.el]] for what you can do with that!
 
-*** Example: Warn about dangling clocks
-
-#+begin_src elisp
-  (defun my-warn-dangling-clock (&rest _)
-    (when-let* ((not-clocked-out (org-mem-all-entries-with-dangling-clock)))
-      (warn "Didn't clock out in files: %S"
-            (delete-dups (mapcar #'org-mem-entry-file not-clocked-out)))))
-  (add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
-#+end_src
-
 *** Example: Let org-agenda cast its net wide
 
 You can't put 2,000 files in =org-agenda-files=, but most contain nothing of interest for the agenda anyway, right?
@@ -63,6 +53,22 @@ Turns out I have only about 30 files worth checking, the challenge was always kn
          collect file)))
 (add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
 #+end_src
+
+*** Example: Warn about dangling clocks at init
+
+While Org can warn about dangling clocks through the =org-clock-persist= setting, that requires loading Org at some point during your session.  Which means that if it is a point of concern for you to forget you had a clock going, that you effectively have to put =(require 'org)= in your initfiles, /just in case/.
+
+Now the following is an alternative:
+
+#+begin_src elisp
+(defun my-warn-dangling-clock (&rest _)
+  (when-let* ((not-clocked-out (org-mem-all-entries-with-dangling-clock)))
+    (warn "Didn't clock out in files: %S"
+          (delete-dups (mapcar #'org-mem-entry-file not-clocked-out)))))
+(add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
+(org-mem-updater-mode)
+#+end_src
+
 
 ** Two APIs
 You get two different APIs to pick from, to access the same data.
