@@ -275,7 +275,8 @@ in `org-mem-file-mtime' and friends.")
   (todo-state     () :read-only t :type string)
   (-internal-id   () :read-only t :type integer)
   (text           () :read-only t :type string)
-  (active-timestamps () :read-only t :type list))
+  (active-timestamps () :read-only t :type list)
+  (clocks-int () :read-only t :type list))
 
 
 ;;; To find objects to operate on
@@ -331,6 +332,12 @@ Citations are `org-mem-link' objects that satisfy
              when (seq-find #'org-mem-entry-active-timestamps
                             (org-mem-entries-in-file file))
              collect file)))
+
+(defun org-mem-all-entries-with-dangling-clock ()
+  (cl-loop for entry in (org-mem-all-entries)
+           when (seq-find (##length= % 1)
+                          (org-mem-entry-clocks-int entry))
+           collect entry))
 
 (defun org-mem-entry-by-id (id)
   "The entry with unique :ID: property equal to ID."
@@ -578,6 +585,24 @@ file base name."
   "ENTRY tags, with inheritance if allowed at ENTRY."
   (delete-dups (append (org-mem-entry-tags-inherited entry)
                        (org-mem-entry-tags-local entry))))
+
+(defun org-mem-entry-clocks (entry)
+  "Alist \((START END DURATION) ...) representing clock lines in ENTRY.
+Any dangling clock line is represented as just \(START)."
+  (with-memoization (org-mem--table 24 entry)
+    (cl-loop for (start end mins) in (org-mem-entry-clocks-int entry)
+             if end
+             collect (list (format-time-string "%FT%H:%M" start)
+                           (format-time-string "%FT%H:%M" end)
+                           mins)
+             else collect (format-time-string "%FT%H:%M" start))))
+
+(defun org-mem-entry-dangling-clocks (entry)
+  "List \(START1 START2 ...) representing unfinished clocks in ENTRY.
+See also `org-mem-all-entries-with-dangling-clock'."
+  (cl-loop for clock in (org-mem-entry-clocks-int entry)
+           when (length= clock 1)
+           collect (format-time-string "%FT%H:%M" (car clock))))
 
 
 ;;; Link info
@@ -879,6 +904,7 @@ What is valid?  See \"org-mem-test.el\"."
 ;; Up to them to write code readably.
 
 (defalias 'org-mem-active-timestamps                #'org-mem-entry-active-timestamps)
+(defalias 'org-mem-clocks                           #'org-mem-entry-clocks)
 (defalias 'org-mem-deadline                         #'org-mem-entry-deadline)
 (defalias 'org-mem-heading-lvl                      #'org-mem-entry-level) ;; feels more legible
 (defalias 'org-mem-level                            #'org-mem-entry-level)

@@ -292,7 +292,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         ;; Upcased names change value a lot, take care to keep correct.
         ID ID-HERE INTERNAL-ENTRY-ID
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
-        TITLE HEADING-POS LNUM CRUMBS
+        TITLE HEADING-POS LNUM CRUMBS CLOCK-LINES
         TODO-STATE TODO-RE
         SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
         ;; Arbitrarily-named buffer positions
@@ -424,7 +424,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         nil
                         INTERNAL-ENTRY-ID
                         (and $do-cache-text (buffer-string))
-                        org-mem-parser--found-timestamps)
+                        org-mem-parser--found-timestamps
+                        nil)
                 found-entries)
           (setq org-mem-parser--found-timestamps nil)
 
@@ -524,6 +525,33 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                     nil))
             (setq ID (cdr (assoc "ID" PROPS)))
             (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
+            (setq HERE (point))
+            ;; rough start of body text
+            (setq FAR (re-search-forward "^[\s\t]*[a-bd-z]" nil t))
+            (goto-char HERE)
+            (while (re-search-forward "^[\s\t]*CLOCK: " FAR t)
+              (let ((clock-start
+                     (org-mem-parser--stamp-to-integer
+                      (buffer-substring (point)
+                                        (or (search-forward "--" (pos-eol) :move)
+                                            (point)))))
+                    (clock-end
+                     (unless (eolp)
+                       (org-mem-parser--stamp-to-integer
+                        (buffer-substring (point)
+                                          (or (search-forward "=>" (pos-eol) :move)
+                                              (point))))))
+                    (clock-minutes
+                     (and (not (eolp))
+                          (search-forward ":" (pos-eol) t)
+                          (+ (number-at-point)
+                             (progn (backward-char)
+                                    (* 60 (number-at-point)))))))
+                (push (if clock-end (list clock-start clock-end clock-minutes)
+                        (list clock-start))
+                      CLOCK-LINES)))
+            (goto-char HERE)
+
             ;; TODO: Document this elsewhere
             ;; CRUMBS is a kind of state machine; a list that can look like
             ;;    ((3 23 500 "Heading" "id1234" ("noexport" "work" "urgent"))
@@ -569,7 +597,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
             (setq ID-HERE
                   (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb)))
-            (setq HERE (point))
             ;; Ignore backlinks drawer, it would lead to double-counting.
             ;; TODO: Generalize this mechanism to use configurable lists
             ;;       `$structures-to-ignore' and `$drawers-to-ignore'.
@@ -612,7 +639,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           TODO-STATE
                           INTERNAL-ENTRY-ID
                           (and $do-cache-text (buffer-string))
-                          org-mem-parser--found-timestamps)
+                          org-mem-parser--found-timestamps
+                          CLOCK-LINES)
                   found-entries)
             (setq org-mem-parser--found-timestamps nil)
             (goto-char (point-max))
