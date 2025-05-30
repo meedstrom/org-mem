@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.14.0
+;; Package-Version: 0.14.1
 ;; Package-Requires: ((emacs "29.1") (el-job "2.4.2") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -276,7 +276,7 @@ in `org-mem-file-mtime' and friends.")
   (-internal-id   () :read-only t :type integer)
   (text           () :read-only t :type string)
   (active-timestamps () :read-only t :type list)
-  (clocks-int () :read-only t :type list))
+  (clocks-int     () :read-only t :type list))
 
 
 ;;; To find objects to operate on
@@ -905,6 +905,7 @@ What is valid?  See \"org-mem-test.el\"."
 
 (defalias 'org-mem-active-timestamps                #'org-mem-entry-active-timestamps)
 (defalias 'org-mem-clocks                           #'org-mem-entry-clocks)
+(defalias 'org-mem-clocks-int                       #'org-mem-entry-clocks-int)
 (defalias 'org-mem-closed                           #'org-mem-entry-closed)
 (defalias 'org-mem-deadline                         #'org-mem-entry-deadline)
 (defalias 'org-mem-heading-lvl                      #'org-mem-entry-level) ;; feels more legible
