@@ -94,25 +94,32 @@ brackets."
   "\\(\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)\\( +[^]+0-9>\r\n -]+\\)?\\( +\\([0-9]\\{1,2\\}\\):\\([0-9]\\{2\\}\\)\\)?\\)"
   "Copy of `org-ts-regexp0'.")
 
+(defun org-mem-parser--org-parse-time-string (s)
+  "Parse the first Org timestamp in string S."
+  ;; Code from `org-parse-time-string', which claims to be fast.
+  (if (not (string-match org-mem-parser--org-ts-regexp0 s))
+      (error "Not an Org time string: %s" s)
+    (list 0
+	  (cond ((match-beginning 8)
+                 (string-to-number (match-string 8 s)))
+	        (t 0))
+	  (cond ((match-beginning 7)
+                 (string-to-number (match-string 7 s)))
+	        (t 0))
+	  (string-to-number (match-string 4 s))
+	  (string-to-number (match-string 3 s))
+	  (string-to-number (match-string 2 s))
+	  nil -1 nil)))
+
 (defun org-mem-parser--stamp-to-iso8601 (s)
   "Parse the first Org timestamp in string S and return as ISO8601."
-  (let ((time
-         ;; Code from `org-parse-time-string', which claims to be fast.
-         (if (not (string-match org-mem-parser--org-ts-regexp0 s))
-             (error "Not an Org time string: %s" s)
-           (list 0
-	         (cond ((match-beginning 8)
-                        (string-to-number (match-string 8 s)))
-	               (t 0))
-	         (cond ((match-beginning 7)
-                        (string-to-number (match-string 7 s)))
-	               (t 0))
-	         (string-to-number (match-string 4 s))
-	         (string-to-number (match-string 3 s))
-	         (string-to-number (match-string 2 s))
-	         nil -1 nil))))
-    (when time
-      (format-time-string "%FT%H:%M" (encode-time time)))))
+  (format-time-string "%FT%H:%MZ"
+                      (encode-time (org-mem-parser--org-parse-time-string s))))
+
+(defun org-mem-parser--stamp-to-integer (s)
+  "Parse the first Org timestamp in string S and return as integer."
+  (time-convert (encode-time (org-mem-parser--org-parse-time-string s))
+                'integer))
 
 (defvar org-mem-parser--heading-re nil)
 (defun org-mem-parser--next-heading ()
