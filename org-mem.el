@@ -322,6 +322,16 @@ Citations are `org-mem-link' objects that satisfy
   (with-memoization (org-mem--table 0 'org-mem-all-id-links)
     (org-mem-links-of-type "id")))
 
+(defun org-mem-all-entries-with-active-timestamps ()
+  (seq-filter #'org-mem-entry-active-timestamps (org-mem-all-entries)))
+
+(defun org-mem-all-files-with-active-timestamps ()
+  (with-memoization (org-mem--table 0 'org-mem-all-files-with-active-timestamps)
+    (cl-loop for file in (org-mem-all-files)
+             when (seq-find #'org-mem-entry-active-timestamps
+                            (org-mem-entries-in-file file))
+             collect file)))
+
 (defun org-mem-entry-by-id (id)
   "The entry with unique :ID: property equal to ID."
   (and id (gethash id org-mem--id<>entry)))
@@ -488,16 +498,6 @@ Do not trust the result if used during `org-mem-forget-entry-functions'
 or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
   (and entry (gethash (org-mem-entry--internal-id entry)
                       org-mem--internal-entry-id<>links)))
-
-(defun org-mem-entries-with-active-timestamps ()
-  (seq-filter #'org-mem-entry-active-timestamps (org-mem-all-entries)))
-
-(defun org-mem-files-with-active-timestamps ()
-  (with-memoization (org-mem--table 0 'org-mem-files-with-active-timestamps)
-    (cl-loop for file in (org-mem-all-files)
-             when (seq-find #'org-mem-entry-active-timestamps
-                            (org-mem-entries-in-file file))
-             collect file)))
 
 (defun org-mem-links-to-entry (_entry)
   "(Unimplemented)"
@@ -1490,12 +1490,15 @@ org-id-locations:
 (define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
 (define-obsolete-function-alias 'org-mem-block               #'org-mem-await             "0.12.0 (2025-05-22)")
 (define-obsolete-function-alias 'org-mem--abbr-truename      #'org-mem--truename-maybe   "0.12.0 (2025-05-22)")
-(define-obsolete-function-alias 'org-mem-entry-olpath-with-title-with-self #'org-mem-entry-olpath-with-file-title-with-self "2025-05-28")
-(define-obsolete-function-alias 'org-mem-entry-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-file-title "2025-05-28")
-(define-obsolete-function-alias 'org-mem-entry-olpath-with-title           #'org-mem-entry-olpath-with-file-title           "2025-05-28")
-(define-obsolete-function-alias 'org-mem-olpath-with-title                 #'org-mem-olpath-with-file-title           "2025-05-28")
-(define-obsolete-function-alias 'org-mem-olpath-with-title-with-self       #'org-mem-olpath-with-file-title-with-self "2025-05-28")
-(define-obsolete-function-alias 'org-mem-olpath-with-self-with-title       #'org-mem-olpath-with-self-with-file-title "2025-05-28")
+(define-obsolete-function-alias 'org-mem-entry-olpath-with-title-with-self #'org-mem-entry-olpath-with-file-title-with-self  "0.13.1 (2025-05-28)")
+(define-obsolete-function-alias 'org-mem-entry-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-file-title  "0.13.1 (2025-05-28)")
+(define-obsolete-function-alias 'org-mem-entry-olpath-with-title           #'org-mem-entry-olpath-with-file-title            "0.13.1 (2025-05-28)")
+(define-obsolete-function-alias 'org-mem-olpath-with-title                 #'org-mem-olpath-with-file-title                  "0.13.1 (2025-05-28)")
+(define-obsolete-function-alias 'org-mem-olpath-with-title-with-self       #'org-mem-olpath-with-file-title-with-self        "0.13.1 (2025-05-28)")
+(define-obsolete-function-alias 'org-mem-olpath-with-self-with-title       #'org-mem-olpath-with-self-with-file-title        "0.13.1 (2025-05-28)")
+(define-obsolete-function-alias 'org-mem-olpath-with-self-with-title       #'org-mem-olpath-with-self-with-file-title        "0.13.1 (2025-05-28)")
+(define-obsolete-function-alias 'org-mem-entries-with-active-timestamps    #'org-mem-all-entries-with-active-timestamps "0.14.0 (2025-05-30)")
+(define-obsolete-function-alias 'org-mem-files-with-active-timestamps      #'org-mem-all-files-with-active-timestamps   "0.14.0 (2025-05-30)")
 
 (provide 'org-mem)
 
