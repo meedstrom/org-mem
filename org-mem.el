@@ -136,6 +136,7 @@ try command \\[org-mem-forget-id-locations-recursively]."
     "/node_modules/"
     ".sync-conflict-"
     ".#"
+    ".pam/"
     "/backup")
   "Literal substrings of file paths that should not be scanned.
 Aside from this variable, some filters are hard-coded:
