@@ -1102,7 +1102,8 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
              (length (org-mem-all-id-links))
              org-mem--time-elapsed)))
     (run-hook-with-args 'org-mem-post-full-scan-functions parse-results)
-    (message "%s" org-mem--next-message)
+    (when org-mem--next-message
+      (message "%s" org-mem--next-message))
     (setq org-mem--next-message nil)
     (run-hooks 'org-mem-initial-scan-hook)
     (if bad-paths
