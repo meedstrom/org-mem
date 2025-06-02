@@ -30,7 +30,9 @@ Example setup:
 (org-mem-updater-mode)
 #+end_src
 
-That's it -- now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  See examples of how to use them at section [[https://github.com/meedstrom/org-mem#elisp-api][Elisp API]]!
+That's it -- give it a couple of seconds, and now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  See examples of how to use them at section [[https://github.com/meedstrom/org-mem#elisp-api][Elisp API]]!
+
+The above example checks all files in =org-mem-watch-dirs= recursively, as well as files mentioned in =org-id-locations= and =org-id-extra-files=.
 
 ** Two APIs
 You get two different APIs to pick from, to access the same data.
@@ -48,6 +50,7 @@ A design choice: Org-mem *only* delivers data.  It could easily ship convenience
 
 #+begin_src elisp
 (defun org-mem-goto (entry)
+  (cl-assert (org-mem-entry-p entry))
   (find-file (org-mem-entry-file entry))
   (goto-char (org-mem-entry-pos entry))
 #+end_src
