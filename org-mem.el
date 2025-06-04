@@ -618,7 +618,7 @@ Any dangling clock line is represented as just \(START)."
            if end collect (list (org-mem--iso8601 start)
                                 (org-mem--iso8601 end)
                                 mins)
-           else collect (org-mem--iso8601 start)))
+           else collect (list (org-mem--iso8601 start))))
 
 (defun org-mem-entry-dangling-clocks (entry)
   "List \(START1 START2 ...) representing clocks in ENTRY with no end.
