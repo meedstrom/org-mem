@@ -1202,7 +1202,6 @@ No-op if Org has not loaded."
                   "BACKLINKS"
                   "LOGBOOK"))))))
 
-;; TODO: PR? It's useful.
 ;; Modified from part of `org-link-make-regexps'
 (defun org-mem--mk-plain-re (link-types)
   "Build a moral equivalent to `org-link-plain-re', to match LINK-TYPES."

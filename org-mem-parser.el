@@ -74,7 +74,6 @@ the custom TODO words thus defined."
                        16)
      pos))
 
-;; REVIEW: Should we also use an equivalent of `org-link-escape'?
 (defun org-mem-parser--org-link-display-format (s)
   "Copy of `org-link-display-format'.
 Format string S for display - this means replace every link inside S
@@ -84,11 +83,6 @@ brackets."
    $bracket-re
    (lambda (m) (or (match-string 2 m) (match-string 1 m)))
    s nil t))
-
-;; REVIEW: I wonder what's the most handy way to search on dates/times with
-;;         SQL?  Do people separate date and time into different columns?  Or
-;;         store as numbers and use some SQL functions to compare them?
-;;         Just mirroring the data format of org-roam now.
 
 (defconst org-mem-parser--org-ts-regexp0
   "\\(\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)\\( +[^]+0-9>\r\n -]+\\)?\\( +\\([0-9]\\{1,2\\}\\):\\([0-9]\\{2\\}\\)\\)?\\)"
