@@ -106,14 +106,14 @@ brackets."
 	            nil -1 nil)))
       (and ts (time-convert (encode-time ts) 'integer)))))
 
-(defvar org-mem-parser--heading-re nil)
+(defvar org-mem-parser--outline-regexp nil) ;; Initialized later
 (defun org-mem-parser--next-heading ()
   "Similar to `outline-next-heading'."
-  (if (and (bolp) (not (eobp)))
-      ;; Prevent matching the same line forever
-      (forward-char))
-  (if (re-search-forward org-mem-parser--heading-re nil 'move)
-      (goto-char (pos-bol))))
+  (when (and (bolp) (not (eobp)))
+    ;; Prevent matching the same line forever
+    (forward-char))
+  (when (re-search-forward org-mem-parser--outline-regexp nil :move)
+    (goto-char (pos-bol))))
 
 (defconst org-mem--org-ts-regexp
   "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
@@ -231,9 +231,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       (setq EOL (pos-eol))
       (or (search-forward ":" EOL t)
           (error "Possibly malformed property drawer"))
-      ;; In the wild you see some :MULTIPLE:COLONS:IN:NAME: properties,
-      ;; but they are illegal according to `org-property-drawer-re'.
-      ;; So no need to handle that case, skip.
+      ;; In the wild you see some :MULTIPLE:COLONS:IN:NAME: properties, which
+      ;; would make this condition nil.  But they are illegal according to
+      ;; `org-property-drawer-re', so don't bother to collect it.
       (when (looking-at-p " ")
         (push (cons (upcase (buffer-substring START (1- (point))))
                     (string-trim (buffer-substring (point) EOL)))
@@ -257,8 +257,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
      (setq org-mem-parser--buf (get-buffer-create " *org-mem-parser*" t))))
   (setq org-mem-parser--found-links nil)
   (setq org-mem-parser--found-timestamps nil)
-  (unless org-mem-parser--heading-re
-    (setq org-mem-parser--heading-re
+  (unless org-mem-parser--outline-regexp
+    (setq org-mem-parser--outline-regexp
           (if $inlinetask-min-level
               (rx-to-string
                `(seq bol (repeat 1 ,(1- $inlinetask-min-level) "*") " "))
@@ -510,7 +510,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq ID (cdr (assoc "ID" PROPS)))
             (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
             (setq HERE (point))
-            ;; rough start of body text
+            ;; rough start of body text (just a perf hack, fails gracefully)
             (setq FAR (re-search-forward "^[\s\t]*[a-bd-z]" nil t))
             (goto-char HERE)
             (while (re-search-forward "^[\s\t]*CLOCK: " FAR t)
