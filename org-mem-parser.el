@@ -88,32 +88,23 @@ brackets."
   "\\(\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)\\( +[^]+0-9>\r\n -]+\\)?\\( +\\([0-9]\\{1,2\\}\\):\\([0-9]\\{2\\}\\)\\)?\\)"
   "Copy of `org-ts-regexp0'.")
 
-(defun org-mem-parser--org-parse-time-string (s)
-  "Parse the first Org timestamp in string S."
-  ;; Code from `org-parse-time-string', which claims to be fast.
+(defun org-mem-parser--time-string-to-int (s)
+  "Parse the first Org timestamp in string S and return as integer."
   (if (not (string-match org-mem-parser--org-ts-regexp0 s))
       (error "Not an Org time string: %s" s)
-    (list 0
-	  (cond ((match-beginning 8)
-                 (string-to-number (match-string 8 s)))
-	        (t 0))
-	  (cond ((match-beginning 7)
-                 (string-to-number (match-string 7 s)))
-	        (t 0))
-	  (string-to-number (match-string 4 s))
-	  (string-to-number (match-string 3 s))
-	  (string-to-number (match-string 2 s))
-	  nil -1 nil)))
-
-(defun org-mem-parser--stamp-to-iso8601 (s)
-  "Parse the first Org timestamp in string S and return as ISO8601."
-  (format-time-string "%FT%H:%M"
-                      (encode-time (org-mem-parser--org-parse-time-string s))))
-
-(defun org-mem-parser--stamp-to-integer (s)
-  "Parse the first Org timestamp in string S and return as integer."
-  (time-convert (encode-time (org-mem-parser--org-parse-time-string s))
-                'integer))
+    ;; Code from `org-parse-time-string', faster than `parse-time-string'.
+    (let ((ts (list 0
+	            (cond ((match-beginning 8)
+                           (string-to-number (match-string 8 s)))
+	                  (t 0))
+	            (cond ((match-beginning 7)
+                           (string-to-number (match-string 7 s)))
+	                  (t 0))
+	            (string-to-number (match-string 4 s))
+	            (string-to-number (match-string 3 s))
+	            (string-to-number (match-string 2 s))
+	            nil -1 nil)))
+      (and ts (time-convert (encode-time ts) 'integer)))))
 
 (defvar org-mem-parser--heading-re nil)
 (defun org-mem-parser--next-heading ()
@@ -219,7 +210,7 @@ the subheading potentially has an ID of its own."
     ;; New 2025-05-23: Start over and look for active timestamps
     (goto-char beg)
     (while (re-search-forward org-mem--org-ts-regexp end t)
-      (push (org-mem-parser--stamp-to-iso8601 (match-string 0))
+      (push (org-mem-parser--time-string-to-int (match-string 0))
             org-mem-parser--found-timestamps)))
   (goto-char (or end (point-max))))
 
@@ -479,7 +470,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq FAR (pos-eol))
             (setq SCHED
                   (if (re-search-forward "[\s\t]*SCHEDULED: +" FAR t)
-                      (prog1 (org-mem-parser--stamp-to-iso8601
+                      (prog1 (org-mem-parser--time-string-to-int
                               (buffer-substring
                                (point)
                                (+ (point) (skip-chars-forward "^]>\n"))))
@@ -487,7 +478,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                     nil))
             (setq DEADLINE
                   (if (re-search-forward "[\s\t]*DEADLINE: +" FAR t)
-                      (prog1 (org-mem-parser--stamp-to-iso8601
+                      (prog1 (org-mem-parser--time-string-to-int
                               (buffer-substring
                                (point)
                                (+ (point) (skip-chars-forward "^]>\n"))))
@@ -495,7 +486,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                     nil))
             (setq CLOSED
                   (if (re-search-forward "[\s\t]*CLOSED: +" FAR t)
-                      (prog1 (org-mem-parser--stamp-to-iso8601
+                      (prog1 (org-mem-parser--time-string-to-int
                               (buffer-substring
                                (point)
                                (+ (point) (skip-chars-forward "^]>\n"))))
@@ -524,13 +515,13 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (goto-char HERE)
             (while (re-search-forward "^[\s\t]*CLOCK: " FAR t)
               (let ((clock-start
-                     (org-mem-parser--stamp-to-integer
+                     (org-mem-parser--time-string-to-int
                       (buffer-substring (point)
                                         (or (search-forward "--" (pos-eol) :move)
                                             (point)))))
                     (clock-end
                      (unless (eolp)
-                       (org-mem-parser--stamp-to-integer
+                       (org-mem-parser--time-string-to-int
                         (buffer-substring (point)
                                           (or (search-forward "=>" (pos-eol) :move)
                                               (point))))))

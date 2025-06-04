@@ -265,18 +265,18 @@ in `org-mem-file-mtime' and friends.")
   (title-maybe    () :read-only t :type string)
   (level          () :read-only t :type integer)
   (id             () :read-only t :type string)
-  (closed         () :read-only t :type string)
+  (closed-int     () :read-only t :type string)
   (crumbs         () :read-only t :type list)
-  (deadline       () :read-only t :type string)
+  (deadline-int   () :read-only t :type string)
   (priority       () :read-only t :type string)
   (properties     () :read-only t :type list)
-  (scheduled      () :read-only t :type string)
+  (scheduled-int  () :read-only t :type string)
   (tags-inherited () :read-only t :type list)
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
   (-internal-id   () :read-only t :type integer)
   (text           () :read-only t :type string)
-  (active-timestamps () :read-only t :type list)
+  (active-timestamps-int () :read-only t :type list)
   (clocks-int     () :read-only t :type list))
 
 
@@ -587,23 +587,45 @@ file base name."
   (delete-dups (append (org-mem-entry-tags-inherited entry)
                        (org-mem-entry-tags-local entry))))
 
+(define-inline org-mem--iso8601 (int-time)
+  "Translate INT-TIME into a string \"yyyy-mm-ddThh:mm\"."
+  (inline-quote (format-time-string "%FT%H:%M" ,int-time)))
+
+(defun org-mem-entry-closed (entry)
+  "CLOSED-timestamp of ENTRY, suitable for `iso8601-parse'."
+  (let ((ts (org-mem-entry-closed-int entry)))
+    (and ts (org-mem--iso8601 ts))))
+
+(defun org-mem-entry-deadline (entry)
+  "DEADLINE-timestamp of ENTRY, suitable for `iso8601-parse'."
+  (let ((ts (org-mem-entry-deadline-int entry)))
+    (and ts (org-mem--iso8601 ts))))
+
+(defun org-mem-entry-scheduled (entry)
+  "SCHEDULED-timestamp of ENTRY, suitable for `iso8601-parse'."
+  (let ((ts (org-mem-entry-scheduled-int entry)))
+    (and ts (org-mem--iso8601 ts))))
+
+(defun org-mem-entry-active-timestamps (entry)
+  "Active timestamps in ENTRY, suitable for `iso8601-parse'."
+  (cl-loop for ts in (org-mem-entry-active-timestamps-int entry)
+           collect (org-mem--iso8601 ts)))
+
 (defun org-mem-entry-clocks (entry)
   "Alist \((START END DURATION) ...) representing clock lines in ENTRY.
 Any dangling clock line is represented as just \(START)."
-  (with-memoization (org-mem--table 24 entry)
-    (cl-loop for (start end mins) in (org-mem-entry-clocks-int entry)
-             if end
-             collect (list (format-time-string "%FT%H:%M" start)
-                           (format-time-string "%FT%H:%M" end)
-                           mins)
-             else collect (format-time-string "%FT%H:%M" start))))
+  (cl-loop for (start end mins) in (org-mem-entry-clocks-int entry)
+           if end collect (list (org-mem--iso8601 start)
+                                (org-mem--iso8601 end)
+                                mins)
+           else collect (org-mem--iso8601 start)))
 
 (defun org-mem-entry-dangling-clocks (entry)
-  "List \(START1 START2 ...) representing unfinished clocks in ENTRY.
+  "List \(START1 START2 ...) representing clocks in ENTRY with no end.
 See also `org-mem-all-entries-with-dangling-clock'."
   (cl-loop for clock in (org-mem-entry-clocks-int entry)
            when (length= clock 1)
-           collect (format-time-string "%FT%H:%M" (car clock))))
+           collect (org-mem--iso8601 (car clock))))
 
 
 ;;; Link info
@@ -904,11 +926,14 @@ What is valid?  See \"org-mem-test.el\"."
 ;; only convenience for end users (and quick prototyping).
 ;; Up to them to write code readably.
 
+(defalias 'org-mem-active-timestamps-int            #'org-mem-entry-active-timestamps-int)
 (defalias 'org-mem-active-timestamps                #'org-mem-entry-active-timestamps)
 (defalias 'org-mem-clocks                           #'org-mem-entry-clocks)
 (defalias 'org-mem-clocks-int                       #'org-mem-entry-clocks-int)
 (defalias 'org-mem-closed                           #'org-mem-entry-closed)
+(defalias 'org-mem-closed-int                       #'org-mem-entry-closed-int)
 (defalias 'org-mem-deadline                         #'org-mem-entry-deadline)
+(defalias 'org-mem-deadline-int                     #'org-mem-entry-deadline-int)
 (defalias 'org-mem-heading-lvl                      #'org-mem-entry-level) ;; feels more legible
 (defalias 'org-mem-level                            #'org-mem-entry-level)
 (defalias 'org-mem-lnum                             #'org-mem-entry-lnum)
@@ -920,6 +945,7 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-roam-aliases                     #'org-mem-entry-roam-aliases)
 (defalias 'org-mem-roam-refs                        #'org-mem-entry-roam-refs)
 (defalias 'org-mem-scheduled                        #'org-mem-entry-scheduled)
+(defalias 'org-mem-scheduled-int                    #'org-mem-entry-scheduled-int)
 (defalias 'org-mem-subtree-p                        #'org-mem-entry-subtree-p)
 (defalias 'org-mem-tags                             #'org-mem-entry-tags)
 (defalias 'org-mem-tags-inherited                   #'org-mem-entry-tags-inherited)
