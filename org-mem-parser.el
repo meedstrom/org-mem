@@ -22,12 +22,6 @@
 
 ;;; Code:
 
-;; TODO: See org manual on property syntax.  It implies you can set file-level
-;; id without a prop drawer, just a line #+PROPERTY: id asdfghjkl1234.
-;; Let's support that, that's neat.
-
-;; TODO: count-words in each entry, disregarding properties/logbook drawers
-
 (eval-when-compile
   (require 'cl-lib)
   (require 'subr-x))
@@ -47,7 +41,7 @@
 (defvar org-mem-parser--found-links nil
   "Link objects found so far.")
 
-(defvar org-mem-parser--found-timestamps nil
+(defvar org-mem-parser--found-active-stamps nil
   "Active timestamps found so far.")
 
 (defvar org-mem-parser--all-dir-locals nil
@@ -211,7 +205,7 @@ the subheading potentially has an ID of its own."
     (goto-char beg)
     (while (re-search-forward org-mem--org-ts-regexp end t)
       (push (org-mem-parser--time-string-to-int (match-string 0))
-            org-mem-parser--found-timestamps)))
+            org-mem-parser--found-active-stamps)))
   (goto-char (or end (point-max))))
 
 (defun org-mem-parser--collect-properties (beg end)
@@ -256,7 +250,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
     (switch-to-buffer
      (setq org-mem-parser--buf (get-buffer-create " *org-mem-parser*" t))))
   (setq org-mem-parser--found-links nil)
-  (setq org-mem-parser--found-timestamps nil)
+  (setq org-mem-parser--found-active-stamps nil)
   (unless org-mem-parser--outline-regexp
     (setq org-mem-parser--outline-regexp
           (if $inlinetask-min-level
@@ -409,10 +403,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         nil
                         INTERNAL-ENTRY-ID
                         (and $do-cache-text (buffer-string))
-                        org-mem-parser--found-timestamps
+                        org-mem-parser--found-active-stamps
                         nil)
                 found-entries)
-          (setq org-mem-parser--found-timestamps nil)
+          (setq org-mem-parser--found-active-stamps nil)
 
           (let ((heritable-tags
                  (and USE-TAG-INHERITANCE
@@ -623,10 +617,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           TODO-STATE
                           INTERNAL-ENTRY-ID
                           (and $do-cache-text (buffer-string))
-                          org-mem-parser--found-timestamps
+                          org-mem-parser--found-active-stamps
                           CLOCK-LINES)
                   found-entries)
-            (setq org-mem-parser--found-timestamps nil)
+            (setq org-mem-parser--found-active-stamps nil)
             (setq CLOCK-LINES nil)
             (goto-char (point-max))
             ;; NOTE: Famously slow `line-number-at-pos' is fast in narrow.
