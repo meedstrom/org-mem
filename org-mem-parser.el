@@ -99,15 +99,6 @@ brackets."
 	            nil -1 nil)))
       (and ts (time-convert (encode-time ts) 'integer)))))
 
-(defvar org-mem-parser--outline-regexp nil) ;; Initialized later
-(defun org-mem-parser--next-heading ()
-  "Similar to `outline-next-heading'."
-  (when (and (bolp) (not (eobp)))
-    ;; Prevent matching the same line forever
-    (forward-char))
-  (when (re-search-forward org-mem-parser--outline-regexp nil :move)
-    (goto-char (pos-bol))))
-
 (defconst org-mem--org-ts-regexp
   "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
 
@@ -237,6 +228,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
 ;;; Main
 
+(defvar org-mem-parser--outline-regexp nil)
 (defvar org-mem-parser--buf nil)
 (defun org-mem-parser--parse-file (file)
   "Gather entries, links and other data in FILE."
@@ -319,12 +311,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           ;; content before it.  Our usage of `org-mem-parser--next-heading'
           ;; cannot handle that edge-case.
           (unless (looking-at-p "\\*")
-            ;; Narrow until first heading
-            (when (org-mem-parser--next-heading)
-              (narrow-to-region 1 (point))
-              (goto-char 1))
             ;; Skip past front matter
             (while (looking-at-p (rx (*? space) (or "# " "\n")))
+            ;; Narrow until first heading, if there is any
+            (save-excursion
+              (when (re-search-forward org-mem-parser--outline-regexp nil t)
+                (narrow-to-region 1 (pos-bol))))
               (forward-line))
             (while (looking-at-p "^[ \t]*:[_[:word:]-]+:[ \t]*$")
               (if (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
@@ -411,10 +403,13 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           ;; Loop over the file's headings
           (while (not (eobp))
             ;; Narrow til next heading
-            (narrow-to-region (point)
-                              (save-excursion
-                                (or (org-mem-parser--next-heading)
-                                    (point-max))))
+            (narrow-to-region
+             (point)
+             (save-excursion
+               (forward-char) ;; Prevent matching same line forever
+               (if (re-search-forward org-mem-parser--outline-regexp nil t)
+                   (pos-bol)
+                 (point-max))))
             (setq HEADING-POS (point))
             (setq LEVEL (skip-chars-forward "*"))
             (skip-chars-forward " ")
