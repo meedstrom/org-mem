@@ -1309,15 +1309,17 @@ file-names to probable true names."
       (and (stringp wild-file)
            (not (org-mem--tramp-file-p wild-file))
            (if (file-exists-p wild-file)
-               (let ((truename
+               (let* ((truename
                       (if org-mem--first-run
                           (if expand-on-first-run
                               (let (file-name-handler-alist)
                                 (cl-assert (file-name-absolute-p wild-file))
                                 (expand-file-name wild-file))
                             wild-file)
-                        (file-truename wild-file))))
-                 (puthash wild-file truename org-mem--wild-filename<>truename))
+                        (file-truename wild-file)))
+                      (abbr-true (org-mem--fast-abbrev truename)))
+                 (puthash wild-file truename org-mem--wild-filename<>truename)
+                 (puthash abbr-true truename org-mem--wild-filename<>truename))
              (remhash wild-file org-mem--wild-filename<>truename)))))
 
 (declare-function tramp-tramp-file-p "tramp")
@@ -1332,8 +1334,10 @@ If nevertheless it is, org-mem may have problems, but these problems
 should go away after Tramp does load and `org-mem-reset' runs again."
     (and (or loaded
              (and (featurep 'tramp)
-                  (prog1 (setq loaded t)
-                    (clrhash org-mem--wild-filename<>truename))))
+                  (progn (clrhash org-mem--wild-filename<>truename)
+                         (setq org-mem--first-run t)
+                         (setq org-mem--caused-retry nil)
+                         (setq loaded t))))
          (tramp-tramp-file-p file))))
 
 (defun org-mem--invalidate-file-names (bad)
@@ -1425,8 +1429,9 @@ This means you cannot cross-correlate the results with file names in
            for file being each hash-value of org-id-locations do
            (when (cl-notany (##string-search % file) org-mem-exclude)
              (puthash (org-mem--truename-maybe file t) t org-mem--dedup-tbl)))))))
-  (setq org-mem--first-run nil)
   (remhash nil org-mem--dedup-tbl)
+  (when (> (hash-table-count org-mem--dedup-tbl) 0)
+    (setq org-mem--first-run nil))
   (hash-table-keys org-mem--dedup-tbl))
 
 ;; REVIEW: We can get rid of this.  In past benchmarks, it only seemed 3-5x
