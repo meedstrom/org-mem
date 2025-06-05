@@ -642,6 +642,7 @@ See more info at `org-mem-entry-file'."
   (org-mem--fast-abbrev (org-mem-link-file-truename link)))
 
 (defun org-mem-id-link-p (link)
+  "Return t if LINK is an `org-mem-link' object of type \"id\"."
   (and (org-mem-link-p link)
        (equal (org-mem-link-type link) "id")))
 

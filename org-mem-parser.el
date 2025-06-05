@@ -99,7 +99,8 @@ brackets."
 	            nil -1 nil)))
       (and ts (time-convert (encode-time ts) 'integer)))))
 
-(defconst org-mem--org-ts-regexp
+
+(defconst org-mem-parser--org-ts-regexp
   "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
 
 (defun org-mem-parser--collect-links-until (end id-here file internal-entry-id)
@@ -193,7 +194,7 @@ the subheading potentially has an ID of its own."
 
     ;; New 2025-05-23: Start over and look for active timestamps
     (goto-char beg)
-    (while (re-search-forward org-mem--org-ts-regexp end t)
+    (while (re-search-forward org-mem-parser--org-ts-regexp end t)
       (push (org-mem-parser--time-string-to-int (match-string 0))
             org-mem-parser--found-active-stamps)))
   (goto-char (or end (point-max))))
