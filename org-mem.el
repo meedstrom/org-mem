@@ -662,20 +662,12 @@ See more info at `org-mem-entry-file'."
 
 (defun org-mem-file-line-count (file/entry/link)
   "Count of lines in whole file at FILE/ENTRY/LINK."
-  (let ((x (nth 2 (org-mem--get-file-metadata file/entry/link))))
-    (if (> x 0) x
-      (error "org-mem-file-line-count: Value not yet stored for file %s%s"
-             file/entry/link
-             "\nLikely due to scan errors, type M-x org-mem-list-problems"))))
+  (nth 2 (org-mem--get-file-metadata file/entry/link)))
 
 (defun org-mem-file-ptmax (file/entry/link)
   "Count of characters in whole file at FILE/ENTRY/LINK.
 Often close to but not exactly the size in bytes due to text encoding."
-  (let ((x (nth 3 (org-mem--get-file-metadata file/entry/link))))
-    (if (> x 0) x
-      (error "org-mem-file-ptmax: Value not yet stored for file %s%s"
-             file/entry/link
-             "\nLikely due to scan errors, type M-x org-mem-list-problems"))))
+  (nth 3 (org-mem--get-file-metadata file/entry/link)))
 
 (defun org-mem-file-coding-system (file/entry/link)
   "Detected coding system of file at FILE/ENTRY/LINK."

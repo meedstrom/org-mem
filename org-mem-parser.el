@@ -265,8 +265,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         found-entries
         file-data
         problem
-        attrs
-        coding
+        coding-system
         ;; Upcased names change value a lot, take care to keep correct.
         ID ID-HERE INTERNAL-ENTRY-ID
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
@@ -293,12 +292,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           (let ((inhibit-read-only t))
             (erase-buffer)
             (insert-file-contents file)
-            (setq coding last-coding-system-used))
+            (setq coding-system last-coding-system-used))
           (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file 0))
           (setq TODO-RE $default-todo-re)
-          (setq attrs (file-attributes file))
-          ;; To amend later if we make it to the end.
-          (setq file-data (list file attrs -1 -1 coding))
 
           ;; Apply relevant dir-locals and file-locals.
           (let* ((dir-or-cache (dir-locals-find-file file))
@@ -628,13 +624,27 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
           ;; Done analyzing this file.
           (cl-assert (eobp))
-          (setq file-data (list file attrs LNUM (point) coding)))
+          (setq file-data (list file
+                                (file-attributes file)
+                                LNUM
+                                (point)
+                                coding-system)))
 
-      ;; Don't crash on error signal, just report and move on to next file.
+      ;; Don't crash on error signal, just record the problem so it can
+      ;; optionally be reported to user, and move on to next file.
       (( error )
-       (setq problem (list (format-time-string "%H:%M") file (point) err)))
-      ;; Catch fake `skip-file' signal and report nothing.
-      (t))
+       (setq problem (list (format-time-string "%H:%M") file (point) err))
+       (widen)
+       (setq file-data (list file
+                             (file-attributes file)
+                             (line-number-at-pos (point-max))
+                             (point-max)
+                             coding-system)))
+
+      ;; Catch fake `skip-file' signal.  (I expect it was signaled at a time
+      ;; that makes the final return value all nils except for `bad-path'.)
+      (t
+       (cl-assert (null file-data))))
 
     (list (if bad-path (list bad-path))
           (if file-data (list file-data))
