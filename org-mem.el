@@ -1251,7 +1251,7 @@ No-op if Org has not loaded."
 ;;; File discovery subroutines
 
 (defvar org-mem--wild-filename<>truename (make-hash-table :test 'equal)
-  "1:1 table mapping a wild file name to its abbreviated truename.
+  "1:1 table mapping a wild file name to its truename.
 See helper `org-mem--truename-maybe'.")
 
 (defvar org-mem--first-run t
