@@ -1290,8 +1290,7 @@ file-names to probable true names."
                       (if org-mem--first-run
                           (if expand-on-first-run
                               (let (file-name-handler-alist)
-                                ;; Names in org-id-locations are absolute,
-                                ;; else this would be risky.
+                                (cl-assert (file-name-absolute-p wild-file))
                                 (expand-file-name wild-file))
                             wild-file)
                         (file-truename wild-file))))
