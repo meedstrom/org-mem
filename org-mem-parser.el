@@ -103,8 +103,8 @@ brackets."
 (defconst org-mem-parser--org-ts-regexp
   "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
 
-(defun org-mem-parser--collect-links-until (end id-here file internal-entry-id)
-  "From here to buffer position END, look for forward-links.
+(defun org-mem-parser--scan-text-until (end id-here file internal-entry-id)
+  "From here to buffer position END, collect links and active timestamps.
 
 Argument ID-HERE is the ID of the subtree where this function is being
 executed (or that of an ancestor heading, if the current subtree has
@@ -229,6 +229,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
 ;;; Main
 
+(defconst org-mem-parser--org-drawer-regexp "^[ \t]*:[_[:word:]-]+:[ \t]*$")
 (defvar org-mem-parser--outline-regexp nil)
 (defvar org-mem-parser--buf nil)
 (defun org-mem-parser--parse-file (file)
@@ -263,10 +264,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         ID ID-HERE INTERNAL-ENTRY-ID
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
         TITLE HEADING-POS LNUM CRUMBS CLOCK-LINES
-        TODO-STATE TODO-RE
+        TODO-STATE
         SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
-        ;; Arbitrarily-named buffer positions
-        HERE FAR END DRAWER-BEG DRAWER-END)
+        HERE FAR DRAWER-BEG DRAWER-END
+        (TODO-RE $default-todo-re))
     (condition-case err
         (progn
           (when (not (file-exists-p file))
@@ -286,7 +287,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (erase-buffer)
             (insert-file-contents file)
             (setq coding-system last-coding-system-used))
-          (setq TODO-RE $default-todo-re)
 
           ;; Apply relevant dir-locals and file-locals.
           (let* ((dir-or-cache (dir-locals-find-file file))
@@ -310,65 +310,69 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           ;;; Scan content before first heading, if any
 
           (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file 0))
+          (while (looking-at-p (rx (*? space) (or "# " "\n")))
+            (forward-line))
           (unless (looking-at-p "\\*")
-            ;; Skip past front matter
-            (while (looking-at-p (rx (*? space) (or "# " "\n")))
-            ;; Narrow until first heading, if there is any
+            ;; Narrow until first heading, if there is one
             (save-excursion
               (when (re-search-forward org-mem-parser--outline-regexp nil t)
                 (narrow-to-region 1 (pos-bol))))
+            ;; We can safely assume that if there's a properties drawer,
+            ;; it's the first drawer AND it comes before any #+keyword, at
+            ;; least going by the behavior of `org-id-get'.
+            (when (looking-at-p "^[ \t]*:PROPERTIES:[ \t]*$")
+              (forward-line)
+              (setq PROPS (org-mem-parser--collect-properties
+                           (point)
+                           (if (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+                               (pos-bol)
+                             (error "Could not find :END: of drawer"))))
+              (setq ID (cdr (assoc "ID" PROPS)))
               (forward-line))
-            (while (looking-at-p "^[ \t]*:[_[:word:]-]+:[ \t]*$")
-              (if (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
-                  (forward-line)
-                (error "Missing :END:")))
+            ;; PERF: Find tight boundaries for later searches.
+            (setq HERE (point))
+            (while (or (looking-at-p (rx (*? space) (or "# " "\n")))
+                       (and (looking-at-p org-mem-parser--org-drawer-regexp)
+                            (re-search-forward "^[ \t]*:END:[ \t]*$")))
+              (forward-line))
             (while (looking-at-p (rx (*? space) (or "#+" "# " "\n")))
               (forward-line))
-            (setq FAR (point))
+            (setq FAR (point)) ;; End of the "front matter".
 
-            (goto-char 1)
-            (setq PROPS
-                  (if (re-search-forward "^[\s\t]*:PROPERTIES:" FAR t)
-                      (progn
-                        (forward-line 1)
-                        (org-mem-parser--collect-properties
-                         (point)
-                         (re-search-forward "^[\s\t]*:END:" FAR)))
-                    nil))
-            (setq HERE (point))
-            (setq TAGS
-                  (if (re-search-forward "^#\\+FILETAGS: " FAR t)
-                      (split-string
-                       (buffer-substring (point) (pos-eol))
-                       ":" t)
-                    nil))
+            (goto-char HERE)
+            (when (re-search-forward "^#\\+FILETAGS: " FAR t)
+              (setq TAGS (split-string (buffer-substring (point) (pos-eol))
+                                       ":" t)))
             (goto-char HERE)
             (let (collected-todo-lines)
               (while (re-search-forward file-todo-option-re FAR t)
-                (push (buffer-substring (point) (pos-eol)) collected-todo-lines))
-              (setq TODO-RE (if collected-todo-lines
-                                (org-mem-parser--make-todo-regexp
-                                 (string-join collected-todo-lines " "))
-                              $default-todo-re)))
+                (push (buffer-substring (point) (pos-eol))
+                      collected-todo-lines))
+              (when collected-todo-lines
+                (setq TODO-RE (org-mem-parser--make-todo-regexp
+                               (string-join collected-todo-lines " ")))))
             (goto-char HERE)
-            (setq TITLE (when (re-search-forward "^#\\+TITLE: +" FAR t)
-                          (string-trim-right
+            (when (re-search-forward "^#\\+TITLE: +" FAR t)
+              (setq TITLE (string-trim-right
                            (org-mem-parser--org-link-display-format
                             (buffer-substring (point) (pos-eol))))))
-            (setq ID (cdr (assoc "ID" PROPS)))
+
+            ;; OK, got file title and properties.  Now look for things of
+            ;; interest in body text.
+            ;; Don't look inside a BACKLINKS drawer though, because links
+            ;; inside should not count as "forward links".
             (goto-char HERE)
-            ;; Don't count org-super-links backlinks as forward links
-            ;; TODO: Rewrite more readably
             (if (re-search-forward "^[\s\t]*:BACKLINKS:" nil t)
                 (progn
-                  (setq END (point))
+                  (setq FAR (point))
                   (unless (search-forward ":END:" nil t)
-                    (error "Couldn't find :END: of drawer"))
-                  ;; Collect from end of backlinks drawer to first heading
-                  (org-mem-parser--collect-links-until nil ID file INTERNAL-ENTRY-ID))
-              (setq END (point-max)))
+                    (error "Could not find :END: of drawer"))
+                  ;; Scan stuff after the backlinks drawer.
+                  (org-mem-parser--scan-text-until nil ID file INTERNAL-ENTRY-ID))
+              (setq FAR (point-max)))
+            ;; Scan stuff before the backlinks drawer.
             (goto-char HERE)
-            (org-mem-parser--collect-links-until END ID file INTERNAL-ENTRY-ID)
+            (org-mem-parser--scan-text-until FAR ID file INTERNAL-ENTRY-ID)
             (goto-char (point-max))
             ;; We should now be at the first heading.
             (widen))
@@ -580,14 +584,14 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
             ;; Collect links inside the heading
             (goto-char HEADING-POS)
-            (org-mem-parser--collect-links-until (pos-eol) ID-HERE file INTERNAL-ENTRY-ID)
+            (org-mem-parser--scan-text-until (pos-eol) ID-HERE file INTERNAL-ENTRY-ID)
             ;; Collect links between property drawer and backlinks drawer
             (goto-char HERE)
             (when DRAWER-BEG
-              (org-mem-parser--collect-links-until DRAWER-BEG ID-HERE file INTERNAL-ENTRY-ID))
+              (org-mem-parser--scan-text-until DRAWER-BEG ID-HERE file INTERNAL-ENTRY-ID))
             ;; Collect links until next heading
             (goto-char (or DRAWER-END HERE))
-            (org-mem-parser--collect-links-until (point-max) ID-HERE file INTERNAL-ENTRY-ID)
+            (org-mem-parser--scan-text-until (point-max) ID-HERE file INTERNAL-ENTRY-ID)
 
             (push (record 'org-mem-entry
                           file
