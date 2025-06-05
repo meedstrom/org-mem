@@ -1242,6 +1242,7 @@ No-op if Org has not loaded."
                   "LOGBOOK"))))))
 
 ;; Modified from part of `org-link-make-regexps'
+;; I do not understand `rx-let'... may be wrong/unoptimal.
 (defun org-mem--mk-plain-re (link-types)
   "Build a moral equivalent to `org-link-plain-re', to match LINK-TYPES."
   (let ((non-space-bracket "[^][ \t\n()<>]"))
@@ -1263,17 +1264,26 @@ No-op if Org has not loaded."
 
 ;;; File discovery subroutines
 
+;; Org-mem uses file truenames to be able to merge and de-duplicate file lists
+;; from different sources, as well as recognize a user-given file name even if
+;; it was not given in truename form.
+
+;; Even this needs caching because in an ideal environment -- my home computer
+;; with a SSD drive -- it still takes 2 full seconds to ask the filesystem for
+;; 2000 truenames!  That is unacceptable, and some environments have much
+;; worse filesystem performance.
+
 (defvar org-mem--wild-filename<>truename (make-hash-table :test 'equal)
   "1:1 table mapping a wild file name to its truename.
 See helper `org-mem--truename-maybe'.")
 
 (defvar org-mem--first-run t
   "Hack preventing the use of `file-truename' at org-mem init.
-Results are often correct anyway, and file-names found to be bad will be
-fixed by an automatic re-scan.
+Results are often correct anyway, and file-names found to be bad
+will be fixed by an automatic re-scan.
 
-As `file-truename' can be quite slow in some environments, it would be a
-bad idea to execute it for every individual file on the first scan.")
+As `file-truename' can be quite slow, it would be a bad idea to execute
+it for every individual file on the first scan.")
 
 ;; A design requirement is don't touch Tramp files -- neither analyze them,
 ;; nor scrub them from org-id-locations or the like.
@@ -1379,13 +1389,13 @@ This means you cannot cross-correlate the results with file names in
     (error "At least one setting must be non-nil: `org-mem-watch-dirs' or `org-mem-do-sync-with-org-id'"))
   (clrhash org-mem--dedup-tbl)
   (let ((file-name-handler-alist nil)) ;; perf
+    ;; NOTE: It is possible to have a true dir name /home/org/,
+    ;; then a symlink subdir /home/org/current/ -> /home/org/2025/.
+    ;; And while `org-mem-parser--parse-file' does check `file-symlink-p' on
+    ;; individual files, that does not catch the subdir being a symlink.
+    ;; Fortunately, `org-mem--dir-files-recursive' will not enter
+    ;; /home/org/current/ in the first place.
     (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
-      ;; NOTE: It is possible to have a true dir name /home/org/,
-      ;; then a symlink subdir /home/org/current/ -> /home/org/2025/.
-      ;; And while `org-mem-parser--parse-file' does check `file-symlink-p' on
-      ;; individual files, that does not catch the subdir being a symlink.
-      ;; Fortunately, `org-mem--dir-files-recursive' will not enter
-      ;; /home/org/current/ in the first place.
       (dolist (file (nconc (org-mem--dir-files-recursive
                             dir ".org_archive" org-mem-exclude)
                            (org-mem--dir-files-recursive
