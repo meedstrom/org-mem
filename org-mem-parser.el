@@ -402,7 +402,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         TAGS
                         nil
                         INTERNAL-ENTRY-ID
-                        (and $do-cache-text (buffer-string))
+                        (and $do-cache-text (buffer-substring 1 (point)))
                         org-mem-parser--found-active-stamps
                         nil)
                 found-entries)
