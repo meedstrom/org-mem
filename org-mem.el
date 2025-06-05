@@ -569,7 +569,7 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
 (defun org-mem-entry-title (entry)
   "Like `org-mem-entry-title-maybe' but always return a string.
 In the case that ENTRY is a file-level entry with no title, return the
-file base name."
+file name sans directory component."
   (or (org-mem-entry-title-maybe entry)
       (progn (cl-assert (not (org-mem-entry-subtree-p entry)))
              (let (file-name-handler-alist)
@@ -983,9 +983,9 @@ What is valid?  See \"org-mem-test.el\"."
   (:method ((xx org-mem-entry)) (org-mem-entry-id xx))
   (:method ((xx string)) (org-mem-file-id-strict xx)))
 
-(cl-defgeneric org-mem-title (entry/file)
-  "Heading title, or file title or basename if ENTRY/FILE is a file name.
-Like `org-mem-entry-title', it always returns a string."
+(cl-defgeneric org-mem-title (entry-or-file)
+  "Heading title, or file title or basename of ENTRY-OR-FILE.
+Like `org-mem-entry-title', this always returns a string."
   (:method ((xx org-mem-entry)) (org-mem-entry-title xx))
   (:method ((xx string)) (org-mem-file-title-or-basename xx)))
 
