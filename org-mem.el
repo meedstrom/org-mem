@@ -64,20 +64,8 @@
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
 
-;; REVIEW: I wonder if it may be worth making `org-mem-entry-text' into a
-;; function that actually does `insert-file-contents' in a hidden buffer, then
-;; keeps one such buffer alive for every file accessed so far.  Because slow
-;; resets run counter to the package's philosophy.
-;; FWIW, this only makes the reset so slow because interprocess communication
-;; implies the child must do `prin1' on the whole text string before sending
-;; it to the parent.  If it could send a raw string, it'd probably be fast.
-;; Come to think, since the parent process is doing nothing while the children
-;; are working, perhaps it could get the texts itself.
-;; Into an "org-mem--file<>content" table, at least, not bothering to carve
-;; them up by entry until later.
 (defcustom org-mem-do-cache-text nil
   "Whether to also cache text contents of all entries.
-Likely to slow down `org-mem-reset'.
 
 This makes the raw text available via accessor `org-mem-entry-text'."
   :type 'boolean
@@ -189,6 +177,8 @@ Buffer is in `fundamental-mode'.  For an Org buffer see function
 (defvar org-mem--id<>entry (make-hash-table :test 'equal)
   "1:1 table mapping an ID to an `org-mem-entry' record.")
 
+(defvar org-mem--truename<>content (make-hash-table :test 'equal))
+
 (defvar org-mem--truename<>entries (make-hash-table :test 'equal)
   "1:N table mapping a file name to a sorted list of `org-mem-entry' records.
 Sorted by field `org-mem-entry-pos'.")
@@ -275,7 +265,7 @@ in `org-mem-file-mtime' and friends.")
   (tags-local     () :read-only t :type list)
   (todo-state     () :read-only t :type string)
   (-internal-id   () :read-only t :type integer)
-  (text           () :read-only t :type string)
+  (-deprec-field-1 () :read-only t :type string)
   (active-timestamps-int () :read-only t :type list)
   (clocks-int     () :read-only t :type list))
 
@@ -528,6 +518,18 @@ name you input to the org-mem API."
 (defun org-mem-entry-subtree-p (entry)
   "Non-nil if ENTRY is a subtree, nil if a \"file-level node\"."
   (not (= 0 (org-mem-entry-level entry))))
+
+(defun org-mem-entry-text (entry)
+  "Full unfontified text content of ENTRY.
+Requires `org-mem-do-cache-text' t."
+  (with-memoization (org-mem--table 28 entry)
+    (let ((content (gethash (org-mem-entry-file-truename entry)
+                            org-mem--truename<>content))
+          (next (org-mem-next-entry entry)))
+      (and content
+           (substring content
+                      (- (org-mem-entry-pos entry) 1)
+                      (and next (- (org-mem-entry-pos next) 1)))))))
 
 (defun org-mem-entry-olpath (entry)
   "Outline path to ENTRY."
@@ -1075,21 +1077,36 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 With TAKEOVER t, stop any already ongoing scan to start a new one."
   (when (or takeover (not (el-job-is-busy 'org-mem)))
     (setq org-mem--time-at-begin-full-scan (current-time))
-    (let ((result (el-job-launch
-                   :id 'org-mem
-                   :if-busy 'takeover
-                   :inject-vars (org-mem--mk-work-vars)
-                   :load-features '(org-mem-parser)
-                   :inputs #'org-mem--list-files-from-fs
-                   :funcall-per-input #'org-mem-parser--parse-file
-                   :callback #'org-mem--finalize-full-scan)))
-      (when (eq result 'inputs-were-empty)
-        (if org-mem-do-sync-with-org-id
-            (message "No org-ids found.  If you know they exist, try M-x %S."
-                     (if (fboundp 'org-roam-update-org-id-locations)
-                         'org-roam-update-org-id-locations
-                       'org-id-update-id-locations))
-          (message "No files found under `org-mem-watch-dirs'"))))))
+    (if-let* ((files (org-mem--list-files-from-fs)))
+        (progn
+          (el-job-launch :id 'org-mem
+                         :if-busy 'takeover
+                         :inject-vars (org-mem--mk-work-vars)
+                         :load-features '(org-mem-parser)
+                         :inputs files
+                         :funcall-per-input #'org-mem-parser--parse-file
+                         :callback #'org-mem--finalize-full-scan)
+          ;; While the subprocesses are parsing each file, let main process
+          ;; spend this time caching the raw file contents.
+
+          ;; These are the same files accessed twice, so it may seem that the
+          ;; subprocesses could just send the raw content along with other
+          ;; parse-results, but that doubles reset time on my machine because
+          ;; it involves `print'ing and `read'ing large strings.
+          (when (and org-mem-do-cache-text
+                     (not org-mem--first-run))
+            (with-temp-buffer
+              (let (file-name-handler-alist)
+                (dolist (file files)
+                  (erase-buffer)
+                  (insert-file-contents file)
+                  (puthash file (buffer-string) org-mem--truename<>content))))))
+      (if org-mem-do-sync-with-org-id
+          (message "No org-ids found.  If you know they exist, try M-x %S."
+                   (if (fboundp 'org-roam-update-org-id-locations)
+                       'org-roam-update-org-id-locations
+                     'org-id-update-id-locations))
+        (message "No files found under `org-mem-watch-dirs'")))))
 
 (defvar org-mem--caused-retry nil)
 (defun org-mem--finalize-full-scan (parse-results _job)
@@ -1201,7 +1218,6 @@ No-op if Org has not loaded."
      (cons '$bracket-re org-link-bracket-re)
      (cons '$plain-re custom-plain-re)
      (cons '$merged-re (concat org-link-bracket-re "\\|" custom-plain-re))
-     (cons '$do-cache-text org-mem-do-cache-text)
      (cons '$inlinetask-min-level (bound-and-true-p org-inlinetask-min-level))
      (cons '$nonheritable-tags (bound-and-true-p org-tags-exclude-from-inheritance))
      (cons '$use-tag-inheritance

@@ -30,7 +30,6 @@
 (defvar $plain-re)
 (defvar $bracket-re)
 (defvar $merged-re)
-(defvar $do-cache-text)
 (defvar $default-todo-re)
 (defvar $nonheritable-tags)
 (defvar $inlinetask-min-level)
@@ -402,7 +401,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         TAGS
                         nil
                         INTERNAL-ENTRY-ID
-                        (and $do-cache-text (buffer-substring 1 (point)))
+                        nil
                         org-mem-parser--found-active-stamps
                         nil)
                 found-entries)
@@ -616,7 +615,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           TAGS
                           TODO-STATE
                           INTERNAL-ENTRY-ID
-                          (and $do-cache-text (buffer-string))
+                          nil
                           org-mem-parser--found-active-stamps
                           CLOCK-LINES)
                   found-entries)
