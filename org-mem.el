@@ -1422,12 +1422,14 @@ This means you cannot cross-correlate the results with file names in
         (dolist (file (if (symbolp org-id-extra-files)
                           (symbol-value org-id-extra-files)
                         org-id-extra-files))
-          (when (cl-notany (##string-search % file) org-mem-exclude)
+          (when (cl-loop for illegal-needle in org-mem-exclude
+                         never (string-search illegal-needle file))
             (puthash (org-mem--truename-maybe file t) t org-mem--dedup-tbl)))
         (when (org-mem--try-ensure-org-id-table-p)
           (cl-loop
            for file being each hash-value of org-id-locations do
-           (when (cl-notany (##string-search % file) org-mem-exclude)
+           (when (cl-loop for illegal-needle in org-mem-exclude
+                          never (string-search illegal-needle file))
              (puthash (org-mem--truename-maybe file t) t org-mem--dedup-tbl)))))))
   (remhash nil org-mem--dedup-tbl)
   (when (> (hash-table-count org-mem--dedup-tbl) 0)
