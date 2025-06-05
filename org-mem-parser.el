@@ -514,13 +514,14 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         (buffer-substring (point)
                                           (or (search-forward "=>" (pos-eol) :move)
                                               (point))))))
-                    (clock-minutes
+                    (clock-seconds
                      (and (not (eolp))
                           (search-forward ":" (pos-eol) t)
-                          (+ (number-at-point)
-                             (progn (backward-char)
-                                    (* 60 (number-at-point)))))))
-                (push (if clock-end (list clock-start clock-end clock-minutes)
+                          (* 60
+                             (+ (number-at-point)
+                                (progn (backward-char)
+                                       (* 60 (number-at-point))))))))
+                (push (if clock-end (list clock-start clock-end clock-seconds)
                         (list clock-start))
                       CLOCK-LINES)))
             (goto-char HERE)

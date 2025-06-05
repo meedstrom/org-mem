@@ -614,12 +614,16 @@ file name sans directory component."
            collect (org-mem--iso8601 ts)))
 
 (defun org-mem-entry-clocks (entry)
-  "Alist \((START END DURATION) ...) representing clock lines in ENTRY.
+  "Alist \((START END MINUTES) ...) representing clock lines in ENTRY.
+START and END are ISO8601 time strings.
+MINUTES is an integer amount of minutes.
+To get all three as Lisp time values, use `org-mem-entry-clocks-int'.
+
 Any dangling clock line is represented as just \(START)."
-  (cl-loop for (start end mins) in (org-mem-entry-clocks-int entry)
+  (cl-loop for (start end secs) in (org-mem-entry-clocks-int entry)
            if end collect (list (org-mem--iso8601 start)
                                 (org-mem--iso8601 end)
-                                mins)
+                                (/ secs 60))
            else collect (list (org-mem--iso8601 start))))
 
 (defun org-mem-entry-dangling-clocks (entry)
