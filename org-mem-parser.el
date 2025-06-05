@@ -241,14 +241,14 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
   (unless (eq org-mem-parser--buf (current-buffer))
     (switch-to-buffer
      (setq org-mem-parser--buf (get-buffer-create " *org-mem-parser*" t))))
-  (setq org-mem-parser--found-links nil)
-  (setq org-mem-parser--found-active-stamps nil)
   (unless org-mem-parser--outline-regexp
     (setq org-mem-parser--outline-regexp
           (if $inlinetask-min-level
               (rx-to-string
                `(seq bol (repeat 1 ,(1- $inlinetask-min-level) "*") " "))
             (rx bol (repeat 1 14 "*") " "))))
+  (setq org-mem-parser--found-links nil)
+  (setq org-mem-parser--found-active-stamps nil)
   (let ((file-name-handler-alist nil)
         (case-fold-search t)
         (buffer-read-only t)
@@ -286,7 +286,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (erase-buffer)
             (insert-file-contents file)
             (setq coding-system last-coding-system-used))
-          (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file 0))
           (setq TODO-RE $default-todo-re)
 
           ;; Apply relevant dir-locals and file-locals.
@@ -296,21 +295,21 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                       (nth 1 dir-or-cache)
                                     (dir-locals-read-from-dir
                                      (file-name-directory file)))))
-                 (locals (append (hack-local-variables--find-variables)
-                                 (hack-local-variables-prop-line)
-                                 (cdr (assq 'org-mode dir-class-vars))
-                                 (cdr (assq 'text-mode dir-class-vars))
-                                 (cdr (assq nil dir-class-vars)))))
-            (let ((x (assq 'org-use-tag-inheritance locals)))
+                 (all-locals (append (hack-local-variables--find-variables)
+                                     (hack-local-variables-prop-line)
+                                     (cdr (assq 'org-mode dir-class-vars))
+                                     (cdr (assq 'text-mode dir-class-vars))
+                                     (cdr (assq nil dir-class-vars)))))
+            (let ((x (assq 'org-use-tag-inheritance all-locals)))
               (setq USE-TAG-INHERITANCE (if x (cdr x)
                                           $use-tag-inheritance)))
-            (let ((x (assq 'org-tags-exclude-from-inheritance locals)))
+            (let ((x (assq 'org-tags-exclude-from-inheritance all-locals)))
               (setq NONHERITABLE-TAGS (if x (cdr x)
                                         $nonheritable-tags))))
 
-          ;; If the very first line of file is a heading, don't try to scan
-          ;; content before it.  Our usage of `org-mem-parser--next-heading'
-          ;; cannot handle that edge-case.
+          ;;; Scan content before first heading, if any
+
+          (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file 0))
           (unless (looking-at-p "\\*")
             ;; Skip past front matter
             (while (looking-at-p (rx (*? space) (or "# " "\n")))
@@ -371,7 +370,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (goto-char HERE)
             (org-mem-parser--collect-links-until END ID file INTERNAL-ENTRY-ID)
             (goto-char (point-max))
-            ;; We should now be at the first heading
+            ;; We should now be at the first heading.
             (widen))
           (push (record 'org-mem-entry
                         file
@@ -394,14 +393,17 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         org-mem-parser--found-active-stamps
                         nil)
                 found-entries)
-          (setq org-mem-parser--found-active-stamps nil)
 
+          ;; Prep
+          (setq org-mem-parser--found-active-stamps nil)
+          (setq LNUM (line-number-at-pos))
           (let ((heritable-tags
                  (and USE-TAG-INHERITANCE
                       (seq-difference TAGS NONHERITABLE-TAGS))))
             (push (list 0 1 1 TITLE ID heritable-tags) CRUMBS))
-          (setq LNUM (line-number-at-pos))
-          ;; Loop over the file's headings
+
+          ;;; Loop over the file's headings
+
           (while (not (eobp))
             ;; Narrow til next heading
             (narrow-to-region
@@ -615,7 +617,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq org-mem-parser--found-active-stamps nil)
             (setq CLOCK-LINES nil)
             (goto-char (point-max))
-            ;; NOTE: Famously slow `line-number-at-pos' is fast in narrow.
+            ;; NOTE: Famously slow `line-number-at-pos' fast in narrow region.
             (setq LNUM (+ LNUM -1 (line-number-at-pos)))
             (widen))
 
