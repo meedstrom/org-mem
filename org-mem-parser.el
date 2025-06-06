@@ -363,6 +363,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (setq TITLE (string-trim-right
                            (org-mem-parser--org-link-display-format
                             (buffer-substring (point) (pos-eol))))))
+            (when (string-empty-p TITLE) (setq TITLE nil))
 
             ;; OK, got file title and properties.  Now look for things of
             ;; interest in body text.
