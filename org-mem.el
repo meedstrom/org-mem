@@ -54,9 +54,9 @@
 (defvar org-inhibit-startup)
 (defvar org-agenda-files)
 (declare-function org-id-locations-load "org-id")
+(declare-function org-id-locations-save "org-id")
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
-(declare-function org-id-locations-save "org-id")
 (define-obsolete-variable-alias 'org-mem--file<>metadata 'org-mem--truename<>metadata "0.12.6 (May 2025)")
 (define-obsolete-variable-alias 'org-mem--file<>entries  'org-mem--truename<>entries  "0.12.6 (May 2025)")
 (define-obsolete-variable-alias 'org-mem-watch-dirs-exclude 'org-mem-exclude          "0.13.0 (May 2025)")
@@ -228,12 +228,11 @@ in `org-mem-file-mtime' and friends.")
 (defun org-mem--get-file-metadata (file/entry/link)
   "Return list of assorted data if FILE/ENTRY/LINK known, else error."
   (let ((wild-file (if (stringp file/entry/link)
-                       file/entry/link
+                       (org-mem--truename-maybe wild-file)
                      (if (org-mem-entry-p file/entry/link)
                          (org-mem-entry-file-truename file/entry/link)
                        (org-mem-link-file-truename file/entry/link)))))
     (or (gethash wild-file org-mem--truename<>metadata)
-        (gethash (org-mem--truename-maybe wild-file) org-mem--truename<>metadata)
         (error "org-mem: File seems not yet scanned: %s" wild-file))))
 
 (defun org-mem--fast-abbrev (absolute-file-name)
@@ -292,7 +291,7 @@ perfectly with `org-id-locations'."
 (defun org-mem-all-files ()
   "All Org files."
   (with-memoization (org-mem--table 0 'org-mem-all-files)
-    (mapcar #'org-mem--fast-abbrev (hash-table-keys org-mem--truename<>metadata))))
+    (mapcar #'org-mem--fast-abbrev (org-mem-all-file-truenames))))
 
 (defun org-mem-all-file-truenames ()
   "Truename of all Org files.
@@ -443,8 +442,8 @@ Note 2025-05-13: The last fact may change in the future."
 
 (defun org-mem-id-links-to-entry (entry)
   "All ID-links that point to ENTRY."
-  (and-let* ((id (org-mem-entry-id entry)))
-    (org-mem-id-links-to-id id)))
+  (let ((id (org-mem-entry-id entry)))
+    (and id (org-mem-id-links-to-id id))))
 
 (defun org-mem-links-to-target (target)
   "All link objects with link target equal to TARGET."
@@ -1520,10 +1519,11 @@ corresponding to your package name."
     ;; 2025-06-05: New behavior
     (el-job-await 'org-mem n-secs message)))
 
+;; DEPRECATED
 (defun org-mem-delete (pred tbl)
   "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
   (declare (obsolete nil "2025-05-25"))
-  (message "`org-mem-delete' will be removed, use `ht-reject!'")
+  (display-warning 'org-mem "`org-mem-delete' will be removed, use `ht-reject!'")
   (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
 
 ;; REVIEW: Mixed feelings about including this tool, but it's the obvious tool
@@ -1600,6 +1600,7 @@ org-id-locations:
                    org-mem--internal-entry-id<>links))
         (remhash file org-mem--truename<>entries)
         (remhash file org-mem--truename<>metadata))
+      (setq org-id-files (cl-nset-difference org-id-files files :test #'equal))
       (org-id-locations-save)
       (message "Forgetting all IDs in directory %s...done" dir)
       (org-mem--scan-full))))
