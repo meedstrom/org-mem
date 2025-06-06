@@ -84,7 +84,15 @@ brackets."
 (defun org-mem-parser--time-string-to-int (s)
   "Parse the first Org timestamp in string S and return as integer."
   (if (not (string-match org-mem-parser--org-ts-regexp0 s))
-      (error "Not an Org time string: %s" s)
+      (if (string-search "%%(" s)
+          ;; This looks like a "diary sexp" such as:
+          ;;     <%%(memq (calendar-day-of-week date) '(1 2 3 4 5)))>
+          ;; Return nil in this case, which should be safe because (as of
+          ;; 2025-06-06) the only way this function would be called with such
+          ;; a string S, is on a planning-line (CLOSED, SCHEDULED or DEADLINE),
+          ;; where nil is valid.
+          nil
+        (error "Not an Org time string: %s" s))
     ;; Code from `org-parse-time-string', faster than `parse-time-string'.
     (let ((ts (list 0
 	            (cond ((match-beginning 8)
@@ -98,7 +106,6 @@ brackets."
 	            (string-to-number (match-string 2 s))
 	            nil -1 nil)))
       (and ts (time-convert (encode-time ts) 'integer)))))
-
 
 (defconst org-mem-parser--org-ts-regexp
   "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
@@ -523,6 +530,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                              (+ (number-at-point)
                                 (progn (backward-char)
                                        (* 60 (number-at-point))))))))
+                (when (null clock-start)
+                  (error "Unusual clock line: \"%s\""
+                         (buffer-substring (pos-bol) (pos-eol))))
                 (push (if clock-end (list clock-start clock-end clock-seconds)
                         (list clock-start))
                       CLOCK-LINES)))
