@@ -1066,20 +1066,25 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 (defvar org-mem--next-message nil)
 (defvar org-mem--time-at-begin-full-scan nil)
 
-(defun org-mem-reset (&optional interactively)
-  "Reset cache, and if called INTERACTIVELY, print statistics."
-  (interactive "p")
-  (when interactively
-    (setq org-mem--next-message t)
-    (when current-prefix-arg
-      (clrhash org-mem--wild-filename<>truename)))
-  (org-mem--scan-full))
+(defun org-mem-reset (&optional takeover msg called-interactively)
+  "Reset cache, and then if CALLED-INTERACTIVELY, print statistics.
+For arguments TAKEOVER and MSG, see `org-mem--scan-full'."
+  (interactive "i\ni\np")
+  (when called-interactively
+    (setq org-mem--next-message t))
+  (org-mem--scan-full takeover msg))
 
-(defun org-mem--scan-full (&optional takeover)
+(defun org-mem--scan-full (&optional takeover msg)
   "Arrange a full scan, if one is not already ongoing.
-With TAKEOVER t, stop any already ongoing scan to start a new one."
+With TAKEOVER t, stop any already ongoing scan to start a new one.
+
+Argument MSG is an optional message to print.  If provided, it also
+overrides a default message printed when `org-mem-do-cache-text' is t."
   (when (or takeover (not (el-job-is-busy 'org-mem)))
     (setq org-mem--time-at-begin-full-scan (current-time))
+    (when msg
+      (message "%s" msg)
+      (redisplay t))
     (if-let* ((files (org-mem--list-files-from-fs)))
         (progn
           (el-job-launch :id 'org-mem
@@ -1091,14 +1096,18 @@ With TAKEOVER t, stop any already ongoing scan to start a new one."
                          :callback #'org-mem--finalize-full-scan)
           ;; While the subprocesses are parsing each file, let main process
           ;; spend this time caching the raw file contents.
-
-          ;; These are the same files accessed twice, so it may seem that the
-          ;; subprocesses could just send the raw content along with other
-          ;; parse-results, but that doubles reset time on my machine because
-          ;; it involves `print'ing and `read'ing large strings.
+          ;; It may seem that the subprocesses could just send the raw content
+          ;; along with other parse-results, but that doubles reset time on my
+          ;; machine because it involves `print'ing and `read'ing large strings.
           (when (and org-mem-do-cache-text
+                     ;; Don't hold up Emacs init.
                      (not org-mem--first-run))
             (with-temp-buffer
+              (if msg
+                  (unless (equal msg (current-message))
+                    (message "%s" msg))
+                (message "Org-mem doing some work in main process..."))
+              (redisplay t)
               (let (file-name-handler-alist)
                 (dolist (file files)
                   (erase-buffer)
@@ -1480,15 +1489,20 @@ Does not modify the match data."
 
 ;;; Assorted tools for downstream packages
 
-(defun org-mem-await (who n-secs)
+(defun org-mem-await (message n-secs)
   "Wait for up to N-SECS for any current org-mem subprocesses to finish.
 Return t on finish, or nil if N-SECS elapsed without finishing.
-If there was no running process, return t.
+If there was no process at work, return t.
 
-Symbol WHO is included in the echo area message during the wait, to help
-inform the user why Emacs hangs.  If in doubt, pass your package name."
-  (cl-assert (symbolp who))
-  (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." who)))
+String MESSAGE is printed in the echo area during the wait, to help
+inform the user why Emacs hangs.
+
+As an obsolete calling convention, MESSAGE can also be a symbol
+corresponding to your package name."
+  (if (symbolp message)
+      (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." message))
+    ;; 2025-06-05: New behavior
+    (el-job-await 'org-mem n-secs message)))
 
 (defun org-mem-delete (pred tbl)
   "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
