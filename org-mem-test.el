@@ -52,4 +52,16 @@
     (should (equal nil (cdr (assoc "citekey"
                                    org-mem--roam-ref<>type))))))
 
+(defun org-mem-test--init-some-tables ()
+  ;; TODO
+  )
+
+(ert-deftest various ()
+  (org-mem-test--init-some-tables)
+  (should (cl-loop
+           for e in (org-mem-all-entries)
+           always (seq-set-equal-p (org-mem-tags e)
+                                   (append (org-mem-tags-local e)
+                                           (org-mem-tags-inherited e))))))
+
 ;;; org-mem-test.el ends here
