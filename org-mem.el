@@ -67,7 +67,15 @@
 (defcustom org-mem-do-cache-text nil
   "Whether to also cache text contents of all entries.
 
-This makes the raw text available via accessor `org-mem-entry-text'."
+This makes the raw text available via accessor `org-mem-entry-text'.
+
+However, it is not available after the initial scan, only from the
+second scan onwards, because Emacs init is a time to do as little as
+possible.  If you need to force it early, call `org-mem-reset' and
+`org-mem-await'.
+
+If this expression returns a number above zero, text is available:
+     \(hash-table-count org-mem--truename<>content)"
   :type 'boolean
   :package-version '(org-mem . "0.9.0"))
 
@@ -177,11 +185,13 @@ Buffer is in `fundamental-mode'.  For an Org buffer see function
 (defvar org-mem--id<>entry (make-hash-table :test 'equal)
   "1:1 table mapping an ID to an `org-mem-entry' record.")
 
-(defvar org-mem--truename<>content (make-hash-table :test 'equal))
+(defvar org-mem--truename<>content (make-hash-table :test 'equal)
+  "1:1 table mapping a file name to the text content of that file.")
 
 (defvar org-mem--truename<>entries (make-hash-table :test 'equal)
   "1:N table mapping a file name to a sorted list of `org-mem-entry' records.
-Sorted by field `org-mem-entry-pos'.")
+Sorted by the order those entries are found in that file: effectively on
+`org-mem-entry-pos' or `org-mem-entry-lnum' in ascending order.")
 
 (defvar org-mem--target<>links (make-hash-table :test 'equal)
   "1:N table mapping a link target to a list of `org-mem-link' records.
@@ -315,9 +325,11 @@ Citations are `org-mem-link' objects that satisfy
     (org-mem-links-of-type "id")))
 
 (defun org-mem-all-entries-with-active-timestamps ()
+  "All entries that contain one or more active Org timestamps."
   (seq-filter #'org-mem-entry-active-timestamps (org-mem-all-entries)))
 
 (defun org-mem-all-files-with-active-timestamps ()
+  "All files that contain one or more active Org timestamps."
   (with-memoization (org-mem--table 0 'org-mem-all-files-with-active-timestamps)
     (cl-loop for file in (org-mem-all-files)
              when (seq-find #'org-mem-entry-active-timestamps
@@ -325,13 +337,14 @@ Citations are `org-mem-link' objects that satisfy
              collect file)))
 
 (defun org-mem-all-entries-with-dangling-clock ()
+  "All entries with an incomplete CLOCK: line."
   (cl-loop for entry in (org-mem-all-entries)
            when (seq-find (##length= % 1)
                           (org-mem-entry-clocks-int entry))
            collect entry))
 
 (defun org-mem-entry-by-id (id)
-  "The entry with unique :ID: property equal to ID."
+  "The entry with :ID: property equal to \(presumed unique) ID."
   (and id (gethash id org-mem--id<>entry)))
 
 (defun org-mem-entry-at-lnum-in-file (lnum file)
@@ -434,6 +447,7 @@ Note 2025-05-13: The last fact may change in the future."
     (org-mem-id-links-to-id id)))
 
 (defun org-mem-links-to-target (target)
+  "All link objects with link target equal to TARGET."
   (cl-assert (stringp target))
   (gethash target org-mem--target<>links))
 
@@ -441,7 +455,7 @@ Note 2025-05-13: The last fact may change in the future."
   "All ID-links targeting ID."
   (with-memoization (org-mem--table 14 id)
     (when-let* ((links (org-mem-links-to-target id)))
-      ;; Vast majority of people, this filter is safe to skip.  But it's
+      ;; For a vast majority of people, this filter is safe to skip.  But it's
       ;; possible, for example, to have a heading named identical to some ID
       ;; that you also have, and have non-ID links targeting that.
       (seq-filter (##equal (org-mem-link-type %) "id") links))))
@@ -469,6 +483,7 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
   "ID-links from context where local or inherited ID property is ID."
   (with-memoization (org-mem--table 17 id)
     (seq-filter (##equal (org-mem-link-nearby-id %) id)
+                ;; Likely to be already memoized, reducing GC
                 (org-mem-all-id-links))))
 
 (defun org-mem-id-links-into-file (file)
@@ -748,13 +763,11 @@ case that there exists a file-level ID but no #+title:, or vice versa."
                           (if (stringp file/entry) file/entry
                             (org-mem-entry-file-truename file/entry))))))
 
-;; REVIEW: If someone thinks this scheme is silly, you're probably on to something.
-;;         PR welcome.  IDK what, but I sense room for simplification.
 (defun org-mem-file-known-p (file)
   "Return non-nil when FILE is known to org-mem.
 Specifically, return the name by which it is known.  This is technically
 more restrictive than `org-mem--truename-maybe' by only returning if the
-file has been scanned, but in practice they may be identical."
+file has been scanned, but in practice they may often be identical."
   (cl-assert (stringp file))
   (or (and (gethash file org-mem--truename<>entries) file)
       (and (setq file (org-mem--truename-maybe file))
@@ -1200,6 +1213,9 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
           (when (and other-id (not (string= id other-id)))
             (push (list (format-time-string "%H:%M") title id other-id)
                   org-mem--title-collisions)))
+        ;; REVIEW: Should we fallback on file name, i.e. use
+        ;; `org-mem-entry-title' instead of `org-mem-entry-title-maybe'?
+        ;; It would affect function `org-mem-id-by-title'.
         (puthash title id org-mem--title<>id))
       (puthash id entry org-mem--id<>entry))
     (run-hook-with-args 'org-mem-record-entry-functions entry)))
@@ -1515,7 +1531,7 @@ corresponding to your package name."
 ;; example, and it is apparently rare to realize the perf impact of
 ;; opening many Org buffers.
 ;; Maybe if Org doesn't fix or can't fix the startup perf, they can ship an
-;; "org-scratch" function like this?
+;; "org-scratch" function like this?  It belongs upstream.
 (defun org-mem-org-mode-scratch (&optional bufname)
   "Get or create a hidden `org-mode' buffer.
 Also enable `org-mode', but ignore `org-mode-hook' and startup options.
@@ -1577,7 +1593,7 @@ org-id-locations:
                    (remhash id org-mem--id<>entry)
                    (remhash id org-id-locations)))
                org-id-locations)
-      ;; Bonus
+      ;; Bonus, probably unnecessary
       (dolist (file files)
         (dolist (entry (gethash file org-mem--truename<>entries))
           (remhash (org-mem-entry--internal-id entry)
