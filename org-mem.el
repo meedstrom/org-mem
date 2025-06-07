@@ -228,7 +228,7 @@ in `org-mem-file-mtime' and friends.")
 (defun org-mem--get-file-metadata (file/entry/link)
   "Return list of assorted data if FILE/ENTRY/LINK known, else error."
   (let ((wild-file (if (stringp file/entry/link)
-                       (org-mem--truename-maybe wild-file)
+                       (org-mem--truename-maybe file/entry/link)
                      (if (org-mem-entry-p file/entry/link)
                          (org-mem-entry-file-truename file/entry/link)
                        (org-mem-link-file-truename file/entry/link)))))
