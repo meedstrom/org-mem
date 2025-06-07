@@ -80,9 +80,7 @@ If this expression returns a number above zero, text is available:
   :package-version '(org-mem . "0.9.0"))
 
 (defcustom org-mem-do-warn-title-collisions t
-  "Whether to print a message when two ID-nodes have the same title.
-
-To check manually, type \\[org-mem-list-title-collisions]."
+  "Whether to print a message when two ID-nodes have the same title."
   :type 'boolean
   :package-version '(org-mem . "0.2.0"))
 
@@ -108,7 +106,8 @@ sub-subdirectories etc\).
 Exceptions:
 
 - Subdirectories starting with underscore or dot, such as \".emacs.d\".
-  To check such a directory, add its full path explicitly.
+  To check such a directory, add its full path explicitly,
+  or else rely on `org-mem-do-sync-with-org-id' as additional source.
 - Subdirectories that are symlinks.
 - Anything matching `org-mem-exclude'.
 
@@ -130,10 +129,9 @@ try command \\[org-mem-forget-id-locations-recursively]."
   '("/logseq/bak/"
     "/logseq/version-files/"
     "/node_modules/"
-    ".sync-conflict-"
-    ".#"
-    ".pam/"
-    "/backup")
+    ".sync-conflict-" ;; Match e.g. "~/org/foo.sync-conflict-234234.org"
+    "/backup" ;; Match e.g. "~/backups/"
+    ".#")
   "Literal substrings of file paths that should not be scanned.
 Aside from this variable, some filters are hard-coded:
 
@@ -143,13 +141,13 @@ Aside from this variable, some filters are hard-coded:
 
 Main reason to configure this is to prevent counting back-ups
 and autosave files as duplicate ID locations,
-especially inside `org-mem-watch-dirs'.
+especially that appear somewhere inside `org-mem-watch-dirs'.
 
 You can also speed up `org-mem-reset' a bit by excluding directories
-found inside `org-mem-watch-dirs' with a very large amount of files \(on
-the order of 100,000), such as the infamous \"node_modules\"."
+found inside `org-mem-watch-dirs' with a very large amount of files
+\(on the order of 100,000), such as the infamous \"node_modules\"."
   :type '(repeat string)
-  :package-version '(org-mem . "0.13.0"))
+  :package-version '(org-mem . "0.15.1"))
 
 (defcustom org-mem-seek-link-types
   '("http" "https" "id" "file")
@@ -297,7 +295,9 @@ perfectly with `org-id-locations'."
   "Truename of all Org files.
 When in doubt, you should prefer `org-mem-all-files', because
 `directory-abbrev-alist' exists for a reason.
-However, org-mem uses truenames internally. See `org-mem-file-known-p'."
+
+Org-mem uses truenames internally, but if some public function does
+not work with alternative names, that should be considered a bug."
   (hash-table-keys org-mem--truename<>metadata))
 
 (defun org-mem-all-entries ()
@@ -511,14 +511,6 @@ or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
   (and entry (gethash (org-mem-entry--internal-id entry)
                       org-mem--internal-entry-id<>links)))
 
-(defun org-mem-links-to-entry (_entry)
-  "(Unimplemented)"
-  (error "Unimplemented"))
-
-(defun org-mem-links-to-file (_file)
-  "(Unimplemented)"
-  (error "Unimplemented"))
-
 
 ;;; Entry info
 
@@ -709,12 +701,6 @@ Often close to but not exactly the size in bytes due to text encoding."
 (defun org-mem-file-mtime-floor (file/entry/link)
   "Modification time for file at FILE/ENTRY/LINK, as floor integer."
   (time-convert (org-mem-file-mtime file/entry/link) 'integer))
-
-;; TODO: Upstream `time-convert' docstring should say it takes the floor...
-(defun org-mem-file-mtime-int (file/entry/link)
-  "Modification time for file at FILE/ENTRY/LINK, as ceiling integer."
-  (declare (obsolete org-mem-file-mtime-floor "2025-05-30"))
-  (ceiling (float-time (org-mem-file-mtime file/entry/link))))
 
 ;; Above getters accept a link as input, and the below could too
 ;; but that'd take extra LoC.  Mainly wanted equivalents to
@@ -1017,18 +1003,6 @@ Like `org-mem-entry-title', this always returns a string."
              #'org-mem-entries-in-file)
            file/files))
 
-(defun org-mem-roam-reflinks-to (_)
-  "(Unimplemented)"
-  (error "Unimplemented"))
-
-(defun org-mem-links-to (_)
-  "(Unimplemented)"
-  (error "Unimplemented"))
-
-(defun org-mem-id-links-to (_)
-  "(Unimplemented)"
-  (error "Unimplemented"))
-
 
 ;;; Core logic
 
@@ -1152,17 +1126,16 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
       (dolist (fdata file-data)
         (puthash (car fdata) fdata org-mem--truename<>metadata)
         (run-hook-with-args 'org-mem-record-file-functions fdata))
-      (dolist (entry entries)
-        (org-mem--record-entry entry))
-      (dolist (link links)
-        (org-mem--record-link link)))
+      (mapc #'org-mem--record-entry entries)
+      (mapc #'org-mem--record-link links))
+
     (setq org-mem--time-elapsed
           (float-time (time-since org-mem--time-at-begin-full-scan)))
     (when org-mem--next-message
       (setq org-mem--next-message
             (format
              "Org-mem saw %d files, %d headings, %d links (%d IDs, %d ID-links) in %.2fs"
-             (length (org-mem-all-files))
+             (hash-table-count org-mem--truename<>metadata)
              (seq-count #'org-mem-entry-subtree-p (org-mem-all-entries))
              (length (org-mem-all-links))
              (hash-table-count org-mem--id<>entry)
@@ -1199,8 +1172,8 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
 
 (defun org-mem--record-entry (entry)
   "Add info related to ENTRY to various tables."
-  (let ((id    (org-mem-entry-id entry))
-        (truename  (org-mem-entry-file-truename entry))
+  (let ((id (org-mem-entry-id entry))
+        (truename (org-mem-entry-file-truename entry))
         (title (org-mem-entry-title-maybe entry)))
     ;; NOTE: Puts entries in correct order because we're called by
     ;; `org-mem--finalize-full-scan' looping over entries in reverse order.
@@ -1292,10 +1265,9 @@ No-op if Org has not loaded."
 ;; from different sources, as well as recognize a user-given file name even if
 ;; it was not given in truename form.
 
-;; Even this needs caching because in an ideal environment -- my home computer
-;; with a SSD drive -- it still takes 2 full seconds to ask the filesystem for
-;; 2000 truenames!  That is unacceptable, and some environments have much
-;; worse filesystem performance.
+;; However, `file-truename' is a very expensive Elisp function - 2 full seconds
+;; to call it 2,000 times on my machine, which is unacceptable.
+;; Thus, some smart workarounds are called for.
 
 (defvar org-mem--wild-filename<>truename (make-hash-table :test 'equal)
   "1:1 table mapping a wild file name to its truename.
@@ -1314,8 +1286,10 @@ it for every individual file on the first scan.")
 ;; Having this function return nil is one way to do that.
 (defun org-mem--truename-maybe (wild-file &optional expand-on-first-run)
   "For non-Tramp WILD-FILE that exists, return its truename, else nil.
+  "For a WILD-FILE that exists locally, return its truename, else nil.
 Caches any non-nil result, so can return a name that is no longer true.
-However, it should usually correspond to a known org-mem object.
+However, even if that becomes the case, it should usually correspond to
+known org-mem objects.
 
 This function provides a reliable way to find org-mem objects by file
 name.  The buffer-local variable `buffer-file-truename' actually gives
@@ -1368,16 +1342,15 @@ should go away after Tramp does load and `org-mem-reset' runs again."
   "Scrub bad file names BAD in the tables that can pollute a reset.
 Notably, invalidate part of the cache used by `org-mem--truename-maybe'.
 If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
-  (dolist (bad bad)
-    (remhash bad org-mem--wild-filename<>truename))
   ;; Example situation: File WILD is a symlink that changed destination.
   ;; So cached TRUE led to a nonexistent file in the last scan.
   ;; Now invalidate it so we cache a correct TRUE next time.
   (maphash (lambda (wild true)
              (when (member true bad)
-               (push wild bad)
-               (remhash wild org-mem--wild-filename<>truename)))
+               (push wild bad)))
            org-mem--wild-filename<>truename)
+  (dolist (bad bad)
+    (remhash bad org-mem--wild-filename<>truename))
   (when (and org-mem-do-sync-with-org-id
              (org-mem--try-ensure-org-id-table-p))
     (setq org-id-locations
@@ -1519,13 +1492,6 @@ corresponding to your package name."
     ;; 2025-06-05: New behavior
     (el-job-await 'org-mem n-secs message)))
 
-;; DEPRECATED
-(defun org-mem-delete (pred tbl)
-  "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
-  (declare (obsolete nil "2025-05-25"))
-  (display-warning 'org-mem "`org-mem-delete' will be removed, use `ht-reject!'")
-  (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
-
 ;; REVIEW: Mixed feelings about including this tool, but it's the obvious tool
 ;; to use with `org-mem-entry-text' to generate backlink previews, for
 ;; example, and it is apparently rare to realize the perf impact of
@@ -1585,7 +1551,7 @@ org-id-locations:
   (let ((files (nconc (org-mem--dir-files-recursive dir ".org_archive" nil)
                       (org-mem--dir-files-recursive dir ".org" nil))))
     (when files
-      (setq files (nconc files (mapcar #'org-mem--truename-maybe files)))
+      (setq files (append files (seq-keep #'org-mem--truename-maybe files)))
       (message "Forgetting all IDs in directory %s..." dir)
       (redisplay t)
       (maphash (lambda (id file)
@@ -1620,6 +1586,19 @@ org-id-locations:
 (define-obsolete-function-alias 'org-mem-olpath-with-self-with-title       #'org-mem-olpath-with-file-title-with-self        "0.13.1 (2025-05-28)")
 (define-obsolete-function-alias 'org-mem-entries-with-active-timestamps    #'org-mem-all-entries-with-active-timestamps "0.14.0 (2025-05-30)")
 (define-obsolete-function-alias 'org-mem-files-with-active-timestamps      #'org-mem-all-files-with-active-timestamps   "0.14.0 (2025-05-30)")
+
+;; DEPRECATED
+(defun org-mem-file-mtime-int (file/entry/link)
+  "Modification time for file at FILE/ENTRY/LINK, as ceiling integer."
+  (declare (obsolete org-mem-file-mtime-floor "2025-05-30"))
+  (ceiling (float-time (org-mem-file-mtime file/entry/link))))
+
+;; DEPRECATED
+(defun org-mem-delete (pred tbl)
+  "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
+  (declare (obsolete nil "2025-05-25"))
+  (display-warning 'org-mem "`org-mem-delete' will be removed, use `ht-reject!'")
+  (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
 
 (provide 'org-mem)
 

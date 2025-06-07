@@ -55,7 +55,6 @@
 (define-obsolete-function-alias 'indexed-heading-lvl                 #'org-mem-entry-level                        "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-id                          #'org-mem-entry-id                           "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-id-by-title                 #'org-mem-id-by-title                        "0.7.0 (2025-05-11)")
-(define-obsolete-function-alias 'indexed-id-links-to                 #'org-mem-id-links-to                        "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-id-node-by-title            #'org-mem-id-node-by-title                   "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-id-nodes                    #'org-mem-all-id-nodes                       "0.7.0 (2025-05-11)")
 (define-obsolete-function-alias 'indexed-id-nodes-in                 #'org-mem-id-nodes-in-files                  "0.7.0 (2025-05-11)")
