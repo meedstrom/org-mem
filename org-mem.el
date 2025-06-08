@@ -50,6 +50,7 @@
 (defvar org-id-track-globally)
 (defvar org-id-locations-file)
 (defvar org-id-extra-files)
+(defvar org-id-files)
 (defvar org-element-cache-persistent)
 (defvar org-inhibit-startup)
 (defvar org-agenda-files)
@@ -624,8 +625,7 @@ this returns nil!"
 
 (defun org-mem-entry-active-timestamps (entry)
   "Active timestamps in ENTRY, suitable for `iso8601-parse'."
-  (cl-loop for ts in (org-mem-entry-active-timestamps-int entry)
-           collect (org-mem--iso8601 ts)))
+  (mapcar #'org-mem--iso8601 (org-mem-entry-active-timestamps-int entry)))
 
 (defun org-mem-entry-clocks (entry)
   "Alist \((START END MINUTES) ...) representing clock lines in ENTRY.
@@ -1452,7 +1452,7 @@ to run on cached names that turned out to be invalid."
 ;; which takes about 1.90s total.
 ;; It was cooler back in org-node before 2.2.0 when the total was only ~0.90s
 ;; due to collecting less data.
-;; Starting to see why it is that all software gets slower as it gets more
+;; Starting to see why a lot of software gets slower as it gets more
 ;; sophisticated!  Not only due to the sophistication, but other optimizations
 ;; look relatively less worth the LoC burden.
 (defun org-mem--dir-files-recursive (dir suffixes excludes)
@@ -1494,7 +1494,7 @@ Does not modify the match data."
 (defun org-mem-await (message n-secs)
   "Wait for up to N-SECS for any current org-mem subprocesses to finish.
 Return t on finish, or nil if N-SECS elapsed without finishing.
-If there was no process at work, return t.
+If there was no subprocess at work, return t.
 
 String MESSAGE is printed in the echo area during the wait, to help
 inform the user why Emacs hangs.

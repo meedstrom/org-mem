@@ -4,7 +4,7 @@
 # without any warranty.
 #+TITLE: Org-mem
 
-A cache of metadata about the structure of all your Org files -- headings, links and so on.
+A cache of metadata about the contents of all your Org files -- headings, links, timestamps and so on.
 
 Builds quickly, so that there is no need to persist data across sessions. My =M-x org-mem-reset=:
 
