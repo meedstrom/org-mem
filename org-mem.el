@@ -545,22 +545,9 @@ Requires `org-mem-do-cache-text' t."
 (defun org-mem-entry-olpath-with-self (entry)
   "Outline path, including ENTRY\\='s own heading."
   (with-memoization (org-mem--table 26 entry)
-    (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))))
-
-(defun org-mem-entry-olpath-with-self-with-file-title (entry &optional filename-fallback)
-  "Outline path, including file #+title, and ENTRY\\='s own heading.
-With FILENAME-FALLBACK, use file basename if there is no #+title."
-  (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
-        file-name-handler-alist) ;; perf
-    (when (null (car olp))
-      (pop olp)
-      (when filename-fallback
-        (push (file-name-nondirectory (org-mem-entry-file-truename entry))
-              olp)))
-    olp))
-
-(defalias 'org-mem-entry-olpath-with-file-title-with-self
-  #'org-mem-entry-olpath-with-self-with-file-title)
+    (if (org-mem-entry-subtree-p entry)
+        (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))
+      (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))))
 
 (defun org-mem-entry-olpath-with-file-title (entry &optional filename-fallback)
   "Outline path to ENTRY, including file #+title.
@@ -573,6 +560,24 @@ With FILENAME-FALLBACK, use file basename if there is no #+title."
         (push (file-name-nondirectory (org-mem-entry-file-truename entry))
               olp)))
     olp))
+
+(defun org-mem-entry-olpath-with-file-title-with-self (entry &optional filename-fallback)
+  "Outline path, including file #+title, and ENTRY\\='s own heading.
+With FILENAME-FALLBACK, use file basename if there is no #+title.
+
+If ENTRY is itself a file-level entry, this still results in a list of
+zero or one strings, not two."
+  (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
+        file-name-handler-alist) ;; perf
+    (when (null (car olp))
+      (pop olp)
+      (when filename-fallback
+        (push (file-name-nondirectory (org-mem-entry-file-truename entry))
+              olp)))
+    olp))
+
+(defalias 'org-mem-entry-olpath-with-self-with-file-title
+  #'org-mem-entry-olpath-with-file-title-with-self)
 
 (defun org-mem-entry-title (entry)
   "Like `org-mem-entry-title-maybe' but always return a string.

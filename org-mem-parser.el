@@ -364,6 +364,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                            (org-mem-parser--org-link-display-format
                             (buffer-substring (point) (pos-eol))))))
             (when (string-empty-p TITLE) (setq TITLE nil))
+            (let ((heritable-tags
+                   (and USE-TAG-INHERITANCE
+                        (seq-difference TAGS NONHERITABLE-TAGS))))
+              (push (list 0 1 1 TITLE ID heritable-tags) CRUMBS))
 
             ;; OK, got file title and properties.  Now look for things of
             ;; interest in body text.
@@ -392,7 +396,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         0
                         ID
                         nil
-                        nil
+                        CRUMBS
                         nil
                         nil
                         PROPS
@@ -406,13 +410,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         nil)
                 found-entries)
 
+
           ;; Prep
+          (unless CRUMBS
+            (push (list 0 1 1 nil nil nil) CRUMBS))
           (setq org-mem-parser--found-active-stamps nil)
           (setq LNUM (line-number-at-pos))
-          (let ((heritable-tags
-                 (and USE-TAG-INHERITANCE
-                      (seq-difference TAGS NONHERITABLE-TAGS))))
-            (push (list 0 1 1 TITLE ID heritable-tags) CRUMBS))
 
           ;;; Loop over the file's headings
 
