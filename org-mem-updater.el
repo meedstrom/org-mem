@@ -60,7 +60,7 @@ In that case, there may be nothing wrong with the known name."
                  (string-suffix-p ".org_archive" file))
              ;; Don't accidentally scrub Tramp files from org-id-locations
              ;; just because we chose to know nothing about them.
-             (not (org-mem--tramp-file-p file)))
+             (not (file-remote-p file)))
     (let ((bad (list file))
           (cached-true (gethash file org-mem--wild-filename<>truename)))
       (when (and cached-true (not (file-symlink-p file)))
@@ -75,9 +75,7 @@ In that case, there may be nothing wrong with the known name."
   (unless file (setq file buffer-file-name))
   (when (and (or (string-suffix-p ".org" file)
                  (string-suffix-p ".org_archive" file))
-             (not (backup-file-name-p file))
-             (not (org-mem--tramp-file-p file)) ;; superfluous
-             (cl-notany (##string-search % file) org-mem-exclude))
+             (not (backup-file-name-p file)))
     (org-mem-updater--scan-targeted file)))
 
 (defun org-mem-updater--scan-targeted (file)

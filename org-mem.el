@@ -69,13 +69,10 @@
 
 This makes the raw text available via accessor `org-mem-entry-text'.
 
-However, it is not available after the initial scan, only from the
-second scan onwards, because Emacs init is a time to do as little as
-possible.  If you need to force it early, call `org-mem-reset' and
-`org-mem-await'.
-
-If this expression returns a number above zero, text is available:
-     \(hash-table-count org-mem--truename<>content)"
+May slow Emacs init if set to t before enabling `org-mem-updater-mode',
+so you might consider setting it afterwards, instead.
+If so, the text would only be available from the first time that
+`org-mem-updater--timer' fires."
   :type 'boolean
   :package-version '(org-mem . "0.9.0"))
 
@@ -1090,20 +1087,18 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
           ;; It may seem that the subprocesses could just send the raw content
           ;; along with other parse-results, but that doubles reset time on my
           ;; machine because it involves `print'ing and `read'ing large strings.
-          (when (and org-mem-do-cache-text
-                     ;; Don't hold up Emacs init.
-                     (not org-mem--first-run))
+          (when org-mem-do-cache-text
+            (if msg (unless (equal msg (current-message))
+                      (message "%s" msg))
+              (message "Org-mem doing some work in main process..."))
+            (redisplay t)
             (with-temp-buffer
-              (if msg
-                  (unless (equal msg (current-message))
-                    (message "%s" msg))
-                (message "Org-mem doing some work in main process..."))
-              (redisplay t)
               (let (file-name-handler-alist)
                 (dolist (file files)
                   (erase-buffer)
                   (insert-file-contents file)
-                  (puthash file (buffer-string) org-mem--truename<>content))))))
+                  (puthash file (buffer-string) org-mem--truename<>content))))
+            (message nil)))
       (if org-mem-do-sync-with-org-id
           (message "No org-ids found.  If you know they exist, try M-x %S."
                    (if (fboundp 'org-roam-update-org-id-locations)
@@ -1150,13 +1145,14 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
     (when org-mem--next-message
       (message "%s" org-mem--next-message))
     (setq org-mem--next-message nil)
-    (run-hooks 'org-mem-initial-scan-hook)
-    (if bad-paths
-        ;; Scan again to catch symlink targets, but guard against repeating.
-        (unless (seq-intersection bad-paths org-mem--caused-retry)
-          (setq org-mem--caused-retry (append bad-paths org-mem--caused-retry))
-          (org-mem--scan-full))
-      (setq org-mem-initial-scan-hook nil))
+
+    (while org-mem-initial-scan-hook
+      (funcall (pop org-mem-initial-scan-hook)))
+    (when bad-paths
+      ;; Scan again, but guard against repeating forever.
+      (unless (seq-intersection bad-paths org-mem--caused-retry)
+        (setq org-mem--caused-retry (append bad-paths org-mem--caused-retry))
+        (org-mem--scan-full)))
     (when (and org-mem--title-collisions org-mem-do-warn-title-collisions)
       (message "Some IDs share title, see M-x org-mem-list-title-collisions"))
     (when problems
@@ -1278,19 +1274,7 @@ No-op if Org has not loaded."
   "1:1 table mapping a wild file name to its truename.
 See helper `org-mem--truename-maybe'.")
 
-(defvar org-mem--first-run t
-  "Hack preventing the use of `file-truename' at org-mem init.
-Results are often correct anyway, and file-names found to be bad
-will be fixed by an automatic re-scan.
-
-As `file-truename' can be quite slow, it would be a bad idea to execute
-it for every individual file on the first scan.")
-
-;; A design requirement is don't touch Tramp files -- neither analyze them,
-;; nor scrub them from org-id-locations or the like.
-;; Having this function return nil is one way to do that.
-(defun org-mem--truename-maybe (wild-file &optional expand-on-first-run)
-  "For non-Tramp WILD-FILE that exists, return its truename, else nil.
+(defun org-mem--truename-maybe (wild-file &optional _)
   "For a WILD-FILE that exists locally, return its truename, else nil.
 Caches any non-nil result, so can return a name that is no longer true.
 However, even if that becomes the case, it should usually correspond to
@@ -1301,47 +1285,18 @@ name.  The buffer-local variable `buffer-file-truename' actually gives
 you an abbreviated truename, and \"unabbreviating\" it thru
 `expand-file-name' is not reliable on account of e.g. buffer-env
 changing the meaning of \"~\" or \"~USER\", or runtime changes to
-`directory-abbrev-alist'.
-
-Optional boolean EXPAND-ON-FIRST-RUN comes into play only when
-`org-mem--first-run' is still t, and means to use `expand-file-name'
-with a nil `file-name-handler-alist', rather than accept WILD-FILE
-as-is.  This is a relatively performant way to convert most
-file-names to probable true names."
+`directory-abbrev-alist'."
   (or (gethash wild-file org-mem--wild-filename<>truename)
       (and (stringp wild-file)
-           (not (org-mem--tramp-file-p wild-file))
-           (if (file-exists-p wild-file)
-               (let* ((truename
-                      (if org-mem--first-run
-                          (if expand-on-first-run
-                              (let (file-name-handler-alist)
-                                (cl-assert (file-name-absolute-p wild-file))
-                                (expand-file-name wild-file))
-                            wild-file)
-                        (file-truename wild-file)))
-                      (abbr-true (org-mem--fast-abbrev truename)))
-                 (puthash wild-file truename org-mem--wild-filename<>truename)
-                 (puthash abbr-true truename org-mem--wild-filename<>truename))
-             (remhash wild-file org-mem--wild-filename<>truename)))))
-
-(declare-function tramp-tramp-file-p "tramp")
-(declare-function org-mem--tramp-file-p "org-mem")
-(let (loaded)
-  (defun org-mem--tramp-file-p (file)
-    "Pass FILE to `tramp-tramp-file-p' if Tramp loaded, else return nil.
-
-The reasoning is that if the user has not done something in this session
-to cause Tramp to load, the input FILE is unlikely to be a Tramp path.
-If nevertheless it is, org-mem may have problems, but these problems
-should go away after Tramp does load and `org-mem-reset' runs again."
-    (and (or loaded
-             (and (featurep 'tramp)
-                  (progn (clrhash org-mem--wild-filename<>truename)
-                         (setq org-mem--first-run t)
-                         (setq org-mem--caused-retry nil)
-                         (setq loaded t))))
-         (tramp-tramp-file-p file))))
+           (not (file-remote-p wild-file))
+           (let ((file-name-handler-alist nil))
+             (cl-assert (file-name-absolute-p wild-file))
+             (if (file-exists-p wild-file)
+                 (let* ((truename (file-truename wild-file))
+                        (abbr-true (org-mem--fast-abbrev truename)))
+                   (puthash abbr-true truename org-mem--wild-filename<>truename)
+                   (puthash wild-file truename org-mem--wild-filename<>truename))
+               (remhash wild-file org-mem--wild-filename<>truename))))))
 
 (defun org-mem--invalidate-file-names (bad)
   "Scrub bad file names BAD in the tables that can pollute a reset.
@@ -1379,8 +1334,33 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
 
 ;;; File discovery
 
-;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.026 s
-;; (benchmark-call #'org-roam-list-files)          => 4.141 s
+(defun org-mem--check-user-settings ()
+  "Signal if user options are set to illegal or inefficient values."
+  (unless (or org-mem-watch-dirs org-mem-do-sync-with-org-id)
+    (user-error "At least one setting must be non-nil: `org-mem-watch-dirs' or `org-mem-do-sync-with-org-id'"))
+  (dolist (dir org-mem-watch-dirs)
+    (when (file-remote-p dir)
+      (user-error "Option `org-mem-watch-dirs' has remote directories"))
+    (let ((file-name-handler-alist nil))
+      (when (not (file-name-absolute-p dir))
+        (user-error "Option `org-mem-watch-dirs' has relative directory names"))
+      (dolist (other-dir (mapcar #'file-name-as-directory
+                                 (remove dir org-mem-watch-dirs)))
+        (when (and (string-prefix-p dir other-dir)
+                   ;; TODO: Remove these clauses if we stop filtering
+                   ;; initial dot in `org-mem--dir-files-recursive'.
+                   (not (eq ?. (aref other-dir (length (file-name-as-directory dir)))))
+                   (not (eq ?_ (aref other-dir (length (file-name-as-directory dir))))))
+          (user-error "Option `org-mem-watch-dirs' has redundant subdirectories"))))))
+
+;; Benchmarks.  Try with (setq org-mem-watch-dirs nil) too!
+
+;; (clrhash org-mem--wild-filename<>truename)
+;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.043 s
+;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.004 s
+;; (benchmark-call #'org-roam-list-files)          => 4.145 s
+
+(defvar org-mem--dir<>bare-files (make-hash-table :test 'equal))
 (defvar org-mem--dedup-tbl (make-hash-table :test 'equal))
 (defun org-mem--list-files-from-fs ()
   "Look for Org files in `org-mem-watch-dirs'.
@@ -1388,54 +1368,82 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
 If user option `org-mem-do-sync-with-org-id' is t,
 include files from `org-id-locations' in the result.
 
-Return the file truenames only, like `org-mem--truename-maybe'.
+Return the file truenames only.
 This means you cannot cross-correlate the results with file names in
-`org-id-locations', even though that was a discovery source."
-  (unless (or org-mem-watch-dirs org-mem-do-sync-with-org-id)
-    (error "At least one setting must be non-nil: `org-mem-watch-dirs' or `org-mem-do-sync-with-org-id'"))
+`org-id-locations', even if that was a discovery source.
+
+Excludes symlinks, remote files, files that do not exist, and duplicate
+names.  Uses caching where reasonable, on the assumption that
+`org-mem-parser--parse-file' will cause `org-mem--invalidate-file-names'
+to run on cached names that turned out to be invalid."
   (clrhash org-mem--dedup-tbl)
-  (let ((file-name-handler-alist nil)) ;; perf
-    ;; NOTE: It is possible to have a true dir name /home/org/,
-    ;; then a symlink subdir /home/org/current/ -> /home/org/2025/.
-    ;; And while `org-mem-parser--parse-file' does check `file-symlink-p' on
-    ;; individual files, that does not catch the subdir being a symlink.
-    ;; Fortunately, `org-mem--dir-files-recursive' will not enter
-    ;; /home/org/current/ in the first place.
-    (dolist (dir (delete-dups (mapcar #'file-truename org-mem-watch-dirs)))
-      (dolist (file (nconc (org-mem--dir-files-recursive
-                            dir ".org_archive" org-mem-exclude)
-                           (org-mem--dir-files-recursive
-                            dir ".org" org-mem-exclude)))
-        (puthash (org-mem--truename-maybe file) t org-mem--dedup-tbl)))
+  (with-temp-buffer ;; No buffer-env
+    (org-mem--check-user-settings)
+    (let ((file-name-handler-alist nil))
+      ;; NOTE: It is possible to have a true dir name /home/org/,
+      ;; then a symlink subdir /home/org/current/ -> /home/org/2025/.
+      ;; Fortunately, `org-mem--dir-files-recursive' would not explore
+      ;; /home/org/current/.  That leaves only the leaf as possible symlink.
+      (dolist (dir (delete-dups
+                    (mapcar #'file-truename
+                            (seq-filter #'file-exists-p org-mem-watch-dirs))))
+        (dolist (wild (org-mem--dir-files-recursive dir
+                                                    '(".org" ".org_archive")
+                                                    org-mem-exclude))
+          (let ((cached (gethash wild org-mem--wild-filename<>truename)))
+            (if cached (puthash cached t org-mem--dedup-tbl)
+              (let* ((true (if (file-symlink-p wild) (file-truename wild) wild))
+                     (abtrue (org-mem--fast-abbrev true)))
+                (puthash true t org-mem--dedup-tbl)
+                (puthash wild true org-mem--wild-filename<>truename)
+                (puthash abtrue true org-mem--wild-filename<>truename)))))))
     ;; Maybe check org-id-locations.
     (when org-mem-do-sync-with-org-id
       (when (and (null org-mem-watch-dirs)
                  (not (featurep 'org))
                  (y-or-n-p "Option org-mem-watch-dirs unconfigured, load Org to find org-id-locations?"))
         (require 'org))
-      ;; I wish for Christmas: a better org-id API...
-      ;; Must be why org-roam decided to wrap around rather than fight it.
       (when (featurep 'org)
         (require 'org-id)
         (unless org-id-track-globally
           (error "If `org-mem-do-sync-with-org-id' is t, `org-id-track-globally' must also be t"))
         (when (and org-id-locations-file (null org-id-locations))
           (org-id-locations-load))
-        (dolist (file (if (symbolp org-id-extra-files)
-                          (symbol-value org-id-extra-files)
-                        org-id-extra-files))
-          (when (cl-loop for illegal-needle in org-mem-exclude
-                         never (string-search illegal-needle file))
-            (puthash (org-mem--truename-maybe file t) t org-mem--dedup-tbl)))
         (when (org-mem--try-ensure-org-id-table-p)
-          (cl-loop
-           for file being each hash-value of org-id-locations do
-           (when (cl-loop for illegal-needle in org-mem-exclude
-                          never (string-search illegal-needle file))
-             (puthash (org-mem--truename-maybe file t) t org-mem--dedup-tbl)))))))
-  (remhash nil org-mem--dedup-tbl)
-  (when (> (hash-table-count org-mem--dedup-tbl) 0)
-    (setq org-mem--first-run nil))
+          (clrhash org-mem--dir<>bare-files)
+          (dolist (file (delete-dups
+                         ;; Not a fan of org-id's API...
+                         (nconc (seq-filter #'stringp
+                                            (if (symbolp org-id-extra-files)
+                                                (symbol-value org-id-extra-files)
+                                              org-id-extra-files))
+                                (hash-table-values org-id-locations))))
+            (when (cl-loop for exclude in org-mem-exclude
+                           never (string-search exclude file))
+              (let ((cached (gethash file org-mem--wild-filename<>truename)))
+                (if cached (puthash cached t org-mem--dedup-tbl)
+                  (unless (file-remote-p file)
+                    (let ((file-name-handler-alist nil))
+                      (when (file-exists-p file)
+                        (push (file-name-nondirectory file)
+                              (gethash (file-name-directory file)
+                                       org-mem--dir<>bare-files)))))))))
+          ;; PERF: Use interim table `org-mem--dir<>bare-files' so we
+          ;;       can limit calling `file-truename' to once per directory.
+          (maphash
+           (lambda (dir bare-files)
+             (let* ((file-name-handler-alist nil)
+                    (true-dir (file-truename dir)))
+               (dolist (bare-file bare-files)
+                 (let* ((wild (concat dir bare-file))
+                        (true (concat true-dir bare-file))
+                        (_ (when (file-symlink-p true)
+                             (setq true (file-truename true))))
+                        (abtrue (org-mem--fast-abbrev true)))
+                   (puthash true t org-mem--dedup-tbl)
+                   (puthash wild true org-mem--wild-filename<>truename)
+                   (puthash abtrue true org-mem--wild-filename<>truename)))))
+           org-mem--dir<>bare-files)))))
   (hash-table-keys org-mem--dedup-tbl))
 
 ;; REVIEW: We can get rid of this.  In past benchmarks, it only seemed 3-5x
@@ -1447,7 +1455,7 @@ This means you cannot cross-correlate the results with file names in
 ;; Starting to see why it is that all software gets slower as it gets more
 ;; sophisticated!  Not only due to the sophistication, but other optimizations
 ;; look relatively less worth the LoC burden.
-(defun org-mem--dir-files-recursive (dir suffix excludes)
+(defun org-mem--dir-files-recursive (dir suffixes excludes)
   "Faster, purpose-made variant of `directory-files-recursively'.
 Return a list of all files under directory DIR, its
 sub-directories, sub-sub-directories and so on, with provisos:
@@ -1458,7 +1466,7 @@ sub-directories, sub-sub-directories and so on, with provisos:
   matches one of strings EXCLUDES literally.
 - Don\\='t collect any file where some substring of the non-directory
   name matches one of strings EXCLUDES literally.
-- Collect only files that end in SUFFIX literally.
+- Collect only files that end in one of SUFFIXES literally.
 - Don\\='t sort final results in any particular order.
 
 Does not modify the match data."
@@ -1472,8 +1480,9 @@ Does not modify the match data."
                                  thereis (string-search substr file))
                         (file-symlink-p (directory-file-name file)))
               (setq result (nconc result (org-mem--dir-files-recursive
-        		                  file suffix excludes)))))
-        (when (string-suffix-p suffix file)
+        		                  file suffixes excludes)))))
+        (when (cl-loop for suffix in suffixes
+                       thereis (string-suffix-p suffix file))
           (unless (cl-loop for substr in excludes
                            thereis (string-search substr file))
             (push (file-name-concat dir file) result)))))
@@ -1553,8 +1562,7 @@ org-id-locations:
  (setq org-id-extra-files nil))"
   (interactive "DForget all IDs recursively in directory: ")
   (require 'org-id)
-  (let ((files (nconc (org-mem--dir-files-recursive dir ".org_archive" nil)
-                      (org-mem--dir-files-recursive dir ".org" nil))))
+  (let ((files (org-mem--dir-files-recursive dir '(".org" ".org_archive") nil)))
     (when files
       (setq files (append files (seq-keep #'org-mem--truename-maybe files)))
       (message "Forgetting all IDs in directory %s..." dir)
@@ -1577,7 +1585,7 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvar org-mem--bump-int 6 "Not a version number, but bumped sometimes.")
+(defvar org-mem--bump-int 7 "Not a version number, but bumped sometimes.")
 (define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-dest                #'org-mem-target            "0.8.0 (2025-05-15)")
 (define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
