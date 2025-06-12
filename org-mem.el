@@ -1351,7 +1351,7 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
                    ;; initial dot in `org-mem--dir-files-recursive'.
                    (not (eq ?. (aref other-dir (length (file-name-as-directory dir)))))
                    (not (eq ?_ (aref other-dir (length (file-name-as-directory dir))))))
-          (user-error "Option `org-mem-watch-dirs' has redundant subdirectories"))))))
+          (message "Option `org-mem-watch-dirs' has redundant subdirectories"))))))
 
 ;; Benchmarks.  Try with (setq org-mem-watch-dirs nil) too!
 
