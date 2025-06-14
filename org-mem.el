@@ -1009,9 +1009,7 @@ Like `org-mem-entry-title', this always returns a string."
 ;;; Core logic
 
 (defvar org-mem-initial-scan-hook nil
-  "Hook called after the first full scan, possibly also second scan.
-The second scan occurs only in some cases where symlinks had to be
-resolved, and then it occurs immediately after the first.")
+  "Hook called after the first full scan.")
 
 (defvar org-mem-pre-full-scan-functions nil
   "Hook passed the list of parse-results, before a full reset.")
