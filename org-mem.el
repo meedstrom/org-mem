@@ -1499,10 +1499,10 @@ inform the user why Emacs hangs.
 
 As an obsolete calling convention, MESSAGE can also be a symbol
 corresponding to your package name."
-  (if (symbolp message)
-      (el-job-await 'org-mem n-secs (format "%s waiting for org-mem..." message))
-    ;; 2025-06-05: New behavior
-    (el-job-await 'org-mem n-secs message)))
+  (when (symbolp message)
+    (setq message (format "%S waiting for org-mem..." message)))
+  (el-job-await 'org-mem-targeted n-secs message)
+  (el-job-await 'org-mem n-secs message))
 
 ;; REVIEW: Mixed feelings about including this tool, but it's the obvious tool
 ;; to use with `org-mem-entry-text' to generate backlink previews, for

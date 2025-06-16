@@ -68,7 +68,7 @@
                                          pos)
                                  #'org-mem-list--goto-file-pos
                                  (cons file pos))
-                      (format "%s" signal)))))
+                      (format "%S" signal)))))
     (message "Congratulations, no problems scanning %d entries in %d files!"
              (length (org-mem-all-entries))
              (hash-table-count org-mem--truename<>metadata))))
