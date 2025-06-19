@@ -271,7 +271,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         ID ID-HERE INTERNAL-ENTRY-ID
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
         TITLE HEADING-POS LNUM CRUMBS CLOCK-LINES
-        TODO-STATE STATS-COOKIE
+        TODO-STATE STATS-COOKIES
         SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
         HERE FAR DRAWER-BEG DRAWER-END
         (TODO-RE $default-todo-re))
@@ -436,22 +436,21 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                  (point-max))))
             (setq HEADING-POS (point))
             (setq LEVEL (skip-chars-forward "*"))
-            (setq TODO-STATE nil)
-            (setq PRIORITY nil)
-            (setq STATS-COOKIE nil)
+            (setq STATS-COOKIES nil)
             (skip-chars-forward " ")
             (let ((case-fold-search nil))
-              (while (or (and (looking-at TODO-RE)
-                              (setq TODO-STATE
-                                    (buffer-substring (point) (match-end 0))))
-                         ;; [#A] [#B] [#C]
-                         (and (looking-at "\\[#[A-Z0-9]+\\]")
-                              (setq PRIORITY (match-string 0)))
-                         ;; Skip statistics-cookie such as "[2/10]"
-                         (and (looking-at "\\[[0-9]*/[0-9]*\\]")
-                              (setq STATS-COOKIE (match-string 0))))
-                (goto-char (match-end 0))
-                (skip-chars-forward " ")))
+              (setq TODO-STATE (and (looking-at TODO-RE)
+                                    (prog1 (match-string 0)
+                                      (goto-char (match-end 0))
+                                      (skip-chars-forward " "))))
+              (setq PRIORITY (and (looking-at "\\[#[A-Z0-9]+\\]")
+                                  (prog1 (match-string 0)
+                                    (goto-char (match-end 0))
+                                    (skip-chars-forward " ")))))
+            (while (looking-at "\\[[0-9/%]+]")
+              (push (match-string 0) STATS-COOKIES)
+              (goto-char (match-end 0))
+              (skip-chars-forward "\t\s"))
             (setq HERE (point))
             ;; Any tags in heading?
             (if (re-search-forward " +:.+: *$" (pos-eol) t)
@@ -634,7 +633,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           nil
                           org-mem-parser--found-active-stamps
                           CLOCK-LINES
-                          STATS-COOKIE)
+                          STATS-COOKIES)
                   found-entries)
             (setq org-mem-parser--found-active-stamps nil)
             (setq CLOCK-LINES nil)

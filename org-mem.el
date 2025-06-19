@@ -273,7 +273,7 @@ in `org-mem-file-mtime' and friends.")
   (-deprec-field-1 () :read-only t :type string)
   (active-timestamps-int () :read-only t :type list)
   (clocks-int     () :read-only t :type list)
-  (stats-cookie   () :read-only t :type string))
+  (stats-cookies   () :read-only t :type list))
 
 
 ;;; To find objects to operate on
@@ -952,7 +952,7 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-roam-refs                        #'org-mem-entry-roam-refs)
 (defalias 'org-mem-scheduled                        #'org-mem-entry-scheduled)
 (defalias 'org-mem-scheduled-int                    #'org-mem-entry-scheduled-int)
-(defalias 'org-mem-stats-cookie                     #'org-mem-entry-stats-cookie)
+(defalias 'org-mem-stats-cookies                    #'org-mem-entry-stats-cookies)
 (defalias 'org-mem-subtree-p                        #'org-mem-entry-subtree-p)
 (defalias 'org-mem-tags                             #'org-mem-entry-tags)
 (defalias 'org-mem-tags-inherited                   #'org-mem-entry-tags-inherited)
@@ -1612,6 +1612,13 @@ org-id-locations:
   (declare (obsolete nil "2025-05-25"))
   (display-warning 'org-mem "`org-mem-delete' will be removed, use `ht-reject!'")
   (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
+
+;; DEPRECATED: This field existed on main branch for 1 day.
+(defun org-mem-entry-stats-cookie (entry)
+  (declare (obsolete 'org-mem-entry-stats-cookies "2025-06-20"))
+  (message "`org-mem-entry-stats-cookie' will be removed by July; use `org-mem-entry-stats-cookies'")
+  (car (org-mem-entry-stats-cookies entry)))
+(defalias 'org-mem-stats-cookie 'org-mem-entry-stats-cookie)
 
 (provide 'org-mem)
 
