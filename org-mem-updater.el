@@ -328,6 +328,7 @@ It is not associated with any links or files, however."
             (org-mem-parser--mk-id truename (if heading pos 0))
             ;; HACK: nils are fine
             nil
+            nil
             nil)))
 
 (defun org-mem-updater--tags-at-point-inherited-only ()

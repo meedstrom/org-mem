@@ -272,7 +272,8 @@ in `org-mem-file-mtime' and friends.")
   (-internal-id   () :read-only t :type integer)
   (-deprec-field-1 () :read-only t :type string)
   (active-timestamps-int () :read-only t :type list)
-  (clocks-int     () :read-only t :type list))
+  (clocks-int     () :read-only t :type list)
+  (stats-cookie   () :read-only t :type string))
 
 
 ;;; To find objects to operate on
@@ -951,6 +952,7 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-roam-refs                        #'org-mem-entry-roam-refs)
 (defalias 'org-mem-scheduled                        #'org-mem-entry-scheduled)
 (defalias 'org-mem-scheduled-int                    #'org-mem-entry-scheduled-int)
+(defalias 'org-mem-stats-cookie                     #'org-mem-entry-stats-cookie)
 (defalias 'org-mem-subtree-p                        #'org-mem-entry-subtree-p)
 (defalias 'org-mem-tags                             #'org-mem-entry-tags)
 (defalias 'org-mem-tags-inherited                   #'org-mem-entry-tags-inherited)
