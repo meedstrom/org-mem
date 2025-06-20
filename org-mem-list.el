@@ -93,7 +93,7 @@ To automatically warn, set `org-mem-do-warn-title-collisions'."
                            name
                            (buttonize id1 #'org-mem-list--goto-id id1)
                            (buttonize id2 #'org-mem-list--goto-id id2))))))
-    (message "Congratulations, no title collisions! (among %d ID-nodes)"
+    (message "Congratulations, no title collisions! (among %d titles and aliases)"
              (hash-table-count org-mem--title<>id))))
 
 ;;;###autoload
