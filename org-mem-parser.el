@@ -273,7 +273,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         TITLE HEADING-POS LNUM CRUMBS CLOCK-LINES
         TODO-STATE STATS-COOKIES
         SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
-        HERE FAR DRAWER-BEG DRAWER-END
+        LEFT RIGHT DRAWER-BEG DRAWER-END
         (TODO-RE $default-todo-re))
     (condition-case err
         (progn
@@ -342,29 +342,29 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (setq ID (cdr (assoc "ID" PROPS)))
               (forward-line))
             ;; PERF: Find tight boundaries for later searches.
-            (setq HERE (point))
+            (setq LEFT (point))
             (while (or (looking-at-p (rx (*? space) (or "# " "\n")))
                        (and (looking-at-p org-mem-parser--org-drawer-regexp)
                             (re-search-forward "^[ \t]*:END:[ \t]*$")))
               (forward-line))
             (while (looking-at-p (rx (*? space) (or "#+" "# " "\n")))
               (forward-line))
-            (setq FAR (point)) ;; End of the "front matter".
+            (setq RIGHT (point)) ;; End of the "front matter".
 
-            (goto-char HERE)
-            (when (re-search-forward "^#\\+FILETAGS: " FAR t)
+            (goto-char LEFT)
+            (when (re-search-forward "^#\\+FILETAGS: " RIGHT t)
               (setq TAGS (split-string (buffer-substring (point) (pos-eol))
                                        ":" t)))
-            (goto-char HERE)
+            (goto-char LEFT)
             (let (collected-todo-lines)
-              (while (re-search-forward file-todo-option-re FAR t)
+              (while (re-search-forward file-todo-option-re RIGHT t)
                 (push (buffer-substring (point) (pos-eol))
                       collected-todo-lines))
               (when collected-todo-lines
                 (setq TODO-RE (org-mem-parser--make-todo-regexp
                                (string-join collected-todo-lines " ")))))
-            (goto-char HERE)
-            (when (re-search-forward "^#\\+TITLE: +" FAR t)
+            (goto-char LEFT)
+            (when (re-search-forward "^#\\+TITLE: +" RIGHT t)
               (setq TITLE (string-trim-right
                            (org-mem-parser--org-link-display-format
                             (buffer-substring (point) (pos-eol))))))
@@ -378,18 +378,18 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; interest in body text.
             ;; Don't look inside a BACKLINKS drawer though, because links
             ;; inside should not count as "forward links".
-            (goto-char HERE)
+            (goto-char LEFT)
             (if (re-search-forward "^[\s\t]*:BACKLINKS:" nil t)
                 (progn
-                  (setq FAR (point))
+                  (setq RIGHT (point))
                   (unless (search-forward ":END:" nil t)
                     (error "Could not find :END: of drawer"))
                   ;; Scan stuff after the backlinks drawer.
                   (org-mem-parser--scan-text-until nil ID file INTERNAL-ENTRY-ID))
-              (setq FAR (point-max)))
+              (setq RIGHT (point-max)))
             ;; Scan stuff before the backlinks drawer.
-            (goto-char HERE)
-            (org-mem-parser--scan-text-until FAR ID file INTERNAL-ENTRY-ID)
+            (goto-char LEFT)
+            (org-mem-parser--scan-text-until RIGHT ID file INTERNAL-ENTRY-ID)
             (goto-char (point-max))
             ;; We should now be at the first heading.
             (widen))
@@ -415,7 +415,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         nil
                         nil)
                 found-entries)
-
 
           ;; Prep
           (unless CRUMBS
@@ -450,8 +449,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (while (looking-at "\\[[0-9/%]+]")
               (push (match-string 0) STATS-COOKIES)
               (goto-char (match-end 0))
-              (skip-chars-forward "\t\s"))
-            (setq HERE (point))
+              (skip-chars-forward "\s\t"))
+            (setq LEFT (point))
             ;; Any tags in heading?
             (if (re-search-forward "[ \t]+:\\([^ ]+\\):[ \t]*$" (pos-eol) t)
                 (progn
@@ -459,53 +458,53 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                   (goto-char (match-beginning 0)))
               (setq TAGS nil)
               (goto-char (pos-eol)))
-            (setq FAR (point))
+            (setq RIGHT (point))
             ;; TODO: Chop trailing stats-cookies.
             ;; https://github.com/meedstrom/org-mem/issues/22
             ;; (skip-chars-backward "\s\t")
-            ;; (when (< (point) HERE) (goto-char HERE))
-            ;; (setq FAR (point))
-            ;; (while (re-search-backward "\\[[0-9/%]+]" HERE t)
+            ;; (when (< (point) LEFT) (goto-char LEFT))
+            ;; (setq RIGHT (point))
+            ;; (while (re-search-backward "\\[[0-9/%]+]" LEFT t)
             ;;   (push (match-string 0) STATS-COOKIES)
-            ;;   (when (eq (match-end 0) FAR)
+            ;;   (when (eq (match-end 0) RIGHT)
             ;;     (skip-chars-backward "\s\t")
-            ;;     (if (< (point) HERE)
-            ;;         (goto-char HERE)
-            ;;       (setq FAR (point)))))
+            ;;     (if (< (point) LEFT)
+            ;;         (goto-char LEFT)
+            ;;       (setq RIGHT (point)))))
             (setq TITLE (string-trim-right
                          (org-mem-parser--org-link-display-format
-                          (buffer-substring HERE FAR))))
+                          (buffer-substring LEFT RIGHT))))
             ;; REVIEW: This is possibly overkill, and could be
             ;;         written in a way easier to follow.
             ;; Gotta go forward 1 line, see if it is a planning-line, and
             ;; if it is, then go forward 1 more line, and if that is a
             ;; :PROPERTIES: line, then we're safe to collect properties
             (forward-line 1)
-            (setq HERE (point))
-            (setq FAR (pos-eol))
+            (setq LEFT (point))
+            (setq RIGHT (pos-eol))
             (setq SCHED
-                  (if (re-search-forward "[\s\t]*SCHEDULED: +" FAR t)
+                  (if (re-search-forward "[\s\t]*SCHEDULED: +" RIGHT t)
                       (prog1 (org-mem-parser--time-string-to-int
                               (buffer-substring
                                (point)
                                (+ (point) (skip-chars-forward "^]>\n"))))
-                        (goto-char HERE))
+                        (goto-char LEFT))
                     nil))
             (setq DEADLINE
-                  (if (re-search-forward "[\s\t]*DEADLINE: +" FAR t)
+                  (if (re-search-forward "[\s\t]*DEADLINE: +" RIGHT t)
                       (prog1 (org-mem-parser--time-string-to-int
                               (buffer-substring
                                (point)
                                (+ (point) (skip-chars-forward "^]>\n"))))
-                        (goto-char HERE))
+                        (goto-char LEFT))
                     nil))
             (setq CLOSED
-                  (if (re-search-forward "[\s\t]*CLOSED: +" FAR t)
+                  (if (re-search-forward "[\s\t]*CLOSED: +" RIGHT t)
                       (prog1 (org-mem-parser--time-string-to-int
                               (buffer-substring
                                (point)
                                (+ (point) (skip-chars-forward "^]>\n"))))
-                        (goto-char HERE))
+                        (goto-char LEFT))
                     nil))
             (when (or SCHED DEADLINE CLOSED)
               ;; Alright, so there was a planning-line, meaning any
@@ -524,11 +523,11 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                     nil))
             (setq ID (cdr (assoc "ID" PROPS)))
             (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
-            (setq HERE (point))
+            (setq LEFT (point))
             ;; rough start of body text (just a perf hack, fails gracefully)
-            (setq FAR (re-search-forward "^[\s\t]*[a-bd-z]" nil t))
-            (goto-char HERE)
-            (while (re-search-forward "^[\s\t]*CLOCK: " FAR t)
+            (setq RIGHT (re-search-forward "^[\s\t]*[a-bd-z]" nil t))
+            (goto-char LEFT)
+            (while (re-search-forward "^[\s\t]*CLOCK: " RIGHT t)
               (let ((clock-start
                      (org-mem-parser--time-string-to-int
                       (buffer-substring (point)
@@ -553,7 +552,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                 (push (if clock-end (list clock-start clock-end clock-seconds)
                         (list clock-start))
                       CLOCK-LINES)))
-            (goto-char HERE)
+            (goto-char LEFT)
 
             ;; TODO: Document this elsewhere
             ;; CRUMBS is a kind of state machine; a list that can look like
@@ -613,11 +612,11 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (goto-char HEADING-POS)
             (org-mem-parser--scan-text-until (pos-eol) ID-HERE file INTERNAL-ENTRY-ID)
             ;; Collect links between property drawer and backlinks drawer
-            (goto-char HERE)
+            (goto-char LEFT)
             (when DRAWER-BEG
               (org-mem-parser--scan-text-until DRAWER-BEG ID-HERE file INTERNAL-ENTRY-ID))
             ;; Collect links until next heading
-            (goto-char (or DRAWER-END HERE))
+            (goto-char (or DRAWER-END LEFT))
             (org-mem-parser--scan-text-until (point-max) ID-HERE file INTERNAL-ENTRY-ID)
 
             (push (record 'org-mem-entry
