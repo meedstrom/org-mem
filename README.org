@@ -174,14 +174,14 @@ Now the following is an alternative:
 
 We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some simplifications:
 
-- An =org-mem-link= object corresponds either to a valid Org link, or to a citation fragment.
-  - Check with =org-mem-link-citation-p=.
+- An =org-mem-link= object corresponds either to a proper Org link, or to a citation fragment.
+  - Check which it is with =org-mem-link-citation-p=.
 
-- The content before the first heading counts as an entry with heading level zero.
+- The content before the first heading also counts as an "entry", with heading level zero.
   - Some predictable differences from normal entries: the zeroth-level entry obviously cannot have a TODO state, so =org-mem-entry-todo-state= always returns nil, and so on.
   - Check with =org-mem-entry-subtree-p=.
-    - Or if you're looking at the output of =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always such an entry.  The rest (the =cdr=) are subtrees.
-      - If the zeroth-level entry is absolutely empty, such that the first proper Org heading is on line 1, then =(org-mem-entry-at-lnum-in-file 1 FILE)= returns the entry for that heading instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
+    - Or if you're looking at the output of =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always a zeroth-level entry.  The rest (the =cdr=) are subtrees.
+  - If the zeroth-level entry is absolutely empty, such that the first proper Org heading is on line 1, then =(org-mem-entry-at-lnum-in-file 1 FILE)= returns the entry for that heading instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
 
 *** Full list of functions [2025-05-30 Fri 11:26]
 
