@@ -149,6 +149,8 @@ Turns out I have only about 30 files worth checking, the challenge was always kn
                         (org-mem-entries-in file))
          collect file)))
 (add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
+
+(org-mem-updater-mode)
 #+end_src
 
 *** Example: Warn about dangling clocks at init
@@ -159,10 +161,12 @@ Now the following is an alternative:
 
 #+begin_src elisp
 (defun my-warn-dangling-clock (&rest _)
-  (when-let* ((not-clocked-out (org-mem-all-entries-with-dangling-clock)))
-    (warn "Didn't clock out in files: %S"
-          (delete-dups (mapcar #'org-mem-entry-file not-clocked-out)))))
+  (let ((not-clocked-out (org-mem-all-entries-with-dangling-clock)))
+    (when not-clocked-out
+      (warn "Didn't clock out in files: %S"
+            (delete-dups (mapcar #'org-mem-entry-file not-clocked-out))))))
 (add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
+
 (org-mem-updater-mode)
 #+end_src
 
