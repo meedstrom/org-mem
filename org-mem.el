@@ -273,7 +273,7 @@ in `org-mem-file-mtime' and friends.")
   (-deprec-field-1 () :read-only t :type string)
   (active-timestamps-int () :read-only t :type list)
   (clocks-int     () :read-only t :type list)
-  (stats-cookies   () :read-only t :type list))
+  (stats-cookies  () :read-only t :type list))
 
 
 ;;; To find objects to operate on
@@ -1424,7 +1424,6 @@ to run on cached names that turned out to be invalid."
         (when (org-mem--try-ensure-org-id-table-p)
           (clrhash org-mem--dir<>bare-files)
           (dolist (file (delete-dups
-                         ;; Not a fan of org-id's API...
                          (nconc (seq-filter #'stringp
                                             (if (symbolp org-id-extra-files)
                                                 (symbol-value org-id-extra-files)

@@ -153,7 +153,7 @@ Turns out I have only about 30 files worth checking, the challenge was always kn
 
 *** Example: Warn about dangling clocks at init
 
-While Org can warn about dangling clocks through the =org-clock-persist= setting, that requires loading Org at some point during your session.  Which means that if it is a point of concern for you to forget you had a clock going, that you effectively have to put =(require 'org)= in your initfiles, /just in case/.
+While Org can warn about dangling clocks through the =org-clock-persist= setting, that requires loading Org at some point during your session.  Which means that if it is a matter of concern for you to forget you had a clock going, that you effectively have to put =(require 'org)= in your initfiles, /just in case/.
 
 Now the following is an alternative:
 
@@ -281,13 +281,3 @@ When TRAMP support is fixed, we should be able to fix this too.
 ** Limitation: Encrypted entries
 
 Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot find links inside these.
-
-** Robustness wishlist
-
-- Make it easier to debug the dependency [[https://github.com/meedstrom/el-job][el-job]]
-
-  - Not that it's unusually hard when you understand elisp process handling, but it can print pretty unhelpful messages when something goes wrong, leaving regular users lost.
-
-  - It uses a poll timer, which means Emacs demotes some errors to messages and won't enter the debugger.  (2.4.7)
-
-  - Windows frequently has issues
