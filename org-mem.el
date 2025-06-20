@@ -1204,6 +1204,18 @@ No-op if Org has not loaded."
              (org-mem-entry-file entry)
              org-id-locations)))
 
+;; This is non-essential, as org-id works as intended anyway,
+;; but other libraries may assume that `org-id-files' is kept up to date.
+(defun org-mem--reset-org-id-files (_)
+  "Set `org-id-files' to reflect the set of files in `org-id-locations'.
+Or no-op, if `org-mem-do-sync-with-org-id' is nil."
+  (when (and org-mem-do-sync-with-org-id
+             (featurep 'org-id)
+             (org-mem--try-ensure-org-id-table-p))
+    (setq org-id-files (delete-dups (hash-table-values org-id-locations)))))
+
+(add-hook 'org-mem-post-full-scan-functions #'org-mem--reset-org-id-files)
+
 (defun org-mem--mk-work-vars ()
   "Make alist of variables needed by `org-mem-parser--parse-file'."
   (let ((custom-plain-re (org-mem--mk-plain-re org-mem-seek-link-types))
