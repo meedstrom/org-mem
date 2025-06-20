@@ -453,17 +453,28 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (skip-chars-forward "\t\s"))
             (setq HERE (point))
             ;; Any tags in heading?
-            (if (re-search-forward " +:.+: *$" (pos-eol) t)
+            (if (re-search-forward "[ \t]+:\\([^ ]+\\):[ \t]*$" (pos-eol) t)
                 (progn
-                  (goto-char (match-beginning 0))
-                  (setq TAGS (split-string (match-string 0) ":" t " *"))
-                  (setq TITLE (string-trim-right
-                               (org-mem-parser--org-link-display-format
-                                (buffer-substring HERE (point))))))
+                  (setq TAGS (split-string (match-string 1) ":" t))
+                  (goto-char (match-beginning 0)))
               (setq TAGS nil)
-              (setq TITLE (string-trim-right
-                           (org-mem-parser--org-link-display-format
-                            (buffer-substring HERE (pos-eol))))))
+              (goto-char (pos-eol)))
+            (setq FAR (point))
+            ;; TODO: Chop trailing stats-cookies.
+            ;; https://github.com/meedstrom/org-mem/issues/22
+            ;; (skip-chars-backward "\s\t")
+            ;; (when (< (point) HERE) (goto-char HERE))
+            ;; (setq FAR (point))
+            ;; (while (re-search-backward "\\[[0-9/%]+]" HERE t)
+            ;;   (push (match-string 0) STATS-COOKIES)
+            ;;   (when (eq (match-end 0) FAR)
+            ;;     (skip-chars-backward "\s\t")
+            ;;     (if (< (point) HERE)
+            ;;         (goto-char HERE)
+            ;;       (setq FAR (point)))))
+            (setq TITLE (string-trim-right
+                         (org-mem-parser--org-link-display-format
+                          (buffer-substring HERE FAR))))
             ;; REVIEW: This is possibly overkill, and could be
             ;;         written in a way easier to follow.
             ;; Gotta go forward 1 line, see if it is a planning-line, and
