@@ -454,8 +454,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; Any tags in heading?
             (if (re-search-forward "[ \t]+:\\([^ ]+\\):[ \t]*$" (pos-eol) t)
                 (progn
-                  (setq TAGS (split-string (match-string 1) ":" t))
-                  (goto-char (match-beginning 0)))
+                  (goto-char (match-beginning 0))
+                  (setq TAGS (split-string (match-string 1) ":" t)))
               (setq TAGS nil)
               (goto-char (pos-eol)))
             (setq RIGHT (point))
