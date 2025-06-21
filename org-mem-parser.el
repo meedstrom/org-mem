@@ -43,9 +43,6 @@
 (defvar org-mem-parser--found-active-stamps nil
   "Active timestamps found so far.")
 
-(defvar org-mem-parser--all-dir-locals nil
-  "Dir-local variables found so far.")
-
 (defun org-mem-parser--make-todo-regexp (keywords-string)
   "Build a regexp from KEYWORDS-STRING.
 KEYWORDS-STRING is expected to be the sort of thing you see after
