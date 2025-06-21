@@ -206,6 +206,7 @@ in the latter table."
 (declare-function org-entry-get-with-inheritance "org")
 (declare-function org-get-tags "org")
 (declare-function org-before-first-heading-p "org")
+(declare-function org-parse-time-string "org-macs")
 (defvar org-entry-property-inherited-from)
 (defvar org-outline-path-cache)
 (defvar org-trust-scanner-tags)
@@ -290,13 +291,17 @@ No support for citations."
 
 (defun org-mem-updater-mk-entry-atpt ()
   "Return an `org-mem-entry' object appropriate for entry at point.
-It is not associated with any links or files, however."
+It is not associated with any links or files, however.
+Some fields are incomplete or left at nil."
   (require 'org)
   (require 'ol)
   (let* ((heading (org-get-heading t t t t))
          (pos (and heading (org-entry-beginning-position)))
          (olp-w-self (and heading (org-get-outline-path t t)))
          (properties (org-entry-properties))
+         (closed (cdr (assoc "CLOSED" properties)))
+         (deadline (cdr (assoc "DEADLINE" properties)))
+         (scheduled (cdr (assoc "SCHEDULED" properties)))
          (ftitle (org-get-title))
          (title (or heading ftitle))
          (truename (file-truename buffer-file-name)))
@@ -311,6 +316,10 @@ It is not associated with any links or files, however."
             (or (org-current-level) 0)
             (org-entry-get nil "ID")
             nil
+            nil
+            (and closed
+                 (time-convert (encode-time (org-parse-time-string closed))
+                               'integer))
             ;; HACK: Partial data, enough for `org-mem-entry-olpath' to work with
             (append (cl-loop
                      for heading in olp-w-self
@@ -318,18 +327,19 @@ It is not associated with any links or files, however."
                                               :key #'car :test #'string=))
                      collect (list -1 -1 pos heading nil nil))
                     (list (list 0 1 1 ftitle nil nil)))
-            nil ;; HACK
+            (and deadline
+                 (time-convert (encode-time (org-parse-time-string deadline))
+                               'integer))
+            nil
             properties
+            (and scheduled
+                 (time-convert (encode-time (org-parse-time-string scheduled))
+                               'integer))
+            nil
             (org-mem-updater--tags-at-point-inherited-only)
             (org-get-tags nil t)
             (when heading (org-get-todo-state))
-            (cdr (assoc "DEADLINE" properties))
-            (cdr (assoc "SCHEDULED" properties))
-            (org-mem-parser--mk-id truename (if heading pos 0))
-            ;; HACK: nils are fine
-            nil
-            nil
-            nil)))
+            (org-mem-parser--mk-id truename (if heading pos 0)))))
 
 (defun org-mem-updater--tags-at-point-inherited-only ()
   "Like `org-get-tags', but get only the inherited tags."
