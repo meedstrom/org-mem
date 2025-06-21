@@ -459,21 +459,23 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (setq TAGS nil)
               (goto-char (pos-eol)))
             (setq RIGHT (point))
-            ;; TODO: Chop trailing stats-cookies.
-            ;; https://github.com/meedstrom/org-mem/issues/22
-            ;; (skip-chars-backward "\s\t")
-            ;; (when (< (point) LEFT) (goto-char LEFT))
-            ;; (setq RIGHT (point))
-            ;; (while (re-search-backward "\\[[0-9/%]+]" LEFT t)
-            ;;   (push (match-string 0) STATS-COOKIES)
-            ;;   (when (eq (match-end 0) RIGHT)
-            ;;     (skip-chars-backward "\s\t")
-            ;;     (if (< (point) LEFT)
-            ;;         (goto-char LEFT)
-            ;;       (setq RIGHT (point)))))
-            (setq TITLE (string-trim-right
-                         (org-mem-parser--org-link-display-format
-                          (buffer-substring LEFT RIGHT))))
+            (skip-chars-backward "\s\t")
+            (if (< (point) LEFT)
+                (setq TITLE "")
+              ;; Chop trailing stats-cookies.
+              ;; NOTE: Am assuming that `re-search-backward' performs better
+              ;; than `looking-back', otherwise we could simplify this.
+              (setq RIGHT (point))
+              (while (re-search-backward "\\[[0-9/%]+]" LEFT t)
+                (push (match-string 0) STATS-COOKIES)
+                (when (eq (match-end 0) RIGHT)
+                  (skip-chars-backward "\s\t")
+                  (if (< (point) LEFT)
+                      (goto-char LEFT)
+                    (setq RIGHT (point)))))
+              (setq TITLE (string-trim-right
+                           (org-mem-parser--org-link-display-format
+                            (buffer-substring LEFT RIGHT)))))
             ;; REVIEW: This is possibly overkill, and could be
             ;;         written in a way easier to follow.
             ;; Gotta go forward 1 line, see if it is a planning-line, and
