@@ -455,14 +455,14 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                 (progn
                   (goto-char (match-beginning 0))
                   (setq TAGS (split-string (match-string 1) ":" t)))
-              (setq TAGS nil)
-              (goto-char (pos-eol)))
+              (goto-char (pos-eol))
+              (setq TAGS nil))
             (setq RIGHT (point))
             (skip-chars-backward "\s\t")
             (if (< (point) LEFT)
                 (setq TITLE "")
               ;; Chop trailing stats-cookies.
-              ;; NOTE: Am assuming that `re-search-backward' performs better
+              ;; Am assuming that `re-search-backward' performs better
               ;; than `looking-back', otherwise we could simplify this.
               (setq RIGHT (point))
               (while (re-search-backward "\\[[0-9/%]+]" LEFT t)
@@ -475,8 +475,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (setq TITLE (string-trim-right
                            (org-mem-parser--org-link-display-format
                             (buffer-substring LEFT RIGHT)))))
-            ;; REVIEW: This is possibly overkill, and could be
-            ;;         written in a way easier to follow.
             ;; Gotta go forward 1 line, see if it is a planning-line, and
             ;; if it is, then go forward 1 more line, and if that is a
             ;; :PROPERTIES: line, then we're safe to collect properties
@@ -671,8 +669,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                              (point-max)
                              coding-system)))
 
-      ;; Catch fake `skip-file' signal.  (I expect it was signaled at a time
-      ;; that makes the final return value all nils except for `bad-path'.)
+      ;; Catch fake `skip-file' signal.
       (t
        (cl-assert (null file-data))))
 
