@@ -37,12 +37,6 @@
 (defvar $structures-to-ignore) ; TODO: implement
 (defvar $drawers-to-ignore) ; TODO: implement
 
-(defvar org-mem-parser--found-links nil
-  "Link objects found so far.")
-
-(defvar org-mem-parser--found-active-stamps nil
-  "Active timestamps found so far.")
-
 (defun org-mem-parser--make-todo-regexp (keywords-string)
   "Build a regexp from KEYWORDS-STRING.
 KEYWORDS-STRING is expected to be the sort of thing you see after
@@ -57,8 +51,9 @@ the custom TODO words thus defined."
                (split-string)
                (regexp-opt)))
 
-(defvar org-mem-parser--max-safe-hex-digits
+(defconst org-mem-parser--max-safe-hex-digits
   (- (length (format "%x" most-positive-fixnum)) 1))
+
 (defun org-mem-parser--mk-id (file-name pos)
   "Reduce FILE-NAME and POS into an `eq'-safe probably-unique fixnum."
   (+ (string-to-number (substring (secure-hash 'md5 file-name)
@@ -105,6 +100,12 @@ brackets."
 	            (string-to-number (match-string 2 s))
 	            nil -1 nil)))
       (and ts (time-convert (encode-time ts) 'integer)))))
+
+(defvar org-mem-parser--found-links nil
+  "Link objects found so far.")
+
+(defvar org-mem-parser--found-active-stamps nil
+  "Active timestamps found so far.")
 
 (defconst org-mem-parser--org-ts-regexp
   "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
