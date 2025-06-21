@@ -130,6 +130,7 @@ To automatically warn, set `org-mem-do-warn-title-collisions'."
                                        (org-mem-link-pos link))))))))))
 
 ;; TODO: Maybe generalize: track a list of open DBs and explore any of them
+;;;###autoload
 (defun org-mem-list-db-contents (&optional db)
   "Explore contents of currently used SQLite DB.
 
