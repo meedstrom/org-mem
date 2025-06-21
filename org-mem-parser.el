@@ -400,6 +400,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         TITLE
                         0
                         ID
+                        org-mem-parser--found-active-stamps
+                        nil
                         nil
                         CRUMBS
                         nil
@@ -407,13 +409,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         PROPS
                         nil
                         nil
+                        nil
                         TAGS
                         nil
-                        INTERNAL-ENTRY-ID
-                        nil
-                        org-mem-parser--found-active-stamps
-                        nil
-                        nil)
+                        INTERNAL-ENTRY-ID)
                 found-entries)
 
           ;; Prep
@@ -628,12 +627,15 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           TITLE
                           LEVEL
                           ID
+                          org-mem-parser--found-active-stamps
+                          CLOCK-LINES
                           CLOSED
                           (mapcar #'butlast CRUMBS)
                           DEADLINE
                           PRIORITY
                           PROPS
                           SCHED
+                          STATS-COOKIES
                           ;; Inherited tags
                           (nreverse
                            (delete-dups
@@ -641,11 +643,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                              (mapcar #'last (cdr CRUMBS)))))
                           TAGS
                           TODO-STATE
-                          INTERNAL-ENTRY-ID
-                          nil
-                          org-mem-parser--found-active-stamps
-                          CLOCK-LINES
-                          STATS-COOKIES)
+                          INTERNAL-ENTRY-ID)
                   found-entries)
             (setq org-mem-parser--found-active-stamps nil)
             (setq CLOCK-LINES nil)
