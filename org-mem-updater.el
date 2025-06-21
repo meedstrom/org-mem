@@ -236,12 +236,13 @@ No support for citations."
   (require 'org-element-ast)
   (when (and buffer-file-name
              (derived-mode-p 'org-mode))
-    (let ((el (org-element-context)))
+    (let ((el (org-element-context))
+          (truename (file-truename buffer-file-name)))
       (when (and (org-element-property :path el)
                  (cl-notany (##string-search % buffer-file-name)
                             org-mem-exclude)
-                 (cl-notany (##string-search % (file-truename buffer-file-name))
-                          org-mem-exclude))
+                 (cl-notany (##string-search % truename)
+                            org-mem-exclude))
         (org-mem-updater-ensure-buffer-file-known)
         (org-mem--record-link (org-mem-updater-mk-link-atpt))))))
 
@@ -251,17 +252,18 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
   (require 'org)
   (require 'ol)
   (when (and buffer-file-name
-             (derived-mode-p 'org-mode))
-    (when (and (org-entry-get-with-inheritance "ID")
-               (cl-notany (##string-search % buffer-file-name)
-                          org-mem-exclude)
-               (cl-notany (##string-search % (file-truename buffer-file-name))
-                          org-mem-exclude))
-      (save-excursion
-        (without-restriction
-          (goto-char org-entry-property-inherited-from)
-          (org-mem-updater-ensure-buffer-file-known)
-          (org-mem--record-entry (org-mem-updater-mk-entry-atpt)))))))
+             (derived-mode-p 'org-mode)
+             (org-entry-get-with-inheritance "ID"))
+    (let ((truename (file-truename buffer-file-name)))
+      (when (and (cl-notany (##string-search % buffer-file-name)
+                            org-mem-exclude)
+                 (cl-notany (##string-search % truename)
+                            org-mem-exclude))
+        (save-excursion
+          (without-restriction
+            (goto-char org-entry-property-inherited-from)
+            (org-mem-updater-ensure-buffer-file-known)
+            (org-mem--record-entry (org-mem-updater-mk-entry-atpt))))))))
 
 (defun org-mem-updater-mk-link-atpt ()
   "Return an `org-mem-link' object appropriate for link at point.
