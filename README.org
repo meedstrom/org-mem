@@ -284,4 +284,4 @@ When TRAMP support is fixed, we should be able to fix this too.
 
 ** Limitation: Encrypted entries
 
-Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot find links inside these.
+Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot find links or active timestamps inside these.
