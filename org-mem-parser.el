@@ -332,7 +332,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; We can safely assume that if there's a properties drawer,
             ;; it's the first drawer AND it comes before any #+keyword, at
             ;; least going by the behavior of `org-id-get'.
-            (when (looking-at-p "^[ \t]*:PROPERTIES:[ \t]*$")
+            (when (looking-at "^[ \t]*:PROPERTIES:")
+              (goto-char (match-end 0))
+              (unless (looking-at-p "[ \t]*$")
+                (error "Likely malformed :PROPERTIES: line"))
               (forward-line)
               (setq PROPS (org-mem-parser--collect-properties
                            (point)
@@ -352,9 +355,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq RIGHT (point)) ;; End of the "front matter".
 
             (goto-char LEFT)
-            (when (re-search-forward "^#\\+FILETAGS: " RIGHT t)
-              (setq TAGS (split-string (buffer-substring (point) (pos-eol))
-                                       ":" t)))
+            (when (re-search-forward "^#\\+FILETAGS:" RIGHT t)
+              (when (not (eolp))
+                (when (= 0 (skip-chars-forward " "))
+                  (error "A #+FILETAGS: keyword is missing space"))
+                (setq TAGS (split-string (buffer-substring (point) (pos-eol))
+                                         ":" t))))
             (goto-char LEFT)
             (let (collected-todo-lines)
               (while (re-search-forward file-todo-option-re RIGHT t)
@@ -364,11 +370,13 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                 (setq TODO-RE (org-mem-parser--make-todo-regexp
                                (string-join collected-todo-lines " ")))))
             (goto-char LEFT)
-            (when (re-search-forward "^#\\+TITLE: +" RIGHT t)
-              (setq TITLE (string-trim-right
-                           (org-mem-parser--org-link-display-format
-                            (buffer-substring (point) (pos-eol))))))
-            (when (string-empty-p TITLE) (setq TITLE nil))
+            (when (re-search-forward "^#\\+TITLE:" RIGHT t)
+              (when (not (eolp))
+                (when (= 0 (skip-chars-forward " "))
+                  (error "A #+TITLE: keyword is missing space"))
+                (setq TITLE (string-trim-right
+                             (org-mem-parser--org-link-display-format
+                              (buffer-substring (point) (pos-eol)))))))
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE
                         (seq-difference TAGS NONHERITABLE-TAGS))))
@@ -381,8 +389,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (goto-char LEFT)
             (if (re-search-forward "^[\s\t]*:BACKLINKS:" nil t)
                 (progn
+                  (unless (looking-at-p "[ \t]*$")
+                    (error "Likely malformed drawer"))
                   (setq RIGHT (point))
-                  (unless (search-forward ":END:" nil t)
+                  (unless (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
                     (error "Could not find :END: of drawer"))
                   ;; Scan stuff after the backlinks drawer.
                   (org-mem-parser--scan-text-until nil ID file INTERNAL-ENTRY-ID))
@@ -516,7 +526,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         (forward-line 1)
                         (org-mem-parser--collect-properties
                          (point)
-                         (if (re-search-forward "^[\s\t]*:END:" nil t)
+                         (if (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
                              (pos-bol)
                            (error "Couldn't find :END: of drawer"))))
                     nil))
@@ -604,8 +614,11 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq DRAWER-BEG (re-search-forward "^[\s\t]*:BACKLINKS:" nil t))
             (setq DRAWER-END
                   (and DRAWER-BEG
-                       (or (search-forward ":END:" nil t)
-                           (error "Couldn't find :END: of drawer"))))
+                       (progn
+                         (unless (looking-at-p "[ \t]*$")
+                           (error "Likely malformed drawer"))
+                         (or (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+                             (error "Couldn't find :END: of drawer")))))
 
             ;; Collect links inside the heading
             (goto-char HEADING-POS)
