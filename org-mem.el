@@ -1057,11 +1057,13 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 
 (defun org-mem-reset (&optional takeover msg called-interactively)
   "Reset cache, and then if CALLED-INTERACTIVELY, print statistics.
-For arguments TAKEOVER and MSG, see `org-mem--scan-full'."
+For arguments TAKEOVER and MSG, see `org-mem--scan-full'.
+Return MSG."
   (interactive "i\ni\np")
   (when called-interactively
     (setq org-mem--next-message t))
-  (org-mem--scan-full takeover msg))
+  (org-mem--scan-full takeover msg)
+  msg)
 
 (defun org-mem--scan-full (&optional takeover msg)
   "Arrange a full scan, if one is not already ongoing.
