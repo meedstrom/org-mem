@@ -377,6 +377,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                 (setq TITLE (string-trim-right
                              (org-mem-parser--org-link-display-format
                               (buffer-substring (point) (pos-eol)))))))
+            (when (string-empty-p TITLE)
+              (setq TITLE nil))
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE
                         (seq-difference TAGS NONHERITABLE-TAGS))))
