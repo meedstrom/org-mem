@@ -387,7 +387,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; Don't look inside a BACKLINKS drawer though, because links
             ;; inside should not count as "forward links".
             (goto-char LEFT)
-            (if (re-search-forward "^[\s\t]*:BACKLINKS:" nil t)
+            (if (re-search-forward "^[ \t]*:BACKLINKS:" nil t)
                 (progn
                   (unless (looking-at-p "[ \t]*$")
                     (error "Likely malformed drawer"))
@@ -454,7 +454,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (setq PRIORITY (and (looking-at "\\[#[A-Z0-9]+\\]")
                                   (prog1 (match-string 0)
                                     (goto-char (match-end 0))
-                                    (skip-chars-forward " ")))))
+                                    (skip-chars-forward "\s\t")))))
             (while (looking-at "\\[[0-9/%]+]")
               (push (match-string 0) STATS-COOKIES)
               (goto-char (match-end 0))
@@ -534,9 +534,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
             (setq LEFT (point))
             ;; rough start of body text (just a perf hack, fails gracefully)
-            (setq RIGHT (re-search-forward "^[\s\t]*[a-bd-z]" nil t))
+            (setq RIGHT (re-search-forward "^[ \t]*[a-bd-z]" nil t))
             (goto-char LEFT)
-            (while (re-search-forward "^[\s\t]*CLOCK: " RIGHT t)
+            (while (re-search-forward "^[ \t]*CLOCK: " RIGHT t)
               (let ((clock-start
                      (org-mem-parser--time-string-to-int
                       (buffer-substring (point)
@@ -611,7 +611,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; Ignore backlinks drawer, it would lead to double-counting.
             ;; TODO: Generalize this mechanism to use configurable lists
             ;;       `$structures-to-ignore' and `$drawers-to-ignore'.
-            (setq DRAWER-BEG (re-search-forward "^[\s\t]*:BACKLINKS:" nil t))
+            (setq DRAWER-BEG (re-search-forward "^[ \t]*:BACKLINKS:" nil t))
             (setq DRAWER-END
                   (and DRAWER-BEG
                        (progn
