@@ -1,0 +1,6 @@
+* DONE  [#B] [2/10] bazfoo [20%]  bar [30%] [5/10]
+:PROPERTIES:
+:ID:       4j2i4b80qmk0
+:END:
+
+#+transclude: [[id:yjm8lle0wlk0][fooba]] :level 2
