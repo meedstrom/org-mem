@@ -446,6 +446,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq LEVEL (skip-chars-forward "*"))
             (setq STATS-COOKIES nil)
             (skip-chars-forward " ")
+            ;; NOTE: Org seems to expect todo and priority in a strict order,
+            ;;       and before anything else.  Good for us.
             (let ((case-fold-search nil))
               (setq TODO-STATE (and (looking-at TODO-RE)
                                     (prog1 (match-string 0)
@@ -455,6 +457,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                   (prog1 (match-string 0)
                                     (goto-char (match-end 0))
                                     (skip-chars-forward "\s\t")))))
+            ;; NOTE: From here on, Org seems to permit tabs.
             (while (looking-at "\\[[0-9/%]+]")
               (push (match-string 0) STATS-COOKIES)
               (goto-char (match-end 0))
@@ -620,14 +623,14 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                          (or (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
                              (error "Couldn't find :END: of drawer")))))
 
-            ;; Collect links inside the heading
+            ;; Scan stuff inside the heading
             (goto-char HEADING-POS)
             (org-mem-parser--scan-text-until (pos-eol) ID-HERE file INTERNAL-ENTRY-ID)
-            ;; Collect links between property drawer and backlinks drawer
+            ;; Scan stuff between property drawer and backlinks drawer
             (goto-char LEFT)
             (when DRAWER-BEG
               (org-mem-parser--scan-text-until DRAWER-BEG ID-HERE file INTERNAL-ENTRY-ID))
-            ;; Collect links until next heading
+            ;; Scan stuff until next heading
             (goto-char (or DRAWER-END LEFT))
             (org-mem-parser--scan-text-until (point-max) ID-HERE file INTERNAL-ENTRY-ID)
 
