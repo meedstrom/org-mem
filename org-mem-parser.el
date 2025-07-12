@@ -495,36 +495,31 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq LEFT (point))
             (setq RIGHT (pos-eol))
             (setq SCHED
-                  (if (re-search-forward "[\s\t]*SCHEDULED: +" RIGHT t)
-                      (prog1 (org-mem-parser--time-string-to-int
-                              (buffer-substring
-                               (point)
-                               (+ (point) (skip-chars-forward "^]>\n"))))
-                        (goto-char LEFT))
-                    nil))
+                  (and (re-search-forward "[ \t]*SCHEDULED: +" RIGHT t)
+                       (org-mem-parser--time-string-to-int
+                        (buffer-substring
+                         (point)
+                         (+ (point) (skip-chars-forward "^]>\n"))))))
+            (goto-char LEFT)
             (setq DEADLINE
-                  (if (re-search-forward "[\s\t]*DEADLINE: +" RIGHT t)
-                      (prog1 (org-mem-parser--time-string-to-int
-                              (buffer-substring
-                               (point)
-                               (+ (point) (skip-chars-forward "^]>\n"))))
-                        (goto-char LEFT))
-                    nil))
+                  (and (re-search-forward "[ \t]*DEADLINE: +" RIGHT t)
+                       (org-mem-parser--time-string-to-int
+                        (buffer-substring
+                         (point)
+                         (+ (point) (skip-chars-forward "^]>\n"))))))
+            (goto-char LEFT)
             (setq CLOSED
-                  (if (re-search-forward "[\s\t]*CLOSED: +" RIGHT t)
-                      (prog1 (org-mem-parser--time-string-to-int
-                              (buffer-substring
-                               (point)
-                               (+ (point) (skip-chars-forward "^]>\n"))))
-                        (goto-char LEFT))
-                    nil))
+                  (and (re-search-forward "[ \t]*CLOSED: +" RIGHT t)
+                       (org-mem-parser--time-string-to-int
+                        (buffer-substring
+                         (point)
+                         (+ (point) (skip-chars-forward "^]>\n"))))))
             (when (or SCHED DEADLINE CLOSED)
               ;; Alright, so there was a planning-line, meaning any
               ;; :PROPERTIES: are not on this line but the next.
               (forward-line 1))
-            (skip-chars-forward "\s\t")
             (setq PROPS
-                  (if (looking-at-p ":PROPERTIES:")
+                  (if (looking-at-p "[ \t]*:PROPERTIES:")
                       (progn
                         (forward-line 1)
                         (org-mem-parser--collect-properties
@@ -687,7 +682,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
       ;; Catch fake `skip-file' signal.
       (t
-       (cl-assert (null file-data))))
+       (cl-assert (null file-data))
+       (cl-assert (null found-entries))
+       (cl-assert (null org-mem-parser--found-links))
+       (cl-assert (null problem))))
 
     (list (if bad-path (list bad-path))
           (if file-data (list file-data))
