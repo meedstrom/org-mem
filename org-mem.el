@@ -128,7 +128,7 @@ try command \\[org-mem-forget-id-locations-recursively]."
     "/logseq/version-files/"
     "/node_modules/"
     ".sync-conflict-" ;; Match e.g. "~/org/foo.sync-conflict-234234.org"
-    "/backup" ;; Match e.g. "~/backups/"
+    "/backup" ;; Match e.g. "~/backups-2024/"
     ".#")
   "Literal substrings of file paths that should not be scanned.
 Aside from this variable, some filters are hard-coded:
@@ -149,9 +149,17 @@ found inside `org-mem-watch-dirs' with a very large amount of files
 
 (defcustom org-mem-seek-link-types
   '("http" "https" "id" "file")
-  "Which types of plain \(un-bracketed\) links to look for."
+  "Which types of plain \(un-bracketed\) links to look for.
+
+Org-mem will pick up most links that are wrapped in double brackets,
+regardless of type.  To see what unusual types it may have found, try
+this expression:
+
+\(inspector-inspect
+ \(seq-remove (##member (org-mem-link-type %) org-mem-seek-link-types)
+             \(org-mem-all-links)))"
   :type '(repeat string)
-  :package-version '(org-mem . "0.2.0"))
+  :package-version '(org-mem . "0.7.0"))
 
 (defvar org-mem-scratch nil
   "Work buffer held current while executing some hooks.
