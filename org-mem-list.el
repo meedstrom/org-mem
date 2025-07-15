@@ -169,6 +169,7 @@ instead of default `org-mem-roamy--connection'."
             (sqlite-mode-list-tables))
         (message "No DB yet")))))
 
+;;;###autoload
 (cl-defun org-mem-list--pop-to-tabulated-buffer (&key buffer format entries reverter)
   "Create, populate and display a `tabulated-list-mode' buffer.
 
