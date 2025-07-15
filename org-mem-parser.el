@@ -190,10 +190,10 @@ the subheading potentially has an ID of its own."
             (push (record 'org-mem-link
                           file
                           LINK-POS
-                          LINK-DESC
                           "cite"
                           ;; Replace & with @ like `org-mem--split-roam-refs-field'
                           (concat "@" (substring (match-string 0) 1))
+                          LINK-DESC
                           t
                           id-here
                           internal-entry-id)
