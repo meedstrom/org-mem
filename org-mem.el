@@ -711,7 +711,8 @@ Often close to but not exactly the size in bytes due to text encoding."
   (file-attribute-modification-time (org-mem-file-attributes file/entry/link)))
 
 (defun org-mem-file-mtime-floor (file/entry/link)
-  "Modification time for file at FILE/ENTRY/LINK, as floor integer."
+  "Modification time for file at FILE/ENTRY/LINK, as integer.
+Rounded down."
   (time-convert (org-mem-file-mtime file/entry/link) 'integer))
 
 ;; Above getters accept a link as input, and the below could too
