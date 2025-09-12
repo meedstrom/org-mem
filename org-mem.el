@@ -1304,7 +1304,7 @@ See helper `org-mem--truename-maybe'.")
   "For a WILD-FILE that exists locally, return its truename, else nil.
 Caches any non-nil result, so can return a name that is no longer true.
 However, even if that becomes the case, it should usually correspond to
-known org-mem objects.
+known org-mem objects \(because they would be stale as well\).
 
 This function provides a reliable way to find org-mem objects by file
 name.  The buffer-local variable `buffer-file-truename' actually gives
@@ -1409,7 +1409,8 @@ to run on cached names that turned out to be invalid."
       ;; NOTE: It is possible to have a true dir name /home/org/,
       ;; then a symlink subdir /home/org/current/ -> /home/org/2025/.
       ;; Fortunately, `org-mem--dir-files-recursive' would not explore
-      ;; /home/org/current/.  That leaves only the leaf as possible symlink.
+      ;; /home/org/current/.
+      ;; That leaves only leaf nodes (files) as possible symlinks.
       (dolist (dir (delete-dups
                     (mapcar #'file-truename
                             (seq-filter #'file-exists-p org-mem-watch-dirs))))
