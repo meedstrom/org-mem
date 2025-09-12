@@ -1631,20 +1631,6 @@ org-id-locations:
   (declare (obsolete org-mem-file-mtime-floor "2025-05-30"))
   (ceiling (float-time (org-mem-file-mtime file/entry/link))))
 
-;; DEPRECATED
-(defun org-mem-delete (pred tbl)
-  "Delete rows in hash table TBL that satisfy PRED\(KEY VALUE)."
-  (declare (obsolete nil "2025-05-25"))
-  (display-warning 'org-mem "`org-mem-delete' will be removed, use `ht-reject!'")
-  (maphash (##if (funcall pred %1 %2) (remhash %1 tbl)) tbl) nil)
-
-;; DEPRECATED: This field existed on main branch for 1 day.
-(defun org-mem-entry-stats-cookie (entry)
-  (declare (obsolete 'org-mem-entry-stats-cookies "2025-06-20"))
-  (message "`org-mem-entry-stats-cookie' will be removed by July; use `org-mem-entry-stats-cookies'")
-  (car (org-mem-entry-stats-cookies entry)))
-(defalias 'org-mem-stats-cookie 'org-mem-entry-stats-cookie)
-
 (provide 'org-mem)
 
 ;;; org-mem.el ends here
