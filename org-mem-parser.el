@@ -57,7 +57,7 @@ the custom TODO words thus defined."
 (defun org-mem-parser--mk-id (file-name pos)
   "Reduce FILE-NAME and POS into an `eq'-safe probably-unique fixnum."
   (+ (string-to-number (substring (secure-hash 'md5 file-name)
-                                  org-mem-parser--max-safe-hex-digits)
+                                  (- org-mem-parser--max-safe-hex-digits))
                        16)
      pos))
 
