@@ -12,7 +12,7 @@ Builds quickly, so that there is no need to persist data across sessions. My =M-
 Org-mem saw 2418 files, 8388 headings, 8624 links (3418 IDs, 4874 ID-links) in 1.95s
 #+end_example
 
-This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a PoC.
+This library came from asking myself "what could I move out of [[https://github.com/meedstrom/org-node][org-node]], that'd make sense in core?"  Maybe a proposal for upstream, or at least a proof-of-concept.
 
 Many notetaking packages now reinvent the wheel, when it comes to keeping track of some or many files and what may be in them.
 
@@ -180,7 +180,7 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
 - The content before the first heading also counts as an "entry", with heading level zero.
   - Some predictable differences from normal entries: the zeroth-level entry obviously cannot have a TODO state, so =org-mem-entry-todo-state= always returns nil, and so on.
   - Check with =org-mem-entry-subtree-p=.
-    - Or if you're looking at the output of =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always a zeroth-level entry.  The rest (the =cdr=) are subtrees.
+    - Or if you're looking at the list of entries output by =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always a zeroth-level entry.  The rest (the =cdr=) are subtrees.
   - If the zeroth-level entry is absolutely empty, such that the first proper Org heading is on line 1, then =(org-mem-entry-at-lnum-in-file 1 FILE)= returns the entry for that heading instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
 
 *** Full list of functions [2025-05-30 Fri 11:26]

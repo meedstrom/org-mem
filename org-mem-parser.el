@@ -79,12 +79,15 @@ brackets."
   "Parse the first Org timestamp in string S and return as integer."
   (if (not (string-match org-mem-parser--org-ts-regexp0 s))
       (if (string-search "%%(" s)
-          ;; This looks like a "diary sexp" such as:
+          ;; HACK: This looks like a "diary sexp" such as:
           ;;     <%%(memq (calendar-day-of-week date) '(1 2 3 4 5)))>
           ;; Return nil in this case, which should be safe because (as of
           ;; 2025-06-06) the only way this function would be called with such
           ;; a string S, is on a planning-line (CLOSED, SCHEDULED or DEADLINE),
           ;; where nil is valid.
+          ;; FIXME: This is "safe" in the sense that the program won't break,
+          ;; but it means `org-mem-entry-scheduled' & co are not faithful.
+          ;; https://github.com/meedstrom/org-mem/issues/21
           nil
         (error "Not an Org time string: %s" s))
     ;; Code from `org-parse-time-string', faster than `parse-time-string'.

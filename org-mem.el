@@ -603,14 +603,14 @@ file name sans directory component."
   "Alist of ENTRY properties, no inheritance.
 
 Note the difference from `org-mem-entry-tags', which does include
-inherited tags!  This attempts to mirror what you would expect from Org
-functions such as `org-entry-properties', `org-entry-get', which do not
-inherit ancestor properties by default.
+inherited tags!  This attempts to mirror what you would expect from Org,
+since `org-entry-properties' does not use inheritance while
+`org-get-tags' does.
 
-To get ancestor properties, see `org-mem-entry-properties-inherited'.
+To get ancestor properties, use `org-mem-entry-properties-inherited'.
 
-Another difference from `org-entry-properties': this omits special
-properties, returning only properties explicitly written in the file.")
+Unlike `org-entry-properties', this omits special properties and returns
+only the properties explicitly written in the file.")
 
 (defun org-mem-entry-property (prop entry)
   "Value of property PROP in ENTRY."
@@ -1643,7 +1643,8 @@ org-id-locations:
 
 ;; DEPRECATED
 (defun org-mem-file-mtime-int (file/entry/link)
-  "Modification time for file at FILE/ENTRY/LINK, as ceiling integer."
+  "Modification time for file at FILE/ENTRY/LINK, as integer.
+Rounded up."
   (declare (obsolete org-mem-file-mtime-floor "2025-05-30"))
   (ceiling (float-time (org-mem-file-mtime file/entry/link))))
 
