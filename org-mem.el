@@ -278,7 +278,8 @@ in `org-mem-file-mtime' and friends.")
   (crumbs                () :read-only t :type list)
   (deadline-int          () :read-only t :type string)
   (priority              () :read-only t :type string)
-  (properties            () :read-only t :type list)
+  (properties-inherited  () :read-only t :type list)
+  (properties-local      () :read-only t :type list)
   (scheduled-int         () :read-only t :type string)
   (stats-cookies         () :read-only t :type list)
   (tags-inherited        () :read-only t :type list)
@@ -597,6 +598,19 @@ file name sans directory component."
       (progn (cl-assert (not (org-mem-entry-subtree-p entry)))
              (let (file-name-handler-alist)
                (file-name-nondirectory (org-mem-entry-file-truename entry))))))
+
+(defalias 'org-mem-entry-properties #'org-mem-entry-properties-local
+  "Alist of ENTRY properties, no inheritance.
+
+Note the difference from `org-mem-entry-tags', which does include
+inherited tags!  This attempts to mirror what you would expect from Org
+functions such as `org-entry-properties', `org-entry-get', which do not
+inherit ancestor properties by default.
+
+To get ancestor properties, see `org-mem-entry-properties-inherited'.
+
+Another difference from `org-entry-properties': this omits special
+properties, returning only properties explicitly written in the file.")
 
 (defun org-mem-entry-property (prop entry)
   "Value of property PROP in ENTRY."
@@ -960,6 +974,7 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-priority                         #'org-mem-entry-priority)
 (defalias 'org-mem-property                         #'org-mem-entry-property)
 (defalias 'org-mem-properties                       #'org-mem-entry-properties)
+(defalias 'org-mem-properties-inherited             #'org-mem-entry-properties-inherited)
 (defalias 'org-mem-roam-aliases                     #'org-mem-entry-roam-aliases)
 (defalias 'org-mem-roam-refs                        #'org-mem-entry-roam-refs)
 (defalias 'org-mem-scheduled                        #'org-mem-entry-scheduled)

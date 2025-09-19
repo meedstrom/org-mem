@@ -382,7 +382,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE
                         (seq-difference TAGS NONHERITABLE-TAGS))))
-              (push (list 0 1 1 TITLE ID heritable-tags) CRUMBS))
+              (push (list 0 1 1 TITLE ID heritable-tags PROPS) CRUMBS))
 
             ;; OK, got file title and properties.  Now look for things of
             ;; interest in body text.
@@ -418,6 +418,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         CRUMBS
                         nil
                         nil
+                        nil
                         PROPS
                         nil
                         nil
@@ -429,7 +430,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
           ;; Prep
           (unless CRUMBS
-            (push (list 0 1 1 nil nil nil) CRUMBS))
+            (push (list 0 1 1 nil nil nil nil) CRUMBS))
           (setq org-mem-parser--found-active-stamps nil)
           (setq LNUM (line-number-at-pos))
 
@@ -601,7 +602,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                  unless (member tag NONHERITABLE-TAGS)
                                  collect tag))))
               (cl-loop until (> LEVEL (caar CRUMBS)) do (pop CRUMBS))
-              (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags)
+              (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags PROPS)
                     CRUMBS))
 
             ;; Heading and properties analyzed, now seek links in entry text.
@@ -641,17 +642,20 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           org-mem-parser--found-active-stamps
                           CLOCK-LINES
                           CLOSED
-                          (mapcar #'butlast CRUMBS)
+                          (mapcar (lambda (x) (take 5 x)) CRUMBS)
                           DEADLINE
                           PRIORITY
+                          ;; Inherited properties
+                          (cl-loop for crumb in (cdr CRUMBS)
+                                   append (cl-seventh crumb))
                           PROPS
                           SCHED
                           STATS-COOKIES
                           ;; Inherited tags
                           (nreverse
                            (delete-dups
-                            (flatten-tree
-                             (mapcar #'last (cdr CRUMBS)))))
+                            (cl-loop for crumb in (cdr CRUMBS)
+                                     append (cl-sixth crumb))))
                           TAGS
                           TODO-STATE
                           INTERNAL-ENTRY-ID)

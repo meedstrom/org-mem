@@ -300,7 +300,7 @@ Some fields are incomplete or left at nil."
   (let* ((heading (org-get-heading t t t t))
          (pos (and heading (org-entry-beginning-position)))
          (olp-w-self (and heading (org-get-outline-path t t)))
-         (properties (org-entry-properties))
+         (properties (org-entry-properties nil 'standard))
          (closed (cdr (assoc "CLOSED" properties)))
          (deadline (cdr (assoc "DEADLINE" properties)))
          (scheduled (cdr (assoc "SCHEDULED" properties)))
@@ -332,6 +332,7 @@ Some fields are incomplete or left at nil."
             (and deadline
                  (time-convert (encode-time (org-parse-time-string deadline))
                                'integer))
+            nil
             nil
             properties
             (and scheduled
