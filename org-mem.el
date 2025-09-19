@@ -1655,6 +1655,7 @@ org-id-locations:
   "Modification time for file at FILE/ENTRY/LINK, as integer.
 Rounded up."
   (declare (obsolete org-mem-file-mtime-floor "2025-05-30"))
+  (message "org-mem-file-mtime-int will be removed by November 2025, use `org-mem-file-mtime-floor'")
   (ceiling (float-time (org-mem-file-mtime file/entry/link))))
 
 (provide 'org-mem)
