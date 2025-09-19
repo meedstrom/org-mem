@@ -89,8 +89,8 @@ brackets."
           ;; but it means `org-mem-entry-scheduled' & co are not faithful.
           ;; https://github.com/meedstrom/org-mem/issues/21
           nil
-        (error "Not an Org time string: %s" s))
-    ;; Code from `org-parse-time-string', faster than `parse-time-string'.
+        (error "Code 11: Not an Org time string: %s" s))
+    ;; Copypasta `org-parse-time-string', faster than `parse-time-string'.
     (let ((ts (list 0
 	            (cond ((match-beginning 8)
                            (string-to-number (match-string 8 s)))
@@ -176,7 +176,7 @@ the subheading potentially has an ID of its own."
     (while (search-forward "[cite" end t)
       (when-let* ((closing-bracket (save-excursion
                                      (or (search-forward "]" end t)
-                                         (error "No closing bracket to [cite:"))))
+                                         (error "Code 17: No closing bracket to \"[cite:\""))))
                   (colon (search-forward ":" closing-bracket t)))
         ;; Use a modified `org-element-citation-key-re'
         (while (re-search-forward "[&@][!#-+./:<>-@^-`{-~[:word:]-]+"
@@ -213,25 +213,24 @@ the subheading potentially has an ID of its own."
   "Collect Org properties between BEG and END into an alist.
 Assumes BEG and END are buffer positions delimiting a region in
 between buffer substrings \":PROPERTIES:\" and \":END:\"."
-  (let (result START EOL)
+  (let (result START)
     (goto-char beg)
     (while (< (point) end)
       (skip-chars-forward "\s\t")
       (unless (looking-at-p ":")
-        (error "Possibly malformed property drawer"))
+        (error "Code 5: Possibly malformed property drawer"))
       (forward-char)
       (when (eolp)
-        (error "Possibly malformed property drawer"))
+        (error "Code 6: Possibly malformed property drawer"))
       (setq START (point))
-      (setq EOL (pos-eol))
-      (or (search-forward ":" EOL t)
-          (error "Possibly malformed property drawer"))
+      (or (search-forward ":" (pos-eol) t)
+          (error "Code 7: Possibly malformed property drawer"))
       ;; In the wild you see some :MULTIPLE:COLONS:IN:NAME: properties, which
       ;; would make this condition nil.  But they are illegal according to
       ;; `org-property-drawer-re', so don't bother to collect it.
       (when (looking-at-p " ")
         (push (cons (upcase (buffer-substring START (1- (point))))
-                    (string-trim (buffer-substring (point) EOL)))
+                    (string-trim (buffer-substring (point) (pos-eol))))
               result))
       (forward-line 1))
     result))
@@ -289,7 +288,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           (when (not (file-readable-p file))
             ;; NOTE: Don't declare it bad, that'd delist it from
             ;;       org-id-locations, which the user may not want.
-            (error "File not readable"))
+            (error "Code 8: File not readable"))
           ;; NOTE: Don't use `insert-file-contents-literally'!  It sets
           ;; `coding-system-for-read' to `no-conversion', which results in
           ;; wrong values for HEADING-POS when the file contains any multibyte.
@@ -331,20 +330,20 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; could insert BACKLINKS before PROPERTIES.  Add a warning so
             ;; user can fix the affected notes.
             (when (looking-at-p "^[ \t]*:BACKLINKS:[ \t]*$")
-              (error "Found BACKLINKS drawer before PROPERTIES \(likely inserted by org-node 3.4.3, bug fixed in 3.4.4)"))
+              (error "Code 12: Found BACKLINKS drawer before PROPERTIES \(likely inserted by org-node 3.4.3, bug fixed in 3.4.4)"))
             ;; We can safely assume that if there's a properties drawer,
             ;; it's the first drawer AND it comes before any #+keyword, at
             ;; least going by the behavior of `org-id-get'.
             (when (looking-at "^[ \t]*:PROPERTIES:")
               (goto-char (match-end 0))
               (unless (looking-at-p "[ \t]*$")
-                (error "Likely malformed :PROPERTIES: line"))
+                (error "Code 13: Likely malformed :PROPERTIES: line"))
               (forward-line)
               (setq PROPS (org-mem-parser--collect-properties
                            (point)
                            (if (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
                                (pos-bol)
-                             (error "Could not find :END: of drawer"))))
+                             (error "Code 14: Could not find :END: of drawer"))))
               (setq ID (cdr (assoc "ID" PROPS)))
               (forward-line))
             ;; PERF: Find tight boundaries for later searches.
@@ -361,7 +360,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (when (re-search-forward "^#\\+FILETAGS:" RIGHT t)
               (when (not (eolp))
                 (when (= 0 (skip-chars-forward " "))
-                  (error "A #+FILETAGS: keyword is missing space"))
+                  (error "Code 15: A #+FILETAGS: keyword is missing space"))
                 (setq TAGS (split-string (buffer-substring (point) (pos-eol))
                                          ":" t))))
             (goto-char LEFT)
@@ -376,7 +375,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (when (re-search-forward "^#\\+TITLE:" RIGHT t)
               (when (not (eolp))
                 (when (= 0 (skip-chars-forward " "))
-                  (error "A #+TITLE: keyword is missing space"))
+                  (error "Code 16: A #+TITLE: keyword is missing space"))
                 (setq TITLE (string-trim-right
                              (org-mem-parser--org-link-display-format
                               (buffer-substring (point) (pos-eol)))))))
@@ -395,10 +394,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (if (re-search-forward "^[ \t]*:BACKLINKS:" nil t)
                 (progn
                   (unless (looking-at-p "[ \t]*$")
-                    (error "Likely malformed drawer"))
+                    (error "Code 1: Likely malformed drawer"))
                   (setq RIGHT (point))
                   (unless (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
-                    (error "Could not find :END: of drawer"))
+                    (error "Code 2: Could not find :END: of drawer"))
                   ;; Scan stuff after the backlinks drawer.
                   (org-mem-parser--scan-text-until nil ID file INTERNAL-ENTRY-ID))
               (setq RIGHT (point-max)))
@@ -532,7 +531,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                          (point)
                          (if (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
                              (pos-bol)
-                           (error "Couldn't find :END: of drawer"))))
+                           (error "Code 9: Couldn't find :END: of drawer"))))
                     nil))
             (setq ID (cdr (assoc "ID" PROPS)))
             (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
@@ -560,7 +559,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                 (progn (backward-char)
                                        (* 60 (number-at-point))))))))
                 (when (null clock-start)
-                  (error "Unusual clock line: \"%s\""
+                  (error "Code 10: Unusual clock line: \"%s\""
                          (buffer-substring (pos-bol) (pos-eol))))
                 (push (if clock-end (list clock-start clock-end clock-seconds)
                         (list clock-start))
@@ -620,9 +619,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                   (and DRAWER-BEG
                        (progn
                          (unless (looking-at-p "[ \t]*$")
-                           (error "Likely malformed drawer"))
+                           (error "Code 3: Likely malformed drawer"))
                          (or (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
-                             (error "Couldn't find :END: of drawer")))))
+                             (error "Code 4: Couldn't find :END: of drawer")))))
 
             ;; Scan stuff inside the heading
             (goto-char HEADING-POS)
