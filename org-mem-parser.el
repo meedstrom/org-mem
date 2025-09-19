@@ -213,7 +213,7 @@ the subheading potentially has an ID of its own."
   "Collect Org properties between BEG and END into an alist.
 Assumes BEG and END are buffer positions delimiting a region in
 between buffer substrings \":PROPERTIES:\" and \":END:\"."
-  (let (result START)
+  (let (alist START VALUE)
     (goto-char beg)
     (while (< (point) end)
       (skip-chars-forward "\s\t")
@@ -223,17 +223,19 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       (when (eolp)
         (error "Code 6: Possibly malformed property drawer"))
       (setq START (point))
-      (or (search-forward ":" (pos-eol) t)
-          (error "Code 7: Possibly malformed property drawer"))
+      (unless (search-forward ":" (pos-eol) t)
+        (error "Code 7: Possibly malformed property drawer"))
       ;; In the wild you see some :MULTIPLE:COLONS:IN:NAME: properties, which
       ;; would make this condition nil.  But they are illegal according to
       ;; `org-property-drawer-re', so don't bother to collect it.
       (when (looking-at-p " ")
+        (setq VALUE (string-trim (buffer-substring (point) (pos-eol))))
         (push (cons (upcase (buffer-substring START (1- (point))))
-                    (string-trim (buffer-substring (point) (pos-eol))))
-              result))
+                    ;; Emulate `org-entry-get' special case for string "nil"
+                    (if (equal VALUE "nil") nil VALUE))
+              alist))
       (forward-line 1))
-    result))
+    alist))
 
 
 ;;; Main

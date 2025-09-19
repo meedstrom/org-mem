@@ -616,6 +616,14 @@ only the properties explicitly written in the file.")
   "Value of property PROP in ENTRY."
   (cdr (assoc (upcase prop) (org-mem-entry-properties entry))))
 
+(defun org-mem-entry-property-with-inheritance (prop entry)
+  "Value of property PROP in ENTRY."
+  ;; NOTE: A value can be nil (i.e. not string "nil" but symbol nil), but
+  ;;       should still override any inherited value, so remember to use
+  ;;       `assoc' correctly with that in mind.
+  (cdr (or (assoc (upcase prop) (org-mem-entry-properties entry))
+           (assoc (upcase prop) (org-mem-entry-properties-inherited entry)))))
+
 (defun org-mem-entry-tags (entry)
   "ENTRY tags, with inheritance if allowed at ENTRY.
 Combines `org-mem-entry-tags-local' and `org-mem-entry-tags-inherited'."
@@ -973,6 +981,7 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-olpath-with-self                 #'org-mem-entry-olpath-with-self)
 (defalias 'org-mem-priority                         #'org-mem-entry-priority)
 (defalias 'org-mem-property                         #'org-mem-entry-property)
+(defalias 'org-mem-property-with-inheritance        #'org-mem-entry-property-with-inheritance)
 (defalias 'org-mem-properties                       #'org-mem-entry-properties)
 (defalias 'org-mem-properties-inherited             #'org-mem-entry-properties-inherited)
 (defalias 'org-mem-roam-aliases                     #'org-mem-entry-roam-aliases)
