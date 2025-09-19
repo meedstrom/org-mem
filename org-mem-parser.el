@@ -199,7 +199,7 @@ the subheading potentially has an ID of its own."
                           internal-entry-id)
                   org-mem-parser--found-links)))))
 
-    ;; New 2025-05-23: Start over and look for active timestamps
+    ;; Start over and look for active timestamps
     (goto-char beg)
     (while (re-search-forward org-mem-parser--org-ts-regexp end t)
       (push (org-mem-parser--time-string-to-int (match-string 0))
@@ -642,6 +642,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           org-mem-parser--found-active-stamps
                           CLOCK-LINES
                           CLOSED
+                          ;; Same as CRUMBS but without the tags or props;
+                          ;; matter of perf, as printing lists is slow.
                           (mapcar (lambda (x) (take 5 x)) CRUMBS)
                           DEADLINE
                           PRIORITY

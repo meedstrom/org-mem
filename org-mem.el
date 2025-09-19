@@ -616,11 +616,9 @@ properties, returning only properties explicitly written in the file.")
   "Value of property PROP in ENTRY."
   (cdr (assoc (upcase prop) (org-mem-entry-properties entry))))
 
-;; TODO: It would surely be useful to be able to get inherited tags even where
-;;       it is not allowed.  Currently `org-mem-entry-tags-inherited' is just
-;;       nil in that case, but maybe a separate field?
 (defun org-mem-entry-tags (entry)
-  "ENTRY tags, with inheritance if allowed at ENTRY."
+  "ENTRY tags, with inheritance if allowed at ENTRY.
+Combines `org-mem-entry-tags-local' and `org-mem-entry-tags-inherited'."
   (delete-dups (append (org-mem-entry-tags-inherited entry)
                        (org-mem-entry-tags-local entry))))
 
@@ -813,7 +811,9 @@ file has been scanned, but in practice they may often be identical."
 
 ;; REVIEW: Efficient since there are usually not many refs in total,
 ;; but not clean since it is possible for a ref (what we call a "link target"
-;; elsewhere) to occur twice with different types.
+;; elsewhere) to occur twice with different types --- for example when you
+;; have a "http://gnu.org" somewhere and "https://gnu.org" somewhere else.
+;;
 ;; Does not matter for org-node which only uses the table to prettify
 ;; completions, but since refs may not be unique, the implied contract is
 ;; false, so other use cases better think carefully.
@@ -846,8 +846,8 @@ These link-targets are determined by `org-mem--split-roam-refs-field'."
   (cl-loop for ref being each hash-key of org-mem--roam-ref<>id
            append (gethash ref org-mem--target<>links)))
 
-;; TODO: Should we maybe stash roam-refs in the entry object itself,
-;;       so we do not need to depend on ID?
+;; REVIEW: Should we maybe stash roam-refs in the entry object itself,
+;;         so we do not need to depend on ID?
 (defun org-mem-entry-by-roam-ref (ref)
   "The entry that has a ROAM_REFS property containing REF, and an ID."
   (org-mem-entry-by-id (gethash ref org-mem--roam-ref<>id)))
