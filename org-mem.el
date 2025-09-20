@@ -1339,7 +1339,7 @@ changing the meaning of \"~\" or \"~USER\", or runtime changes to
   (or (gethash wild-file org-mem--wild-filename<>truename)
       (and (stringp wild-file)
            (not (file-remote-p wild-file))
-           (let ((file-name-handler-alist nil))
+           (let (file-name-handler-alist)
              (cl-assert (file-name-absolute-p wild-file))
              (if (file-exists-p wild-file)
                  (let* ((truename (file-truename wild-file))
@@ -1391,7 +1391,7 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
   (dolist (dir org-mem-watch-dirs)
     (when (file-remote-p dir)
       (user-error "Option `org-mem-watch-dirs' has remote directories"))
-    (let ((file-name-handler-alist nil))
+    (let (file-name-handler-alist)
       (when (not (file-name-absolute-p dir))
         (user-error "Option `org-mem-watch-dirs' has relative directory names"))
       (dolist (other-dir (mapcar #'file-name-as-directory
@@ -1429,7 +1429,7 @@ to run on cached names that turned out to be invalid."
   (clrhash org-mem--dedup-tbl)
   (with-temp-buffer ;; No buffer-env
     (org-mem--check-user-settings)
-    (let ((file-name-handler-alist nil))
+    (let (file-name-handler-alist)
       ;; NOTE: It is possible to have a true dir name /home/org/,
       ;; then a symlink subdir /home/org/current/ -> /home/org/2025/.
       ;; Fortunately, `org-mem--dir-files-recursive' would not explore
@@ -1473,7 +1473,7 @@ to run on cached names that turned out to be invalid."
               (let ((cached (gethash file org-mem--wild-filename<>truename)))
                 (if cached (puthash cached t org-mem--dedup-tbl)
                   (unless (file-remote-p file)
-                    (let ((file-name-handler-alist nil))
+                    (let (file-name-handler-alist)
                       (when (file-exists-p file)
                         (push (file-name-nondirectory file)
                               (gethash (file-name-directory file)

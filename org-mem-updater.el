@@ -58,8 +58,8 @@ However, do not do so when FILE itself satisfies `file-symlink-p'.
 In that case, there may be nothing wrong with the known name."
   (when (and (or (string-suffix-p ".org" file)
                  (string-suffix-p ".org_archive" file))
-             ;; Don't accidentally scrub Tramp files from org-id-locations
-             ;; just because we chose to know nothing about them.
+             ;; Don't accidentally scrub Tramp paths from org-id-locations
+             ;; just because we chose to never scan them.
              (not (file-remote-p file)))
     (let ((bad (list file))
           (cached-true (gethash file org-mem--wild-filename<>truename)))
