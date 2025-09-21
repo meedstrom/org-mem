@@ -575,9 +575,10 @@ Requires `org-mem-do-cache-text' t."
 (defun org-mem-entry-olpath-with-self (entry)
   "Outline path, including ENTRY\\='s own heading."
   (with-memoization (org-mem--table 26 entry)
-    (if (org-mem-entry-subtree-p entry)
-        (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))
-      (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))))
+    (and (org-mem-entry-title-maybe entry)
+         (if (org-mem-entry-subtree-p entry)
+             (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))
+           (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry)))))))
 
 (defun org-mem-entry-olpath-with-file-title (entry &optional filename-fallback)
   "Outline path to ENTRY, including file #+title.
