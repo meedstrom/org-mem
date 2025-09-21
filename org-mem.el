@@ -161,6 +161,23 @@ this expression:
   :type '(repeat string)
   :package-version '(org-mem . "0.7.0"))
 
+(defcustom org-mem-suffixes '(".org" ".org_archive")
+  "File name suffixes to consider valid."
+  :type '(repeat string)
+  :package-version '(org-mem . "0.21.0"))
+
+(defcustom org-mem-load-features nil
+  "List of features to load in child process.
+These features must have been loaded at some point in the current
+process, because `load-history' is used to find the corresponding file."
+  :type '(repeat symbol)
+  :package-version '(org-mem . "0.21.0"))
+
+(defcustom org-mem-inject-vars '((file-name-handler-alist . nil))
+  "Alist of variable-value pairs to set in child process."
+  :type '(alist :key-type symbol :value-type sexp)
+  :package-version '(org-mem . "0.21.0"))
+
 (defvar org-mem-scratch nil
   "Work buffer held current while executing some hooks.
 These are hooks called many times:
@@ -1100,11 +1117,6 @@ Return MSG."
     (setq takeover t))
   (org-mem--scan-full takeover msg)
   msg)
-
-;; Experimental https://github.com/meedstrom/org-node/issues/148
-(defvar org-mem-suffixes '(".org" ".org_archive"))
-(defvar org-mem-load-features nil)
-(defvar org-mem-inject-vars '((file-name-handler-alist . nil)))
 
 (defun org-mem--scan-full (&optional takeover msg)
   "Arrange a full scan, if one is not already ongoing.
