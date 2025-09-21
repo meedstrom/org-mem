@@ -269,8 +269,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (rx bol (repeat 1 14 "*") " "))))
   (setq org-mem-parser--found-links nil)
   (setq org-mem-parser--found-active-stamps nil)
-  (let ((file-name-handler-alist nil)
-        (case-fold-search t)
+  (let ((case-fold-search t)
         (buffer-read-only t)
         (file-todo-option-re
          (rx bol (* space) (or "#+todo: " "#+seq_todo: " "#+typ_todo: ")))
