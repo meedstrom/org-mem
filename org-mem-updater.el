@@ -56,8 +56,7 @@ from that file.
 
 However, do not do so when FILE itself satisfies `file-symlink-p'.
 In that case, there may be nothing wrong with the known name."
-  (when (and (or (string-suffix-p ".org" file)
-                 (string-suffix-p ".org_archive" file))
+  (when (and (seq-find (##string-suffix-p % file) org-mem-suffixes)
              ;; Don't accidentally scrub Tramp paths from org-id-locations
              ;; just because we chose to never scan them.
              (not (file-remote-p file)))
@@ -73,8 +72,7 @@ In that case, there may be nothing wrong with the known name."
 (defun org-mem-updater--handle-save (&optional file)
   "Arrange to scan entries and links in FILE, or current buffer file."
   (unless file (setq file buffer-file-name))
-  (when (and (or (string-suffix-p ".org" file)
-                 (string-suffix-p ".org_archive" file))
+  (when (and (seq-find (##string-suffix-p % file) org-mem-suffixes)
              (not (backup-file-name-p file)))
     (org-mem-updater--scan-targeted file)))
 
@@ -87,8 +85,8 @@ In that case, there may be nothing wrong with the known name."
                      (seq-filter (##cl-loop for xclude in org-mem-exclude
                                             never (string-search xclude %))))))
     (el-job-launch :id 'org-mem-updater
-                   :inject-vars (org-mem--mk-work-vars)
-                   :load-features '(org-mem-parser)
+                   :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
+                   :load-features (append '(org-mem-parser) org-mem-load-features)
                    :inputs truenames
                    :funcall-per-input #'org-mem-parser--parse-file
                    :callback #'org-mem-updater--finalize-targeted-scan)))

@@ -1100,6 +1100,11 @@ Return MSG."
   (org-mem--scan-full takeover msg)
   msg)
 
+;; Experimental https://github.com/meedstrom/org-node/issues/148
+(defvar org-mem-suffixes '(".org" ".org_archive"))
+(defvar org-mem-load-features nil)
+(defvar org-mem-inject-vars nil)
+
 (defun org-mem--scan-full (&optional takeover msg)
   "Arrange a full scan, if one is not already ongoing.
 With TAKEOVER t, stop any already ongoing scan to start a new one.
@@ -1115,8 +1120,8 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
         (progn
           (el-job-launch :id 'org-mem
                          :if-busy 'takeover
-                         :inject-vars (org-mem--mk-work-vars)
-                         :load-features '(org-mem-parser)
+                         :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
+                         :load-features (append '(org-mem-parser) org-mem-load-features)
                          :inputs files
                          :funcall-per-input #'org-mem-parser--parse-file
                          :callback #'org-mem--finalize-full-scan)
@@ -1439,7 +1444,7 @@ to run on cached names that turned out to be invalid."
                     (mapcar #'file-truename
                             (seq-filter #'file-exists-p org-mem-watch-dirs))))
         (dolist (wild (org-mem--dir-files-recursive dir
-                                                    '(".org" ".org_archive")
+                                                    org-mem-suffixes
                                                     org-mem-exclude))
           (let ((cached (gethash wild org-mem--wild-filename<>truename)))
             (if cached (puthash cached t org-mem--dedup-tbl)
@@ -1612,7 +1617,7 @@ org-id-locations:
  (setq org-id-extra-files nil))"
   (interactive "DForget all IDs recursively in directory: ")
   (require 'org-id)
-  (let ((files (org-mem--dir-files-recursive dir '(".org" ".org_archive") nil)))
+  (let ((files (org-mem--dir-files-recursive dir org-mem-suffixes nil)))
     (when files
       (setq files (append files (seq-keep #'org-mem--truename-maybe files)))
       (message "Forgetting all IDs in directory %s..." dir)

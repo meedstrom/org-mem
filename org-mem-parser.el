@@ -245,11 +245,19 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 (defvar org-mem-parser--buf nil)
 (defun org-mem-parser--parse-file (file)
   "Gather entries, links and other data in FILE."
-  ;; This condition should fail in the normal case (running in a subprocess),
-  ;; but it lets us debug this function in the main process.
-  (when (fboundp 'org-mem--mk-work-vars)
+  (when (and (fboundp 'org-mem--mk-work-vars)
+             (fboundp 'el-job--ensure-compiled-lib)
+             (boundp 'org-mem-load-features)
+             (boundp 'org-mem-inject-vars))
+    ;; For debugging in main process; el-job already sets these in subprocesses
+    ;; (the above condition fails if subprocess is calling this).
     (dolist (var (org-mem--mk-work-vars))
-      (set (car var) (cdr var))))
+      (set (car var) (cdr var)))
+    (dolist (var org-mem-inject-vars)
+      (when (consp var)
+        (set (car var) (cdr var))))
+    (dolist (lib org-mem-load-features)
+      (load (el-job--ensure-compiled-lib lib))))
   (unless (eq org-mem-parser--buf (current-buffer))
     (switch-to-buffer
      (setq org-mem-parser--buf (get-buffer-create " *org-mem-parser*" t))))
