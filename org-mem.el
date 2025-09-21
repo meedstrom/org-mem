@@ -108,6 +108,7 @@ Exceptions:
   or else rely on `org-mem-do-sync-with-org-id' as additional source.
 - Subdirectories that are symlinks.
 - Anything matching `org-mem-exclude'.
+- Any file not ending in one of `org-mem-suffixes'.
 
 Can be left at nil, if `org-mem-do-sync-with-org-id' is t.
 Benefits of configuring it anyway:
@@ -133,12 +134,13 @@ try command \\[org-mem-forget-id-locations-recursively]."
   "Literal substrings of file paths that should not be scanned.
 Aside from this variable, some filters are hard-coded:
 
-- We only scan files that end in precisely \".org\" or \".org_archive\"
-  - Thus backups ending in ~, # or similar are excluded in any case
+- We only scan files that end in one of `org-mem-suffixes'
+  - Thus backups ending in ~, # or similar are excluded in any case,
+    under the default setting for that variable
 - We exclude symlinks
 
-Main reason to configure this is to prevent counting back-ups
-and autosave files as duplicate ID locations,
+Main reason to configure this is to prevent counting back-ups and
+autosave files from different systems as duplicate ID locations,
 especially that appear somewhere inside `org-mem-watch-dirs'.
 
 You can also speed up `org-mem-reset' a bit by excluding directories

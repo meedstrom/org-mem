@@ -269,6 +269,30 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
 - =org-mem-roam-reflinks-to-entry=
 - =org-mem-roam-reflinks-to-id=
 
+* Tips
+** Encrypted and compressed files (=.org.gpg=, =.org.age=, =.org.gz=)
+
+Suppose you use [[https://github.com/anticomputer/age.el][age.el]] to keep files encrypted.
+
+This needs extra config to tell org-mem's subprocesses how to open them. The following should do the trick:
+
+#+begin_src elisp
+(load "~/.emacs.d/my-org-mem-extra.el") ;; a file that contains "(age-file-enable)"
+(setq org-mem-load-features '(age my-org-mem-extra))
+(setq org-mem-inject-vars '(age-default-identity age-default-recipient age-program))
+(add-to-list 'org-mem-suffixes ".org.age")
+#+end_src
+
+where file "~/.emacs.d/my-org-mem-extra.el" contains:
+
+#+begin_src elisp
+;; -*- lexical-binding: t; -*-
+(require 'age)
+(age-file-enable)
+(provide 'my-org-mem-extra)
+#+end_src
+
+
 * Current limitations / future work
 ** Limitation: TRAMP
 
@@ -277,10 +301,6 @@ Files over TRAMP are excluded from org-mem's database, so as far as org-mem is c
 (However, org-mem is also careful not to scrub them from your =org-id-locations=, so your ID-links should still work.)
 
 This limitation comes from the fact that org-mem parses your files in many parallel subprocesses that do not inherit your TRAMP setup.  It is fixable in theory.
-
-** Limitation: Encrypted and compressed files (=.org.gpg=, =.org.gz=)
-
-When TRAMP support is fixed, we should be able to fix this too.
 
 ** Limitation: Encrypted entries
 
