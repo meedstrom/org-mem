@@ -1096,7 +1096,8 @@ For arguments TAKEOVER and MSG, see `org-mem--scan-full'.
 Return MSG."
   (interactive "i\ni\np")
   (when called-interactively
-    (setq org-mem--next-message t))
+    (setq org-mem--next-message t)
+    (setq takeover t))
   (org-mem--scan-full takeover msg)
   msg)
 
