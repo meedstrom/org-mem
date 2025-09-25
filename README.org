@@ -283,7 +283,7 @@ This needs extra config to tell org-mem's subprocesses how to open them. The fol
 (add-to-list 'org-mem-suffixes ".org.age")
 #+end_src
 
-where file "~/.emacs.d/my-org-mem-extra.el" contains:
+where file "~/.emacs.d/my-org-mem-extra.el" contains the following.  Sorry it's a bit roundabout, but that's the API for now.
 
 #+begin_src elisp
 ;; -*- lexical-binding: t; -*-
@@ -293,7 +293,7 @@ where file "~/.emacs.d/my-org-mem-extra.el" contains:
 #+end_src
 
 
-* Current limitations / future work
+* Current limitations
 ** Limitation: TRAMP
 
 Files over TRAMP are excluded from org-mem's database, so as far as org-mem is concerned, it is as if they do not exist.
@@ -304,4 +304,12 @@ This limitation comes from the fact that org-mem parses your files in many paral
 
 ** Limitation: Encrypted entries
 
-Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot find links or active timestamps inside these.
+Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot find links nor active timestamps inside these.
+
+** Limitation: SETUPFILE
+
+No support yet for buffer settings from =#+SETUPFILE:=.
+
+* Future work
+
+Use Org's own parser. https://lists.gnu.org/archive/html/emacs-orgmode/2025-05/msg00288.html

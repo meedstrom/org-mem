@@ -4,3 +4,20 @@
 :END:
 
 #+transclude: [[id:yjm8lle0wlk0][fooba]] :level 2
+
+
+List of things to test:
+
+- Wrong-positioned :PROPERTIES: drawer (many ways to do that)
+  - :BACKLINKS: before :PROPERTIES:
+  - A commented-out planning line
+- Statistics cookies
+- Priority cookie
+- TODO keywords
+  - File-local and directory-local =org-todo-keywords=
+- Titles in file lacking a =#+title:= vs. files that have one
+- That =org-mem-exclude= correctly excludes files from =org-mem-watch-dirs= as well as =org-id-locations=
+- Links to nonexistent IDs
+- Links to existent IDs
+- That all functions in API return the expected values
+- ...
