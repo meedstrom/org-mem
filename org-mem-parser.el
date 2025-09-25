@@ -307,6 +307,14 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq coding-system last-coding-system-used))
 
           ;; Apply relevant dir-locals and file-locals.
+          ;; NOTE: Some variables you'd think would work in .dir-locals.el,
+          ;;       such as `org-todo-keywords', don't work, so don't bother
+          ;;       emulating support here.
+          ;;       (For that sort of purpose, Org provides the #+SETUPFILE option,
+          ;;       https://lists.gnu.org/r/emacs-orgmode/2020-05/msg00510.html)
+          ;;       TODO: Read any #+SETUPFILE around the same time we read
+          ;;             #+TITLE and #+FILETAGS.  While we're at it, maybe
+          ;;             cache all #+keywords just because.
           (let* ((dir-or-cache (dir-locals-find-file file))
                  (dir-class-vars (dir-locals-get-class-variables
                                   (if (listp dir-or-cache)
@@ -510,7 +518,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq STATS-COOKIES (nconc (nreverse INITIAL-STATS-COOKIES) STATS-COOKIES))
             ;; Gotta go forward 1 line, see if it is a planning-line, and
             ;; if it is, then go forward 1 more line, and if that is a
-            ;; :PROPERTIES: line, then we're safe to collect properties
+            ;; :PROPERTIES: line, then we're safe to collect properties.
             (forward-line 1)
             (setq LEFT (point))
             (setq RIGHT (pos-eol))
@@ -594,9 +602,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; It lets us track context so we know the outline path to the
             ;; current entry and what tags it should be able to inherit.
 
-            ;; There are two ways we could store inherited tags for end use.
-            ;; Either put them in a "tags-inherited" field, or put the
-            ;; heritable local tags inside CRUMBS that a function
+            ;; Discussion: There are two ways we could store inherited tags
+            ;; for end use.  Either put them in a "tags-inherited" field, or
+            ;; put all heritable local tags inside CRUMBS that a function
             ;; "tags-inherited" can later use to figure it out.
 
             ;; Going with the former to simplify implementation of
@@ -606,12 +614,24 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; list of positions and figure out everything else in real time,
             ;; because positions change.
 
-            ;; Suppose someone filters entries by an inherited tag ":notes:" for
-            ;; display as completion candidates, but we can't find the ancestors
-            ;; because the positions are wrong in an unsaved buffer, and then a
-            ;; newly inserted heading does not show up among candidates --
-            ;; you get the idea.  Better to rely as little as possible on
-            ;; cross-referencing with other entries' positions.
+            ;; Suppose someone filters entries by an inherited tag for display
+            ;; as completion candidates to some command, but org-mem can't
+            ;; find any ancestors to a newly inserted entry in an unsaved
+            ;; buffer because the positions don't match the cached positions,
+            ;; and so the new entry appears to inherit nothing.  Better to
+            ;; rely as little as possible on cross-referencing with other
+            ;; entries' positions.
+
+            ;; Rant: I'm not happy with hacks like `org-mem-updater-mk-entry-atpt'
+            ;; though, I hope to do away with the need for it one day.
+            ;; Would require saving the buffer much more often while the user
+            ;; works in it, which may not suit all users, but makes things
+            ;; easier to reason about.
+
+            ;; Or if ever we switch to using Org's own parser, then we'll be
+            ;; able to just translate the buffer's parse tree that is always
+            ;; correct even in an unsaved buffer.  In theory.
+            ;; https://lists.gnu.org/archive/html/emacs-orgmode/2025-05/msg00288.html
 
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE

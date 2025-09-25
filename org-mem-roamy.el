@@ -306,6 +306,9 @@ the database file on disk and write a new one, then connect to that."
              "INSERT INTO links VALUES "
              (org-mem-roamy--mk-literal-input-quoted-like-emacsql links)))))))
 
+;; Faster than using emacsql directly.  One round of somewhat comparable
+;; benchmarks cut ~6 seconds to ~3 (https://github.com/magit/emacsql/pull/129)
+;; but I have the feeling the difference is greater in our case.
 (defun org-mem-roamy--mk-literal-input-quoted-like-emacsql (rows)
   "Turn ROWS into a literal \(not prepared) input for SQL INSERT.
 
