@@ -282,7 +282,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         ID ID-HERE INTERNAL-ENTRY-ID
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
         TITLE HEADING-POS LNUM CRUMBS CLOCK-LINES
-        TODO-STATE STATS-COOKIES
+        TODO-STATE STATS-COOKIES INITIAL-STATS-COOKIES
         SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
         LEFT RIGHT DRAWER-BEG DRAWER-END
         (TODO-RE $default-todo-re))
@@ -459,6 +459,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq HEADING-POS (point))
             (setq LEVEL (skip-chars-forward "*"))
             (setq STATS-COOKIES nil)
+            (setq INITIAL-STATS-COOKIES nil)
             (skip-chars-forward " ")
             ;; NOTE: Org seems to expect todo and priority in a strict order,
             ;;       and before anything else.  Good for us.
@@ -473,7 +474,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                     (skip-chars-forward "\s\t")))))
             ;; NOTE: From here on, Org seems to permit tabs.
             (while (looking-at "\\[[0-9/%]+]")
-              (push (match-string 0) STATS-COOKIES)
+              (push (match-string 0) INITIAL-STATS-COOKIES)
               (goto-char (match-end 0))
               (skip-chars-forward "\s\t"))
             (setq LEFT (point))
@@ -488,9 +489,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (skip-chars-backward "\s\t")
             (if (< (point) LEFT)
                 (setq TITLE "")
-              ;; Chop trailing stats-cookies.
-              ;; Am assuming that `re-search-backward' performs better
-              ;; than `looking-back', otherwise we could simplify this.
+              ;; Get the rest of the stats-cookies, and make sure we will leave
+              ;; trailing stats-cookies out of the title.
+              ;; For example, the hypothetical heading:
+              ;; "** [2/10] Foo [5/10] Bar [1/10] [20%]"
+              ;; should be represented as an entry titled "Foo [5/10] Bar".
+              ;; https://github.com/meedstrom/org-mem/issues/22
               (setq RIGHT (point))
               (while (re-search-backward "\\[[0-9/%]+]" LEFT t)
                 (push (match-string 0) STATS-COOKIES)
@@ -502,6 +506,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (setq TITLE (string-trim-right
                            (org-mem-parser--org-link-display-format
                             (buffer-substring LEFT RIGHT)))))
+            ;; Put the cookies in the same order as they occurred in the heading.
+            (setq STATS-COOKIES (nconc (nreverse INITIAL-STATS-COOKIES) STATS-COOKIES))
             ;; Gotta go forward 1 line, see if it is a planning-line, and
             ;; if it is, then go forward 1 more line, and if that is a
             ;; :PROPERTIES: line, then we're safe to collect properties
