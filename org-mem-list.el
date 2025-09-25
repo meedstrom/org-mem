@@ -48,7 +48,13 @@
   (interactive)
   (if (fboundp 'inspector-inspect)
       (inspector-inspect (org-mem-all-entries))
-    (message "Command org-mem-list-entries removed, try (inspector-inspect (org-mem-all-entries))")))
+    (message "Command org-mem-list-entries depends on package \"inspector\"")))
+
+(defun org-mem-list-entries-in-file ()
+  (interactive)
+  (if (fboundp 'inspector-inspect)
+      (inspector-inspect (org-mem-entries-in-file (buffer-file-name)))
+    (message "Command org-mem-list-entries-in-file depends on package \"inspector\"")))
 
 ;;;###autoload
 (defun org-mem-list-problems ()
