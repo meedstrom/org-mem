@@ -1,8 +1,8 @@
-# Copying and distribution of this file, with or without modification,
-# are permitted in any medium without royalty provided the copyright
-# notice and this notice are preserved.  This file is offered as-is,
-# without any warranty.
 #+TITLE: Org-mem
+#+EXPORT_FILE_NAME: org-mem
+#+TEXINFO_DIR_TITLE: Org-mem: (org-mem).
+#+TEXINFO_DIR_DESC: Quick database of Org file contents
+#+TEXINFO_DIR_CATEGORY: Emacs
 
 A cache of metadata about the contents of all your Org files -- headings, links, timestamps and so on.
 
@@ -18,7 +18,9 @@ Many notetaking packages now reinvent the wheel, when it comes to keeping track 
 
 Example: org-roam's DB, org-node's hash tables, and other packages just re-run grep all the time, which still leads to writing elisp to cross-reference the results.
 
-And they must do this, because Org ships no tool to query across lots of files.  You know what happens if you put 2,000 files into =org-agenda-files=!  It needs to open each file in real-time to check anything in them, so everyday commands grind to a halt, or even crash: many OSes have a cap of 1,024 simultaneous file handles.
+And they must do this, because Org ships no tool to query across lots of files.
+
+Well---Org does ship the agenda.  But you know what happens if you put 2,000 files into =org-agenda-files=!  It needs to open each file in real-time to check anything in them, so everyday commands grind to a halt, or even crash: many OSes have a cap of 1,024 simultaneous file handles.
 
 ** Quick start
 
@@ -101,7 +103,7 @@ Test that it works:
 
 *** With org-roam installed
 
-You can use this to end your dependence on =org-roam-db-sync=.  Set the following to overwrite the "org-roam.db" file.
+You can use this to end your dependence on =org-roam-db-sync=.  Set the following to let org-mem overwrite the "org-roam.db" file.
 
 #+begin_src elisp
 (setq org-roam-db-update-on-save nil)
@@ -109,11 +111,13 @@ You can use this to end your dependence on =org-roam-db-sync=.  Set the followin
 (org-mem-roamy-db-mode)
 #+end_src
 
-Now, you have a new, all-fake org-roam.db!  Test that =org-roam-db-query= works:
+Now, you have a new, all-fake org-roam.db!  Test that org-roam's =org-roam-db-query= works:
 
 #+begin_src elisp
 (org-roam-db-query [:select * :from files :limit 10])
 #+end_src
+
+If it works, then various packages that depend on org-roam's DB should also work without issue.
 
 N/B: because =(equal (org-roam-db) (org-mem-roamy-db))=, the above is equivalent to these expressions:
 
@@ -122,11 +126,11 @@ N/B: because =(equal (org-roam-db) (org-mem-roamy-db))=, the above is equivalent
 (emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
 #+end_src
 
-A known issue when when you use multiple Emacsen: "attempt to write a readonly database".  Get unstuck with =M-: (org-roam-db--close-all)=.
+A known issue when when you run multiple Emacs instances: "attempt to write a readonly database".  Get unstuck with =M-: (org-roam-db--close-all)=.
 
 *** View what info is in the DB
 
-Use the command =M-x org-mem-list-db-contents=.
+Use =M-x org-mem-list-db-contents=.
 
 ** Elisp API
 *** Example: Let org-agenda cast its net wide
@@ -269,8 +273,8 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
 - =org-mem-roam-reflinks-to-entry=
 - =org-mem-roam-reflinks-to-id=
 
-* Tips
-** Encrypted and compressed files (=.org.gpg=, =.org.age=, =.org.gz=)
+** Tips
+*** Encrypted and compressed files (=.org.gpg=, =.org.age=, =.org.gz=)
 
 Suppose you use [[https://github.com/anticomputer/age.el][age.el]] to keep files encrypted.
 
@@ -293,8 +297,8 @@ where file "~/.emacs.d/my-org-mem-extra.el" contains the following.  Sorry it's 
 #+end_src
 
 
-* Current limitations
-** Limitation: TRAMP
+** Current limitations
+*** Limitation: TRAMP
 
 Files over TRAMP are excluded from org-mem's database, so as far as org-mem is concerned, it is as if they do not exist.
 
@@ -302,14 +306,14 @@ Files over TRAMP are excluded from org-mem's database, so as far as org-mem is c
 
 This limitation comes from the fact that org-mem parses your files in many parallel subprocesses that do not inherit your TRAMP setup.  It is fixable in theory.
 
-** Limitation: Encrypted entries
+*** Limitation: Encrypted entries
 
 Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot find links nor active timestamps inside these.
 
-** Limitation: SETUPFILE
+*** Limitation: SETUPFILE
 
 No support yet for buffer settings from =#+SETUPFILE:=.
 
-* Future work
+** Future work
 
 Use Org's own parser. https://lists.gnu.org/archive/html/emacs-orgmode/2025-05/msg00288.html
