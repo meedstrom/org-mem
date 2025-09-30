@@ -273,39 +273,39 @@ Note: All tables cleared often, meant for memoizations."
         (concat "~" (substring absolute-file-name (match-beginning 1)))
       absolute-file-name)))
 
-(cl-defstruct (org-mem-link (:constructor nil) (:copier nil))
-  (file-truename      () :read-only t :type string)
-  (pos                () :read-only t :type integer)
-  (type               () :read-only t :type string)
-  (target             () :read-only t :type string)
-  (description        () :read-only t :type string)
-  (citation-p         () :read-only t :type boolean)
-  (nearby-id          () :read-only t :type string)
-  (-internal-entry-id () :read-only t :type integer))
+(cl-defstruct org-mem-link
+  (file-truename      ""  :read-only t :type string)
+  (pos                -1  :read-only t :type integer)
+  (type               nil :read-only t :type string-or-nil)
+  (target             ""  :read-only t :type string)
+  (description        nil :read-only t :type string-or-nil)
+  (citation-p         nil :read-only t :type boolean)
+  (nearby-id          nil :read-only t :type string-or-nil)
+  (-internal-entry-id -1  :read-only t :type integer))
 
-(cl-defstruct (org-mem-entry (:constructor nil) (:copier nil))
+(cl-defstruct org-mem-entry
   ;; Ordered for easy visual overview of a printed list of objects.
-  (file-truename         () :read-only t :type string)
-  (lnum                  () :read-only t :type integer)
-  (pos                   () :read-only t :type integer)
-  (title-maybe           () :read-only t :type string)
-  (level                 () :read-only t :type integer)
-  (id                    () :read-only t :type string)
+  (file-truename         ""  :read-only t :type string)
+  (lnum                  -1  :read-only t :type integer)
+  (pos                   -1  :read-only t :type integer)
+  (title-maybe           nil :read-only t :type string-or-nil)
+  (level                 -1  :read-only t :type integer)
+  (id                    nil :read-only t :type string-or-nil)
   ;; Ordered alphabetically.
-  (active-timestamps-int () :read-only t :type list)
-  (clocks-int            () :read-only t :type list)
-  (closed-int            () :read-only t :type string)
-  (crumbs                () :read-only t :type list)
-  (deadline-int          () :read-only t :type string)
-  (priority              () :read-only t :type string)
-  (properties-inherited  () :read-only t :type list)
-  (properties-local      () :read-only t :type list)
-  (scheduled-int         () :read-only t :type string)
-  (stats-cookies         () :read-only t :type list)
-  (tags-inherited        () :read-only t :type list)
-  (tags-local            () :read-only t :type list)
-  (todo-state            () :read-only t :type string)
-  (-internal-id          () :read-only t :type integer))
+  (active-timestamps-int nil :read-only t :type list)
+  (clocks-int            nil :read-only t :type list)
+  (closed-int            nil :read-only t :type integer-or-nil)
+  (crumbs                nil :read-only t :type list)
+  (deadline-int          nil :read-only t :type integer-or-nil)
+  (priority              nil :read-only t :type string-or-nil)
+  (properties-inherited  nil :read-only t :type list)
+  (properties-local      nil :read-only t :type list)
+  (scheduled-int         nil :read-only t :type integer-or-nil)
+  (stats-cookies         nil :read-only t :type list)
+  (tags-inherited        nil :read-only t :type list)
+  (tags-local            nil :read-only t :type list)
+  (todo-state            nil :read-only t :type string-or-nil)
+  (-internal-id          -1  :read-only t :type integer))
 
 
 ;;; To find objects to operate on
@@ -1663,7 +1663,7 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvar org-mem--bump-int 11 "Not a version number, but bumped sometimes.")
+(defvar org-mem--bump-int 12 "Not a version number, but bumped sometimes.")
 (defmacro org-mem--def-whiny-alias (old new when removed-by)
   "Define function OLD as effectively an alias for NEW.
 Also, calling OLD will emit a deprecation warning the first time.
