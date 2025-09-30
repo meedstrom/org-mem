@@ -312,9 +312,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           ;;       emulating support here.
           ;;       (For that sort of purpose, Org provides the #+SETUPFILE option,
           ;;       https://lists.gnu.org/r/emacs-orgmode/2020-05/msg00510.html)
-          ;;       TODO: Read any #+SETUPFILE around the same time we read
-          ;;             #+TITLE and #+FILETAGS.  While we're at it, maybe
-          ;;             cache all #+keywords just because.
+          ;;       TODO: Read any #+SETUPFILE.
           (let* ((dir-or-cache (dir-locals-find-file file))
                  (dir-class-vars (dir-locals-get-class-variables
                                   (if (listp dir-or-cache)
@@ -464,10 +462,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                (if (re-search-forward org-mem-parser--outline-regexp nil t)
                    (pos-bol)
                  (point-max))))
-            (setq HEADING-POS (point))
-            (setq LEVEL (skip-chars-forward "*"))
+            (setq org-mem-parser--found-active-stamps nil)
             (setq STATS-COOKIES nil)
             (setq INITIAL-STATS-COOKIES nil)
+            (setq CLOCK-LINES nil)
+            (setq HEADING-POS (point))
+            (setq LEVEL (skip-chars-forward "*"))
             (skip-chars-forward " ")
             ;; NOTE: Org seems to expect todo and priority in a strict order,
             ;;       and before anything else.  Good for us.
@@ -559,7 +559,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq ID (cdr (assoc "ID" PROPS)))
             (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
             (setq LEFT (point))
-            ;; rough start of body text (just a perf hack, fails gracefully)
+            ;; Rough start of body text (just a perf hack, fails gracefully)
             (setq RIGHT (re-search-forward "^[ \t]*[a-bd-z]" nil t))
             (goto-char LEFT)
             (while (re-search-forward "^[ \t]*CLOCK: " RIGHT t)
@@ -633,12 +633,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; correct even in an unsaved buffer.  In theory.
             ;; https://lists.gnu.org/archive/html/emacs-orgmode/2025-05/msg00288.html
 
+            (cl-loop until (> LEVEL (caar CRUMBS)) do (pop CRUMBS))
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE
                         (cl-loop for tag in TAGS
                                  unless (member tag NONHERITABLE-TAGS)
                                  collect tag))))
-              (cl-loop until (> LEVEL (caar CRUMBS)) do (pop CRUMBS))
               (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags PROPS)
                     CRUMBS))
 
@@ -699,8 +699,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           TODO-STATE
                           INTERNAL-ENTRY-ID)
                   found-entries)
-            (setq org-mem-parser--found-active-stamps nil)
-            (setq CLOCK-LINES nil)
             (goto-char (point-max))
             ;; NOTE: Famously slow `line-number-at-pos' fast in narrow region.
             (setq LNUM (+ LNUM -1 (line-number-at-pos)))

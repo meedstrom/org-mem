@@ -109,7 +109,7 @@ Exceptions:
 - Any file not ending in one of `org-mem-suffixes'.
 
 Can be left at nil, if `org-mem-do-sync-with-org-id' is t.
-Benefits of configuring it anyway:
+Benefits of configuring this anyway:
 
 - Awareness of files that contain no ID at all.
 - React when new files appear in these directories.
@@ -137,9 +137,9 @@ Aside from this variable, some filters are hard-coded:
     under the default setting for that variable
 - We exclude symlinks
 
-Main reason to configure this is to prevent counting back-ups and
-autosave files from different systems as duplicate ID locations,
-especially that appear somewhere inside `org-mem-watch-dirs'.
+Main reason to configure this is to prevent counting various kinds of
+\"back-up\" and \"auto-save\" files as duplicate ID locations,
+especially such files appearing somewhere inside `org-mem-watch-dirs'.
 
 You can also speed up `org-mem-reset' a bit by excluding directories
 found inside `org-mem-watch-dirs' with a very large amount of files
@@ -162,7 +162,7 @@ this expression:
   :package-version '(org-mem . "0.7.0"))
 
 (defcustom org-mem-suffixes '(".org" ".org_archive")
-  "File name suffixes to consider valid."
+  "File name suffixes to consider valid for scanning the file."
   :type '(repeat string)
   :package-version '(org-mem . "0.21.0"))
 
@@ -201,7 +201,7 @@ Buffer is in `fundamental-mode'.  For an Org buffer see function
 ;;; Basics
 
 (defvar org-mem--title<>id (make-hash-table :test 'equal)
-  "1:1 table mapping a heading, file-title or alias to an ID.")
+  "1:1 table mapping a heading, file-title or alias, to an ID.")
 
 (defvar org-mem--id<>entry (make-hash-table :test 'equal)
   "1:1 table mapping an ID to an `org-mem-entry' record.")
@@ -211,8 +211,15 @@ Buffer is in `fundamental-mode'.  For an Org buffer see function
 
 (defvar org-mem--truename<>entries (make-hash-table :test 'equal)
   "1:N table mapping a file name to a sorted list of `org-mem-entry' records.
-Sorted by the order those entries are found in that file: effectively on
-`org-mem-entry-pos' or `org-mem-entry-lnum' in ascending order.")
+
+Sorted by the order those entries are found in that file\;
+effectively `org-mem-entry-pos' in ascending order.")
+
+(defvar org-mem--truename<>metadata (make-hash-table :test 'equal)
+  "1:1 table mapping a file name to a list of facts about that file.
+
+Users have no reason to inspect this table, prefer stable API
+in `org-mem-file-mtime' and friends.")
 
 (defvar org-mem--target<>links (make-hash-table :test 'equal)
   "1:N table mapping a link target to a list of `org-mem-link' records.
@@ -226,7 +233,9 @@ in `org-link-plain-re').  In practice, it is often an org-id like
 NOTE! A future version may omit the sigil @ in citekeys.")
 
 (defvar org-mem--internal-entry-id<>links (make-hash-table :test 'eq)
-  "1:N table mapping internal entry ID to list of `org-mem-link' records.")
+  "1:N table mapping internal entry ID to list of `org-mem-link' records.
+The list represents all links found in that entry,
+but not in its children.")
 
 (defvar org-mem--key<>subtable (make-hash-table :test 'eq)
   "Big bag of memoized values, smelling faintly of cabbage.")
@@ -239,12 +248,6 @@ Note: All tables cleared often, meant for memoizations."
    (gethash ,subkey (or (gethash ,key org-mem--key<>subtable)
                         (puthash ,key (make-hash-table :test 'equal)
                                  org-mem--key<>subtable)))))
-
-(defvar org-mem--truename<>metadata (make-hash-table :test 'equal)
-  "1:1 table mapping a file name to a list of assorted data.
-
-Users have no reason to inspect this table, prefer stable API
-in `org-mem-file-mtime' and friends.")
 
 (defun org-mem--get-file-metadata (file/entry/link)
   "Return list of assorted data if FILE/ENTRY/LINK known, else error."
@@ -627,7 +630,7 @@ since `org-entry-properties' does not use inheritance while
 
 To get ancestor properties, use `org-mem-entry-properties-inherited'.
 
-Unlike `org-entry-properties', this omits special properties and returns
+Unlike `org-entry-properties', this omits special properties to return
 only the properties explicitly written in the file.")
 
 (defun org-mem-entry-property (prop entry)
@@ -750,6 +753,11 @@ Often close to but not exactly the size in bytes due to text encoding."
   "Modification time for file at FILE/ENTRY/LINK."
   (file-attribute-modification-time (org-mem-file-attributes file/entry/link)))
 
+;; Named "-floor" instead of "-int" because it can matter in downstream code
+;; whether it was rounded down or up, and programmers may not think of that
+;; until after a bug crops up.
+;; Org-mem has other functions named "-int", because those come from Org
+;; timestamps which are only precise to the minute anyway.
 (defun org-mem-file-mtime-floor (file/entry/link)
   "Modification time for file at FILE/ENTRY/LINK, as integer.
 Rounded down."
@@ -1056,7 +1064,8 @@ Like `org-mem-entry-title', this always returns a string."
 
 (defun org-mem-entries-in (file/files)
   "All entries in FILE/FILES."
-  (funcall (if (listp file/files) #'org-mem-entries-in-files
+  (funcall (if (listp file/files)
+               #'org-mem-entries-in-files
              #'org-mem-entries-in-file)
            file/files))
 
@@ -1415,8 +1424,8 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
       (dolist (other-dir (mapcar #'file-name-as-directory
                                  (remove dir org-mem-watch-dirs)))
         (when (and (string-prefix-p dir other-dir)
-                   ;; TODO: Remove these clauses if we stop filtering
-                   ;; initial dot in `org-mem--dir-files-recursive'.
+                   ;; NOTE: Remove these clauses if we stop filtering
+                   ;; dot/underscore in `org-mem--dir-files-recursive'.
                    (not (eq ?. (aref other-dir (length (file-name-as-directory dir)))))
                    (not (eq ?_ (aref other-dir (length (file-name-as-directory dir))))))
           (message "Option `org-mem-watch-dirs' has redundant subdirectories"))))))
@@ -1582,19 +1591,20 @@ corresponding to your package name."
 ;; "org-scratch" function like this?  It belongs upstream.
 (defun org-mem-org-mode-scratch (&optional bufname)
   "Get or create a hidden `org-mode' buffer.
-Also enable `org-mode', but ignore `org-mode-hook' and startup options.
+Ignore `org-mode-hook' and startup options.
 
-Like a temp buffer, but does not clean up.  You should probably use
-`erase-buffer' in case it already contains text.
+Like a temp buffer, but does not clean up.
+You should probably use `erase-buffer' in case it already contains text.
 BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
   (require 'org)
-  (let ((bufname (or bufname " *org-mem-org-mode-scratch*"))
-        (org-inhibit-startup t)
-        (org-agenda-files nil)
-        (org-element-cache-persistent nil))
-    (or (get-buffer bufname)
+  (setq bufname (or bufname " *org-mem-org-mode-scratch*"))
+  (or (get-buffer bufname)
+      (let ((org-inhibit-startup t)
+            (org-agenda-files nil)
+            (org-element-cache-persistent nil))
         (with-current-buffer (get-buffer-create bufname t)
-          (delay-mode-hooks (org-mode))
+          (delay-mode-hooks
+            (org-mode))
           (setq-local org-element-cache-persistent nil)
           (current-buffer)))))
 

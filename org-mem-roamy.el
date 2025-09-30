@@ -41,7 +41,8 @@ works as expected.  However:
 1. Package \"org-roam\" must be installed.
 2. Only one Emacs session can use the database.
 
-Note that you can trivially rewrite your database queries from:
+Note that you can trivially rewrite your database queries to not
+need org-roam installed, by rewriting from:
 
   \(org-roam-db-query QUERY...)
 

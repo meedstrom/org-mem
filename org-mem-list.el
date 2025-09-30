@@ -179,15 +179,14 @@ instead of default `org-mem-roamy--connection'."
 (cl-defun org-mem-list--pop-to-tabulated-buffer (&key buffer format entries reverter)
   "Create, populate and display a `tabulated-list-mode' buffer.
 
-BUFFER is a buffer or buffer name where the list should be created.
+BUFFER is a buffer or buffer name to use.
 FORMAT is the value to which `tabulated-list-format' should be set.
 ENTRIES is the value to which `tabulated-list-entries' should be set.
 
 Optional argument REVERTER is a function to add buffer-locally to
 `tabulated-list-revert-hook'."
   (unless (and buffer format)
-    (user-error
-     "org-mem-list--pop-to-tabulated-buffer: Mandatory arguments are buffer, format, entries"))
+    (error "org-mem-list--pop-to-tabulated-buffer: Mandatory arguments are BUFFER, FORMAT, ENTRIES"))
   (when (null entries)
     (message "No entries to tabulate"))
   (pop-to-buffer (get-buffer-create buffer))
