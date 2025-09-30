@@ -58,9 +58,7 @@
 (declare-function org-id-locations-save "org-id")
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
-(define-obsolete-variable-alias 'org-mem--file<>metadata 'org-mem--truename<>metadata "0.12.6 (May 2025)")
-(define-obsolete-variable-alias 'org-mem--file<>entries  'org-mem--truename<>entries  "0.12.6 (May 2025)")
-(define-obsolete-variable-alias 'org-mem-watch-dirs-exclude 'org-mem-exclude          "0.13.0 (May 2025)")
+(define-obsolete-variable-alias 'org-mem-watch-dirs-exclude 'org-mem-exclude "0.13.0 (May 2025)")
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
@@ -994,7 +992,6 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-closed-int                       #'org-mem-entry-closed-int)
 (defalias 'org-mem-deadline                         #'org-mem-entry-deadline)
 (defalias 'org-mem-deadline-int                     #'org-mem-entry-deadline-int)
-(defalias 'org-mem-heading-lvl                      #'org-mem-entry-level) ;; feels more legible
 (defalias 'org-mem-level                            #'org-mem-entry-level)
 (defalias 'org-mem-lnum                             #'org-mem-entry-lnum)
 (defalias 'org-mem-olpath                           #'org-mem-entry-olpath)
@@ -1656,28 +1653,38 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvar org-mem--bump-int 10 "Not a version number, but bumped sometimes.")
-(define-obsolete-function-alias 'org-mem-link-dest           #'org-mem-link-target       "0.8.0 (2025-05-15)")
-(define-obsolete-function-alias 'org-mem-dest                #'org-mem-target            "0.8.0 (2025-05-15)")
-(define-obsolete-function-alias 'org-mem-x-fontify-like-org  #'org-mem-fontify-like-org  "0.10.0 (2025-05-18)")
-(define-obsolete-function-alias 'org-mem-block               #'org-mem-await             "0.12.0 (2025-05-22)")
-(define-obsolete-function-alias 'org-mem--abbr-truename      #'org-mem--truename-maybe   "0.12.0 (2025-05-22)")
-(define-obsolete-function-alias 'org-mem-entry-olpath-with-title           #'org-mem-entry-olpath-with-file-title            "0.13.1 (2025-05-28)")
-(define-obsolete-function-alias 'org-mem-entry-olpath-with-title-with-self #'org-mem-entry-olpath-with-file-title-with-self  "0.13.1 (2025-05-28)")
-(define-obsolete-function-alias 'org-mem-entry-olpath-with-self-with-title #'org-mem-entry-olpath-with-file-title-with-self  "0.13.1 (2025-05-28)")
-(define-obsolete-function-alias 'org-mem-olpath-with-title                 #'org-mem-olpath-with-file-title                  "0.13.1 (2025-05-28)")
-(define-obsolete-function-alias 'org-mem-olpath-with-title-with-self       #'org-mem-olpath-with-file-title-with-self        "0.13.1 (2025-05-28)")
-(define-obsolete-function-alias 'org-mem-olpath-with-self-with-title       #'org-mem-olpath-with-file-title-with-self        "0.13.1 (2025-05-28)")
-(define-obsolete-function-alias 'org-mem-entries-with-active-timestamps    #'org-mem-all-entries-with-active-timestamps "0.14.0 (2025-05-30)")
-(define-obsolete-function-alias 'org-mem-files-with-active-timestamps      #'org-mem-all-files-with-active-timestamps   "0.14.0 (2025-05-30)")
+(defvar org-mem--bump-int 11 "Not a version number, but bumped sometimes.")
+(defmacro org-mem--def-whiny-alias (old new when removed-by)
+  "Define function OLD as effectively an alias for NEW.
+Also, calling OLD will emit a deprecation warning the first time.
+String WHEN says when it was deprecated and REMOVED-BY when it
+may be removed from the package."
+  `(let (checked-once)
+     (defun ,(cadr old) (&rest args)
+       (declare (obsolete ,(cadr new) ,when))
+       (unless checked-once
+         (setq checked-once t)
+         (lwarn ,old :warning "Obsolete since %s, will be removed by %s; use `%s' instead. (Check your initfiles)"
+                ,when ,removed-by ,new))
+       (apply ,new args))))
 
-;; DEPRECATED
-(defun org-mem-file-mtime-int (file/entry/link)
-  "Modification time for file at FILE/ENTRY/LINK, as integer.
-Rounded up."
-  (declare (obsolete org-mem-file-mtime-floor "2025-05-30"))
-  (message "org-mem-file-mtime-int will be removed by November 2025, use `org-mem-file-mtime-floor'")
-  (ceiling (float-time (org-mem-file-mtime file/entry/link))))
+(org-mem--def-whiny-alias 'org-mem-link-dest                         #'org-mem-link-target                             "0.8.0 (2025-05-15)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-dest                              #'org-mem-target                                  "0.8.0 (2025-05-15)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-x-fontify-like-org                #'org-mem-fontify-like-org                        "0.10.0 (2025-05-18)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-block                             #'org-mem-await                                   "0.12.0 (2025-05-22)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem--abbr-truename                    #'org-mem--truename-maybe                         "0.12.0 (2025-05-22)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-title           #'org-mem-entry-olpath-with-file-title            "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-title-with-self #'org-mem-entry-olpath-with-file-title-with-self  "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-self-with-title #'org-mem-entry-olpath-with-file-title-with-self  "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-olpath-with-title                 #'org-mem-olpath-with-file-title                  "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-olpath-with-title-with-self       #'org-mem-olpath-with-file-title-with-self        "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-olpath-with-self-with-title       #'org-mem-olpath-with-file-title-with-self        "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-file-mtime-int                    #'org-mem-file-mtime-floor                        "0.14.0 (2025-05-30)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-entries-with-active-timestamps    #'org-mem-all-entries-with-active-timestamps      "0.14.0 (2025-05-30)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-files-with-active-timestamps      #'org-mem-all-files-with-active-timestamps        "0.14.0 (2025-05-30)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-heading-lvl                       #'org-mem-level                                   "0.21.0 (2025-09-21)" "2026-01-30")
+(defvar org-mem--file<>metadata :renamed)
+(defvar org-mem--file<>entries  :renamed)
 
 (provide 'org-mem)
 

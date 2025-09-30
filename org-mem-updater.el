@@ -393,10 +393,8 @@ Override this if you prefer different timer delays, or no timer."
     (advice-remove 'delete-file                    #'org-mem-updater--handle-delete)
     (cancel-timer org-mem-updater--timer)))
 
-(define-obsolete-function-alias 'org-mem-updater-ensure-entry-at-point-known
-  #'org-mem-updater-ensure-id-node-at-point-known "2025-05-21")
-(define-obsolete-function-alias 'org-mem-updater--activate-timer
-  #'org-mem-updater--adjust-timer "2025-05-24")
+(org-mem--def-whiny-alias 'org-mem-updater-ensure-entry-at-point-known   #'org-mem-updater-ensure-id-node-at-point-known "2025-05-21" "November")
+(org-mem--def-whiny-alias 'org-mem-updater--activate-timer   #'org-mem-updater--adjust-timer "2025-05-24" "November")
 
 (provide 'org-mem-updater)
 
