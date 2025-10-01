@@ -19,8 +19,8 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.21.0
-;; Package-Requires: ((emacs "29.1") (el-job "2.4.2") (llama "0.5.0"))
+;; Package-Version: 0.22.0
+;; Package-Requires: ((emacs "29.1") (el-job "2.4.8") (llama "0.5.0"))
 
 ;;; Commentary:
 
@@ -1737,7 +1737,7 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvar org-mem--bump-int 12 "Not a version number, but bumped sometimes.")
+(defvar org-mem--bump-int 13 "Not a version number, but bumped sometimes.")
 (defmacro org-mem--def-whiny-alias (old new when removed-by)
   "Define function OLD as effectively an alias for NEW.
 Also, calling OLD will emit a deprecation warning the first time.
@@ -1766,12 +1766,12 @@ may be removed from the package."
 (org-mem--def-whiny-alias 'org-mem-file-mtime-int                    #'org-mem-file-mtime-floor                        "0.14.0 (2025-05-30)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-entries-with-active-timestamps    #'org-mem-all-entries-with-active-timestamps      "0.14.0 (2025-05-30)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-files-with-active-timestamps      #'org-mem-all-files-with-active-timestamps        "0.14.0 (2025-05-30)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-heading-lvl                       #'org-mem-level                                   "0.21.0 (2025-10-01)" "2026-01-30")
+(org-mem--def-whiny-alias 'org-mem-heading-lvl                       #'org-mem-level                                   "0.21.0 (2025-09-30)" "2026-01-30")
 (defvar org-mem--file<>metadata :renamed)
 (defvar org-mem--file<>entries  :renamed)
 
-(define-obsolete-function-alias 'org-mem-entry-olpath-with-file-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.22.0")
-(define-obsolete-function-alias 'org-mem-olpath-with-file-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.22.0")
+(define-obsolete-function-alias 'org-mem-entry-olpath-with-file-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.22.0 (2025-10-01)")
+(define-obsolete-function-alias 'org-mem-olpath-with-file-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.22.0 (2025-10-01)")
 
 (provide 'org-mem)
 
