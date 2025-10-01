@@ -583,35 +583,65 @@ Requires `org-mem-do-cache-text' t."
              (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))
            (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry)))))))
 
+;; TODO: Deprecate the optional arg
 (defun org-mem-entry-olpath-with-file-title (entry &optional filename-fallback)
   "Outline path to ENTRY, including file #+title.
 With FILENAME-FALLBACK, use file basename if there is no #+title."
-  (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
-        file-name-handler-alist) ;; perf
-    (when (null (car olp))
-      (pop olp)
-      (when filename-fallback
-        (push (file-name-nondirectory (org-mem-entry-file-truename entry))
-              olp)))
-    olp))
+  (with-memoization (org-mem--table 27 (list entry filename-fallback))
+    (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
+          file-name-handler-alist)
+      ;; The car of `olp' is the potentially nil file title.
+      (when (null (car olp))
+        (pop olp)
+        (when filename-fallback
+          (push (file-name-nondirectory (org-mem-entry-file-truename entry))
+                olp)))
+      olp)))
 
-(defun org-mem-entry-olpath-with-file-title-with-self (entry &optional filename-fallback)
+;; Better than above: single-argument func.
+(defun org-mem-entry-olpath-with-file-title-or-basename (entry)
+  "Outline path to ENTRY, including file #+title.
+Use file basename if there is no #+title."
+  (with-memoization (org-mem--table 30 entry)
+    (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
+          file-name-handler-alist)
+      ;; The car of `olp' is the potentially nil file title.
+      (when (null (car olp))
+        (pop olp)
+        (push (file-name-nondirectory (org-mem-entry-file-truename entry))
+              olp))
+      olp)))
+
+;; TODO: Deprecate the optional arg
+(defun org-mem-entry-olpath-with-self-with-file-title (entry &optional filename-fallback)
   "Outline path, including file #+title, and ENTRY\\='s own heading.
 With FILENAME-FALLBACK, use file basename if there is no #+title.
 
 If ENTRY is itself a file-level entry, this still results in a list of
 zero or one strings, not two."
-  (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
-        file-name-handler-alist) ;; perf
-    (when (null (car olp))
-      (pop olp)
-      (when filename-fallback
-        (push (file-name-nondirectory (org-mem-entry-file-truename entry))
-              olp)))
-    olp))
+  (with-memoization (org-mem--table 24 (list entry filename-fallback))
+    (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
+          file-name-handler-alist)
+      ;; The car of `olp' is the potentially nil file title.
+      (when (null (car olp))
+        (pop olp)
+        (when filename-fallback
+          (push (file-name-nondirectory (org-mem-entry-file-truename entry))
+                olp)))
+      olp)))
 
-(defalias 'org-mem-entry-olpath-with-self-with-file-title
-  #'org-mem-entry-olpath-with-file-title-with-self)
+(defun org-mem-entry-olpath-with-self-with-file-title-or-basename (entry)
+  "Outline path, including file #+title, and ENTRY\\='s own heading.
+Use file basename if there is no #+title."
+  (with-memoization (org-mem--table 29 entry)
+    (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
+          file-name-handler-alist)
+      ;; The car of `olp' is the potentially nil file title.
+      (when (null (car olp))
+        (pop olp)
+        (push (file-name-nondirectory (org-mem-entry-file-truename entry))
+              olp))
+      olp)))
 
 (defun org-mem-entry-title (entry)
   "Like `org-mem-entry-title-maybe' but always return a string.
@@ -1053,9 +1083,10 @@ What is valid?  See \"org-mem-test.el\"."
 (defalias 'org-mem-tags-local                       #'org-mem-entry-tags-local)
 (defalias 'org-mem-text                             #'org-mem-entry-text)
 (defalias 'org-mem-todo-state                       #'org-mem-entry-todo-state)
-(defalias 'org-mem-olpath-with-file-title           #'org-mem-entry-olpath-with-file-title)
-(defalias 'org-mem-olpath-with-file-title-with-self #'org-mem-entry-olpath-with-file-title-with-self)
-(defalias 'org-mem-olpath-with-self-with-file-title #'org-mem-entry-olpath-with-self-with-file-title)
+(defalias 'org-mem-olpath-with-file-title             #'org-mem-entry-olpath-with-file-title)
+(defalias 'org-mem-olpath-with-file-title-or-basename #'org-mem-entry-olpath-with-file-title-or-basename)
+(defalias 'org-mem-olpath-with-self-with-file-title   #'org-mem-entry-olpath-with-self-with-file-title)
+(defalias 'org-mem-olpath-with-self-with-file-title-or-basename #'org-mem-entry-olpath-with-self-with-file-title-or-basename)
 
 (defalias 'org-mem-target         #'org-mem-link-target)
 (defalias 'org-mem-nearby-id      #'org-mem-link-nearby-id)
@@ -1717,17 +1748,20 @@ may be removed from the package."
 (org-mem--def-whiny-alias 'org-mem-block                             #'org-mem-await                                   "0.12.0 (2025-05-22)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem--abbr-truename                    #'org-mem--truename-maybe                         "0.12.0 (2025-05-22)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-entry-olpath-with-title           #'org-mem-entry-olpath-with-file-title            "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-title-with-self #'org-mem-entry-olpath-with-file-title-with-self  "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-self-with-title #'org-mem-entry-olpath-with-file-title-with-self  "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-file-title  "0.13.1 (2025-05-28)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-olpath-with-title                 #'org-mem-olpath-with-file-title                  "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-olpath-with-title-with-self       #'org-mem-olpath-with-file-title-with-self        "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-olpath-with-self-with-title       #'org-mem-olpath-with-file-title-with-self        "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-olpath-with-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.13.1 (2025-05-28)" "2025-11-30")
+(org-mem--def-whiny-alias 'org-mem-olpath-with-self-with-title       #'org-mem-olpath-with-self-with-file-title        "0.13.1 (2025-05-28)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-file-mtime-int                    #'org-mem-file-mtime-floor                        "0.14.0 (2025-05-30)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-entries-with-active-timestamps    #'org-mem-all-entries-with-active-timestamps      "0.14.0 (2025-05-30)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-files-with-active-timestamps      #'org-mem-all-files-with-active-timestamps        "0.14.0 (2025-05-30)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-heading-lvl                       #'org-mem-level                                   "0.21.0 (2025-10-01)" "2026-01-30")
 (defvar org-mem--file<>metadata :renamed)
 (defvar org-mem--file<>entries  :renamed)
+
+(define-obsolete-function-alias 'org-mem-entry-olpath-with-file-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.22.0")
+(define-obsolete-function-alias 'org-mem-olpath-with-file-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.22.0")
 
 (provide 'org-mem)
 
