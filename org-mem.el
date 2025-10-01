@@ -1180,19 +1180,21 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 (defvar org-mem--time-elapsed 1.0)
 (defvar org-mem--next-message nil)
 (defvar org-mem--time-at-begin-full-scan nil)
+(defvar org-mem--resets-debug-log nil)
 
 (defun org-mem-reset (&optional takeover msg called-interactively)
   "Reset cache, and then if CALLED-INTERACTIVELY, print statistics.
 For arguments TAKEOVER and MSG, see `org-mem--scan-full'."
   (interactive "i\ni\np")
+  (push (list (format-time-string "%FT%T.%3N") takeover msg called-interactively)
+        org-mem--resets-debug-log)
   (when called-interactively
     (setq org-mem--next-message t)
     (setq takeover t))
   (org-mem--scan-full takeover msg)
-  ;; TODO: Deprecate any particular return value
-  (or (and called-interactively
-           (org-mem-tip-if-empty))
-      msg))
+  (when called-interactively
+    (org-mem-tip-if-empty))
+  msg)
 
 (defun org-mem--scan-full (&optional takeover msg)
   "Arrange a full scan, if one is not already ongoing.
@@ -1687,7 +1689,7 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
                              (if (fboundp 'org-roam-update-org-id-locations)
                                  'org-roam-update-org-id-locations
                                'org-id-update-id-locations)))
-                 "No files found under `org-mem-watch-dirs'")))
+                 "org-mem: No files found under `org-mem-watch-dirs'")))
       (message msg)
       msg)))
 
