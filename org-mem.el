@@ -435,8 +435,7 @@ Citations are `org-mem-link' objects that satisfy
 (defun org-mem-entries-in-file (file)
   "List of entries in same order as they appear in FILE, if FILE known.
 The list always contains at least one entry, which
-represents the content before the first heading.
-Note 2025-05-13: The last fact may change in the future."
+represents the content before the first heading."
   (cl-assert (stringp file))
   (gethash (org-mem--truename-maybe file) org-mem--truename<>entries))
 
@@ -617,7 +616,7 @@ zero or one strings, not two."
 (defun org-mem-entry-title (entry)
   "Like `org-mem-entry-title-maybe' but always return a string.
 In the case that ENTRY is a file-level entry with no title, return the
-file name sans directory component."
+file basename \(file name sans directory component\)."
   (or (org-mem-entry-title-maybe entry)
       (progn (cl-assert (not (org-mem-entry-subtree-p entry)))
              (let (file-name-handler-alist)
@@ -731,6 +730,9 @@ See more info at `org-mem-entry-file'."
 ;; that accepts an entry, making it inconsistent that you cannot also pass
 ;; an entry to `org-mem-file-title'.  So we make it so you can do that too.
 
+;; Surprising input types are not unprecedented; see Org-roam's
+;; `org-roam-node-file-title', which only accepts an entry as input.
+
 (defun org-mem-file-attributes (file/entry/link)
   "The cached `file-attributes' list for file at FILE/ENTRY/LINK.
 The uid and gid are strings, see ID-FORMAT in `file-attributes'."
@@ -753,7 +755,12 @@ The coding system used is `org-mem-file-coding-system'."
   (- (nth 3 (org-mem--get-file-metadata file/entry/link)) 1))
 
 (defun org-mem-file-coding-system (file/entry/link)
-  "Detected coding system of file at FILE/ENTRY/LINK."
+  "Detected coding system of file at FILE/ENTRY/LINK.
+
+This is the system automatically selected by an \"emacs -Q\" process
+when it visits that file, so long as you do not have a non-standard
+setting for `org-mem-inject-vars' or `org-mem-load-features' that would
+influence that."
   (nth 4 (org-mem--get-file-metadata file/entry/link)))
 
 (defun org-mem-file-size (file/entry/link)
@@ -761,38 +768,48 @@ The coding system used is `org-mem-file-coding-system'."
   (file-attribute-size (org-mem-file-attributes file/entry/link)))
 
 (defun org-mem-file-mtime (file/entry/link)
-  "Modification time for file at FILE/ENTRY/LINK."
+  "Modification time for file at FILE/ENTRY/LINK.
+Lisp timestamp in the style of `current-time'.
+
+Note that this timestamp is cached from the last time that Org-mem
+scanned the file!  If you need a guaranteed up-to-date result, ask the
+filesystem with an expression like:
+
+\(file-attribute-modification-time (file-attributes (org-mem-file ENTRY))\)"
   (file-attribute-modification-time (org-mem-file-attributes file/entry/link)))
 
-;; Named "-floor" instead of "-int" because it can matter in downstream code
-;; whether it was rounded down or up, and programmers may not think of that
-;; until after a bug crops up.
-;; Org-mem has other functions named "-int", because those come from Org
+;; NOTE: Named "-floor" instead of "-int" because it can matter in downstream
+;; code whether it was rounded down or up, and programmers may not think of
+;; that until after a bug crops up.
+;; While Org-mem has other getters named "-int", those come from Org
 ;; timestamps which are only precise to the minute anyway.
 (defun org-mem-file-mtime-floor (file/entry/link)
   "Modification time for file at FILE/ENTRY/LINK, as integer.
-Rounded down."
+Rounded down.  See also `org-mem-file-mtime'."
   (time-convert (org-mem-file-mtime file/entry/link) 'integer))
 
-;; Above getters accept a link as input, and the below could too
-;; but that'd take extra LoC.  Mainly wanted equivalents to
+;; NOTE: Above getters accept a link as input, and the below could too, but
+;; that'd take extra LoC.  Mainly wanted equivalents to
 ;; `org-roam-node-file-title' and `org-roam-node-file-mtime', and got 'em.
+;; Perhaps it was a flaw in Org-roam that it even had those, though.
 
 (defun org-mem-file-title-or-basename (file/entry)
   "Value of #+title in file at FILE/ENTRY; fall back on file basename.
-Unlike `org-mem-entry-file-title-strict' which may return nil,
-this always returns a string."
+Unlike `org-mem-entry-file-title-strict', always return a string."
   (or (org-mem-file-title-strict file/entry)
       (file-name-nondirectory
        (if (stringp file/entry) file/entry
          (org-mem-entry-file-truename file/entry)))))
 
+;; REVIEW: Docstrings are hard...
+;; At least the initial summary sentence (<=72 chars).
+;; The following would follow theme of other docstrings, but less informative:
+;; "Value of #+title in file at FILE/ENTRY; fall back on topmost heading."
 (defun org-mem-file-title-topmost (file/entry)
   "Topmost title in file at FILE/ENTRY, be that a heading or a #+title.
 Can refer to a different entry than `org-mem-file-id-topmost', in the
-case that there exists a file-level ID but no #+title:, or vice versa."
-  ;; docstrings are hard
-  ;; "Value of #+title in file at FILE/ENTRY; fall back on topmost heading."
+case that there exists a file-level ID but no #+title:, or vice versa.
+Can be nil."
   (let ((entries (org-mem-entries-in-file
                   (if (stringp file/entry) file/entry
                     (org-mem-entry-file-truename file/entry)))))
@@ -800,14 +817,16 @@ case that there exists a file-level ID but no #+title:, or vice versa."
         (ignore-errors (org-mem-entry-title (cadr entries))))))
 
 (defun org-mem-file-title-strict (file/entry)
-  "Value of #+title setting in file at FILE/ENTRY, if any."
+  "Value of #+title setting in file at FILE/ENTRY, if any.
+Can be nil."
   (org-mem-entry-title-maybe
    (car (org-mem-entries-in-file
          (if (stringp file/entry) file/entry
            (org-mem-entry-file-truename file/entry))))))
 
 (defun org-mem-file-id-topmost (file/entry)
-  "ID from file properties or topmost subtree in file at FILE/ENTRY."
+  "ID from file properties or topmost heading in file at FILE/ENTRY.
+Can be nil."
   (let ((entries (org-mem-entries-in-file
                   (if (stringp file/entry) file/entry
                     (org-mem-entry-file-truename file/entry)))))
@@ -815,11 +834,14 @@ case that there exists a file-level ID but no #+title:, or vice versa."
         (ignore-errors (org-mem-entry-id (cadr entries))))))
 
 (defun org-mem-file-id-strict (file/entry)
-  "File-level ID property in file at FILE/ENTRY, if any."
+  "File-level ID property in file at FILE/ENTRY, if any.
+Can be nil."
   (org-mem-entry-id (car (org-mem-entries-in-file
                           (if (stringp file/entry) file/entry
                             (org-mem-entry-file-truename file/entry))))))
 
+;; REVIEW: Find a situation where it matters to use this instead of
+;;         just `org-mem--truename-maybe'.
 (defun org-mem-file-known-p (file)
   "Return non-nil when FILE is known to org-mem.
 Specifically, return the name by which it is known.  This is technically
@@ -1703,7 +1725,7 @@ may be removed from the package."
 (org-mem--def-whiny-alias 'org-mem-file-mtime-int                    #'org-mem-file-mtime-floor                        "0.14.0 (2025-05-30)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-entries-with-active-timestamps    #'org-mem-all-entries-with-active-timestamps      "0.14.0 (2025-05-30)" "2025-11-30")
 (org-mem--def-whiny-alias 'org-mem-files-with-active-timestamps      #'org-mem-all-files-with-active-timestamps        "0.14.0 (2025-05-30)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-heading-lvl                       #'org-mem-level                                   "0.21.0 (2025-09-21)" "2026-01-30")
+(org-mem--def-whiny-alias 'org-mem-heading-lvl                       #'org-mem-level                                   "0.21.0 (2025-10-01)" "2026-01-30")
 (defvar org-mem--file<>metadata :renamed)
 (defvar org-mem--file<>entries  :renamed)
 
