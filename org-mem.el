@@ -741,9 +741,16 @@ The uid and gid are strings, see ID-FORMAT in `file-attributes'."
   (nth 2 (org-mem--get-file-metadata file/entry/link)))
 
 (defun org-mem-file-ptmax (file/entry/link)
-  "Count of characters in whole file at FILE/ENTRY/LINK.
-Often close to but not exactly the size in bytes due to text encoding."
+  "Value of `point-max' in whole file at FILE/ENTRY/LINK.
+This is just `org-mem-file-char-count' plus 1."
   (nth 3 (org-mem--get-file-metadata file/entry/link)))
+
+(defun org-mem-file-char-count (file/entry/link)
+  "Count of characters in whole file at FILE/ENTRY/LINK.
+
+Often close to but not exactly `org-mem-file-size' due to text encoding.
+The coding system used is `org-mem-file-coding-system'."
+  (- (nth 3 (org-mem--get-file-metadata file/entry/link)) 1))
 
 (defun org-mem-file-coding-system (file/entry/link)
   "Detected coding system of file at FILE/ENTRY/LINK."
