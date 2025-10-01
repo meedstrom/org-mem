@@ -258,8 +258,7 @@ Note: All tables cleared often, meant for memoizations."
                        (if (org-mem-link-p file/entry/link)
                            (org-mem-link-file-truename file/entry/link)
                          (error "org-mem: FILE/ENTRY/LINK is nil"))))))
-    (or (gethash wild-file org-mem--truename<>metadata)
-        (error "org-mem: File seems not yet scanned: %s" wild-file))))
+    (gethash wild-file org-mem--truename<>metadata)))
 
 (defun org-mem--fast-abbrev (absolute-file-name)
   "Abbreviate ABSOLUTE-FILE-NAME, faster than `abbreviate-file-name'."
