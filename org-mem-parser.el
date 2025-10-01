@@ -707,7 +707,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           ;; Done analyzing this file.
           (cl-assert (eobp))
           (setq file-data (list file
-                                (file-attributes file)
+                                (file-attributes file 'string)
                                 LNUM
                                 (point)
                                 coding-system)))
@@ -718,7 +718,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
        (setq problem (list (format-time-string "%H:%M") file (point) err))
        (widen)
        (setq file-data (list file
-                             (file-attributes file)
+                             (file-attributes file 'string)
                              (line-number-at-pos (point-max))
                              (point-max)
                              coding-system)))

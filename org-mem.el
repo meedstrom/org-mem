@@ -729,7 +729,8 @@ See more info at `org-mem-entry-file'."
 ;; an entry to `org-mem-file-title'.  So we make it so you can do that too.
 
 (defun org-mem-file-attributes (file/entry/link)
-  "The `file-attributes' list for file at FILE/ENTRY/LINK."
+  "The cached `file-attributes' list for file at FILE/ENTRY/LINK.
+The uid and gid are strings, see ID-FORMAT in `file-attributes'."
   (nth 1 (org-mem--get-file-metadata file/entry/link)))
 
 (defun org-mem-file-line-count (file/entry/link)
