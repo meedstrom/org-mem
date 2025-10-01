@@ -356,7 +356,8 @@ Citations are `org-mem-link' objects that satisfy
 
 (defun org-mem-all-entries-with-active-timestamps ()
   "All entries that contain one or more active Org timestamps."
-  (seq-filter #'org-mem-entry-active-timestamps (org-mem-all-entries)))
+  (with-memoization (org-mem--table 0 'org-mem-all-entries-with-active-timestamps)
+    (seq-filter #'org-mem-entry-active-timestamps (org-mem-all-entries))))
 
 (defun org-mem-all-files-with-active-timestamps ()
   "All files that contain one or more active Org timestamps."
@@ -368,10 +369,11 @@ Citations are `org-mem-link' objects that satisfy
 
 (defun org-mem-all-entries-with-dangling-clock ()
   "All entries with an incomplete CLOCK: line."
-  (cl-loop for entry in (org-mem-all-entries)
-           when (seq-find (##length= % 1)
-                          (org-mem-entry-clocks-int entry))
-           collect entry))
+  (with-memoization (org-mem--table 0 'org-mem-all-entries-with-dangling-clock)
+    (cl-loop for entry in (org-mem-all-entries)
+             when (seq-find (##length= % 1)
+                            (org-mem-entry-clocks-int entry))
+             collect entry)))
 
 (defun org-mem-entry-by-id (id)
   "The entry with :ID: property equal to \(presumed unique) ID."
@@ -467,9 +469,10 @@ Note 2025-05-13: The last fact may change in the future."
 
 (defun org-mem-links-with-type-and-path (type path)
   "Links with components TYPE and PATH, see `org-link-plain-re'."
-  (cl-loop for link in (gethash path org-mem--target<>links)
-           when (equal type (org-mem-link-type link))
-           collect link))
+  (with-memoization (org-mem--table 23 (list type path))
+    (cl-loop for link in (gethash path org-mem--target<>links)
+             when (equal type (org-mem-link-type link))
+             collect link)))
 
 (defun org-mem-id-links-to-entry (entry)
   "All ID-links that point to ENTRY."
