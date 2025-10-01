@@ -1183,14 +1183,16 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 
 (defun org-mem-reset (&optional takeover msg called-interactively)
   "Reset cache, and then if CALLED-INTERACTIVELY, print statistics.
-For arguments TAKEOVER and MSG, see `org-mem--scan-full'.
-Return MSG."
+For arguments TAKEOVER and MSG, see `org-mem--scan-full'."
   (interactive "i\ni\np")
   (when called-interactively
     (setq org-mem--next-message t)
     (setq takeover t))
   (org-mem--scan-full takeover msg)
-  msg)
+  ;; TODO: Deprecate any particular return value
+  (or (and called-interactively
+           (org-mem-tip-if-empty))
+      msg))
 
 (defun org-mem--scan-full (&optional takeover msg)
   "Arrange a full scan, if one is not already ongoing.
@@ -1203,38 +1205,32 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
     (when msg
       (message "%s" msg)
       (redisplay t))
-    (if-let* ((files (org-mem--list-files-from-fs)))
-        (progn
-          (el-job-launch :id 'org-mem
-                         :if-busy 'takeover
-                         :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
-                         :load-features (append '(org-mem-parser) org-mem-load-features)
-                         :inputs files
-                         :funcall-per-input #'org-mem-parser--parse-file
-                         :callback #'org-mem--finalize-full-scan)
-          ;; While the subprocesses are parsing each file, let main process
-          ;; spend this time caching the raw file contents.
-          ;; It may seem that the subprocesses could just send the raw content
-          ;; along with other parse-results, but that doubles reset time on my
-          ;; machine because it involves `print'ing and `read'ing large strings.
-          (when org-mem-do-cache-text
-            (if msg (unless (equal msg (current-message))
-                      (message "%s" msg))
-              (message "Org-mem doing some work in main process..."))
-            (redisplay t)
-            (with-temp-buffer
-              (let (file-name-handler-alist)
-                (dolist (file files)
-                  (erase-buffer)
-                  (insert-file-contents file)
-                  (puthash file (buffer-string) org-mem--truename<>content))))
-            (message nil)))
-      (if org-mem-do-sync-with-org-id
-          (message "No org-ids found.  If you know they exist, try M-x %S."
-                   (if (fboundp 'org-roam-update-org-id-locations)
-                       'org-roam-update-org-id-locations
-                     'org-id-update-id-locations))
-        (message "No files found under `org-mem-watch-dirs'")))))
+    (let ((files (org-mem--list-files-from-fs)))
+      (when files
+        (el-job-launch :id 'org-mem
+                       :if-busy 'takeover
+                       :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
+                       :load-features (append '(org-mem-parser) org-mem-load-features)
+                       :inputs files
+                       :funcall-per-input #'org-mem-parser--parse-file
+                       :callback #'org-mem--finalize-full-scan)
+        ;; While the subprocesses are parsing each file, let main process
+        ;; spend this time caching the raw file contents.
+        ;; It may seem that the subprocesses could just send the raw content
+        ;; along with other parse-results, but that doubles reset time on my
+        ;; machine because it involves `print'ing and `read'ing large strings.
+        (when org-mem-do-cache-text
+          (if msg (unless (equal msg (current-message))
+                    (message "%s" msg))
+            (message "Org-mem doing some work in main process..."))
+          (redisplay t)
+          (with-temp-buffer
+            (let (file-name-handler-alist)
+              (dolist (file files)
+                (erase-buffer)
+                (insert-file-contents file)
+                (puthash file (buffer-string) org-mem--truename<>content))))
+          (message nil))))))
 
 (defvar org-mem--caused-retry nil)
 (defun org-mem--finalize-full-scan (parse-results _job)
