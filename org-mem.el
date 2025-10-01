@@ -1542,10 +1542,6 @@ to run on cached names that turned out to be invalid."
                 (puthash abtrue true org-mem--wild-filename<>truename)))))))
     ;; Maybe check org-id-locations.
     (when org-mem-do-sync-with-org-id
-      (when (and (null org-mem-watch-dirs)
-                 (not (featurep 'org))
-                 (y-or-n-p "Option org-mem-watch-dirs unconfigured, load Org to find org-id-locations?"))
-        (require 'org))
       (when (featurep 'org)
         (require 'org-id)
         (unless org-id-track-globally
