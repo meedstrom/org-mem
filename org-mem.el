@@ -1679,9 +1679,10 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
 (defun org-mem-tip-if-empty ()
   (when (hash-table-empty-p org-mem--wild-filename<>truename)
     (let ((msg (if org-mem-do-sync-with-org-id
-                   (if (and (not (featurep 'org-id))
-                            (not org-mem-watch-dirs))
-                       "org-mem: No org-ids found because Org not loaded"
+                   (if (not (featurep 'org-id))
+                       (if org-mem-watch-dirs
+                           "org-mem: No files found in `org-mem-watch-dirs', and no org-ids because Org not loaded"
+                         "org-mem: No org-ids found because Org not loaded")
                      (format "org-mem: No org-ids found.  If you know they exist, try M-x %S."
                              (if (fboundp 'org-roam-update-org-id-locations)
                                  'org-roam-update-org-id-locations
