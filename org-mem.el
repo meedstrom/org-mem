@@ -1677,6 +1677,20 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
     (font-lock-ensure)
     (buffer-string)))
 
+(defun org-mem-tip-if-empty ()
+  (when (hash-table-empty-p org-mem--wild-filename<>truename)
+    (let ((msg (if org-mem-do-sync-with-org-id
+                   (if (and (not (featurep 'org-id))
+                            (not org-mem-watch-dirs))
+                       "org-mem: No org-ids found because Org not loaded"
+                     (format "org-mem: No org-ids found.  If you know they exist, try M-x %S."
+                             (if (fboundp 'org-roam-update-org-id-locations)
+                                 'org-roam-update-org-id-locations
+                               'org-id-update-id-locations)))
+                 "No files found under `org-mem-watch-dirs'")))
+      (message msg)
+      msg)))
+
 
 ;;; End-user tool
 
