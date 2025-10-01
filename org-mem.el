@@ -1693,12 +1693,12 @@ Tip: In case of unsolvable problems, eval this to thoroughly wipe
 org-id-locations:
 
 \(progn
- (delete-file org-id-locations-file)
- (setq org-id-locations nil)
- (setq org-id--locations-checksum nil)
- (setq org-agenda-text-search-extra-files nil)
- (setq org-id-files nil)
- (setq org-id-extra-files nil))"
+  (delete-file org-id-locations-file)
+  (setq org-id-locations nil)
+  (setq org-id--locations-checksum nil)
+  (setq org-agenda-text-search-extra-files nil)
+  (setq org-id-files nil)
+  (setq org-id-extra-files nil))"
   (interactive "DForget all IDs recursively in directory: ")
   (require 'org-id)
   (let ((files (org-mem--dir-files-recursive dir org-mem-suffixes nil)))
