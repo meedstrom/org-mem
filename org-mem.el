@@ -1225,11 +1225,14 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
             (message "Org-mem doing some work in main process..."))
           (redisplay t)
           (with-temp-buffer
-            (let (file-name-handler-alist)
-              (dolist (file files)
-                (erase-buffer)
-                (insert-file-contents file)
-                (puthash file (buffer-string) org-mem--truename<>content))))
+            (let ((fn (lambda (files)
+                        (dolist (file files)
+                          (erase-buffer)
+                          (insert-file-contents file)
+                          (puthash file (buffer-string) org-mem--truename<>content)))))
+              (eval `(let ,org-mem-inject-vars
+                       (funcall ,fn ',files))
+                    t)))
           (message nil))))))
 
 (defvar org-mem--caused-retry nil)
