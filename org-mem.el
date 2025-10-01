@@ -844,7 +844,8 @@ Can be nil."
                   (if (stringp file/entry) file/entry
                     (org-mem-entry-file-truename file/entry)))))
     (or (org-mem-entry-title-maybe (car entries))
-        (ignore-errors (org-mem-entry-title (cadr entries))))))
+        (and (cadr entries)
+             (org-mem-entry-title-maybe (cadr entries))))))
 
 (defun org-mem-file-title-strict (file/entry)
   "Value of #+title setting in file at FILE/ENTRY, if any.
