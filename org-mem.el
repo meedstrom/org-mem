@@ -1239,7 +1239,10 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
                        (erase-buffer)
                        (insert-file-contents file)
                        (puthash file (buffer-string) org-mem--truename<>content))))))
-            (eval `(let ,org-mem-inject-vars
+            (eval `(let ,(cl-loop for (var . val) in org-mem-inject-vars
+                                  if (listp val)
+                                  collect `(,var ',val)
+                                  else collect `(,var ,val))
                      (funcall ,content-cacher ',files))
                   t))
           (message nil)
