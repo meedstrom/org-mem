@@ -320,7 +320,8 @@ perfectly with `org-id-locations'."
 (defun org-mem-all-files-expanded ()
   "All Org files, with tilde expansion applied."
   (with-memoization (org-mem--table 0 'org-mem-all-files-expanded)
-    (mapcar #'expand-file-name (org-mem-all-files))))
+    (with-temp-buffer ;; No buffer-env
+      (mapcar #'expand-file-name (org-mem-all-files)))))
 
 (defun org-mem-all-files ()
   "All Org files."
