@@ -316,6 +316,12 @@ perfectly with `org-id-locations'."
   (with-memoization (org-mem--table 0 'org-mem-all-ids)
     (hash-table-keys org-mem--id<>entry)))
 
+;; Aaand this is the form most likely to match `org-roam-list-files' output...
+(defun org-mem-all-files-expanded ()
+  "All Org files, with tilde expansion applied."
+  (with-memoization (org-mem--table 0 'org-mem-all-files-expanded)
+    (mapcar #'expand-file-name (org-mem-all-files))))
+
 (defun org-mem-all-files ()
   "All Org files."
   (with-memoization (org-mem--table 0 'org-mem-all-files)
