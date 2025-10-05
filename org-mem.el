@@ -1224,17 +1224,19 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
           (if msg (unless (equal msg (current-message))
                     (message "%s" msg))
             (message "Org-mem doing some work in main process..."))
-          (redisplay t)
-          (with-temp-buffer
-            (let ((fn (lambda (files)
-                        (dolist (file files)
-                          (erase-buffer)
-                          (insert-file-contents file)
-                          (puthash file (buffer-string) org-mem--truename<>content)))))
-              (eval `(let ,org-mem-inject-vars
-                       (funcall ,fn ',files))
-                    t)))
-          (message nil))))))
+          (redisplay)
+          (let ((content-cacher
+                 (lambda (files)
+                   (with-temp-buffer
+                     (dolist (file files)
+                       (erase-buffer)
+                       (insert-file-contents file)
+                       (puthash file (buffer-string) org-mem--truename<>content))))))
+            (eval `(let ,org-mem-inject-vars
+                     (funcall ,content-cacher ',files))
+                  t))
+          (message nil)
+          (redisplay))))))
 
 (defvar org-mem--caused-retry nil)
 (defun org-mem--finalize-full-scan (parse-results _job)
