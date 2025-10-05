@@ -1187,6 +1187,7 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 (defvar org-mem--next-message nil)
 (defvar org-mem--time-at-begin-full-scan nil)
 (defvar org-mem--resets-debug-log nil)
+(defvar org-mem--reset-msg nil)
 
 (defun org-mem-reset (&optional takeover msg called-interactively)
   "Reset cache, and then if CALLED-INTERACTIVELY, print statistics.
@@ -1211,6 +1212,7 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
   (when (or takeover (not (el-job-is-busy 'org-mem)))
     (setq org-mem--time-at-begin-full-scan (current-time))
     (when msg
+      (setq org-mem--reset-msg msg)
       (message "%s" msg)
       (redisplay t))
     (let ((files (org-mem--list-files-from-fs)))
@@ -1287,6 +1289,10 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
     (when org-mem--next-message
       (message "%s" org-mem--next-message))
     (setq org-mem--next-message nil)
+    (when (equal (current-message) org-mem--reset-msg)
+      (if (string-suffix-p "..." org-mem--reset-msg)
+          (message "%s" (concat org-mem--reset-msg " done"))
+        (message nil)))
 
     (while org-mem-initial-scan-hook
       (funcall (pop org-mem-initial-scan-hook)))
