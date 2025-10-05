@@ -592,17 +592,17 @@ Requires `org-mem-do-cache-text' t."
 ;; TODO: Deprecate the optional arg
 (defun org-mem-entry-olpath-with-file-title (entry &optional filename-fallback)
   "Outline path to ENTRY, including file #+title.
-With FILENAME-FALLBACK, use file basename if there is no #+title."
+Argument FILENAME-FALLBACK is deprecated,
+use `org-mem-entry-olpath-with-file-title-or-basename' instead."
   (with-memoization (org-mem--table 27 (list entry filename-fallback))
-    (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
-          file-name-handler-alist)
-      ;; The car of `olp' is the potentially nil file title.
-      (when (null (car olp))
-        (pop olp)
-        (when filename-fallback
-          (push (file-name-nondirectory (org-mem-entry-file-truename entry))
-                olp)))
-      olp)))
+    (if filename-fallback
+        (org-mem-entry-olpath-with-file-title-or-basename entry)
+      (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
+            file-name-handler-alist)
+        ;; The car of `olp' is the potentially nil file title.
+        (when (null (car olp))
+          (pop olp))
+        olp))))
 
 ;; Better than above: single-argument func.
 (defun org-mem-entry-olpath-with-file-title-or-basename (entry)
@@ -612,7 +612,7 @@ Use file basename if there is no #+title."
     (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
           file-name-handler-alist)
       ;; The car of `olp' is the potentially nil file title.
-      (when (null (car olp))
+      (when (and olp (null (car olp)))
         (pop olp)
         (push (file-name-nondirectory (org-mem-entry-file-truename entry))
               olp))
