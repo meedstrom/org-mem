@@ -34,8 +34,7 @@
 (defvar $nonheritable-tags)
 (defvar $inlinetask-min-level)
 (defvar $use-tag-inheritance)
-(defvar $structures-to-ignore) ; TODO: implement
-(defvar $drawers-to-ignore) ; TODO: implement
+(defvar $ignore-regions-regexps)
 
 (defun org-mem-parser--make-todo-regexp (keywords-string)
   "Build a regexp from KEYWORDS-STRING.
@@ -103,6 +102,22 @@ brackets."
 	            (string-to-number (match-string 2 s))
 	            nil -1 nil)))
       (and ts (time-convert (encode-time ts) 'integer)))))
+
+(defun org-mem-parser--merge-overlapping-regions (regions)
+  "Sort and simplify REGIONS, an alist of positions \((BEG . END)).
+When one region overlaps with the next, merge the two."
+  (let (safe)
+    (setq regions (sort regions (lambda (a b) (< (car a) (car b)))))
+    (while regions
+      (if (length> regions 1)
+          (cl-destructuring-bind ((beg . end) (next-beg . next-end) . rest) regions
+            (if (>= end next-beg)
+                (progn
+                  (setcar regions (cons beg (max end next-end)))
+                  (setcdr regions (cddr regions)))
+              (push (pop regions) safe)))
+        (push (pop regions) safe)))
+    (nreverse safe)))
 
 (defvar org-mem-parser--found-links nil
   "Link objects found so far.")
@@ -284,7 +299,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         TITLE HEADING-POS LNUM CRUMBS CLOCK-LINES
         TODO-STATE STATS-COOKIES INITIAL-STATS-COOKIES
         SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
-        LEFT RIGHT DRAWER-BEG DRAWER-END
+        LEFT RIGHT
         (TODO-RE $default-todo-re))
     (condition-case err
         (progn
@@ -646,28 +661,24 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
             (setq ID-HERE
                   (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb)))
-            ;; Ignore backlinks drawer, it would lead to double-counting.
-            ;; TODO: Generalize this mechanism to use configurable lists
-            ;;       `$structures-to-ignore' and `$drawers-to-ignore'.
-            (setq DRAWER-BEG (re-search-forward "^[ \t]*:BACKLINKS:" nil t))
-            (setq DRAWER-END
-                  (and DRAWER-BEG
-                       (progn
-                         (unless (looking-at-p "[ \t]*$")
-                           (error "Code 3: Likely malformed drawer"))
-                         (or (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
-                             (error "Code 4: Couldn't find :END: of drawer")))))
 
-            ;; Scan stuff inside the heading
-            (goto-char HEADING-POS)
-            (org-mem-parser--scan-text-until (pos-eol) ID-HERE file INTERNAL-ENTRY-ID)
-            ;; Scan stuff between property drawer and backlinks drawer
-            (goto-char LEFT)
-            (when DRAWER-BEG
-              (org-mem-parser--scan-text-until DRAWER-BEG ID-HERE file INTERNAL-ENTRY-ID))
-            ;; Scan stuff until next heading
-            (goto-char (or DRAWER-END LEFT))
-            (org-mem-parser--scan-text-until (point-max) ID-HERE file INTERNAL-ENTRY-ID)
+            (let (regions)
+              (cl-loop
+               for (beg-re . end-re) in $ignore-regions-regexps
+               do (save-excursion
+                    (while (re-search-forward beg-re nil t)
+                      (push (cons (match-beginning 0)
+                                  (or (re-search-forward end-re nil t)
+                                      (error "Code 18: Matched BEG-RE but not END-RE: %s"
+                                             beg-re)))
+                            regions))))
+              (cl-loop
+               for (beg . end) in (org-mem-parser--merge-overlapping-regions regions)
+               do
+               (org-mem-parser--scan-text-until beg ID-HERE file INTERNAL-ENTRY-ID)
+               (goto-char end))
+              (unless (eobp)
+                (org-mem-parser--scan-text-until nil ID-HERE file INTERNAL-ENTRY-ID)))
 
             (push (record 'org-mem-entry
                           file

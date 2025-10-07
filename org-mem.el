@@ -178,6 +178,17 @@ process, because `load-history' is used to find the corresponding file."
   :type '(alist :key-type symbol :value-type sexp)
   :package-version '(org-mem . "0.21.0"))
 
+(defcustom org-mem-ignore-regions-regexps
+  '(("^[ \t]*:BACKLINKS:" . "$")
+    ("^[ \t]*:BACKLINKS:" . "^[ \t]*:END:[ \t]*$")
+    ("^[ \t]*#\\+begin_src" . "^[ \t]*#\\+end_src")
+    ("^[ \t]*#\\+begin_example" . "^[ \t]*#\\+end_example")
+    ("^[ \t]*#\\+begin_comment" . "^[ \t]*#\\+end_comment"))
+  "Alist of regular expressions matching boundaries of regions to avoid.
+These regions will not be scanned for links nor active timestamps."
+  :type '(alist :key-type regexp :value-type regexp)
+  :package-version '(org-mem . "0.23.0"))
+
 (defvar org-mem-scratch nil
   "Work buffer held current while executing some hooks.
 These are hooks called many times:
@@ -1388,16 +1399,7 @@ Or no-op, if `org-mem-do-sync-with-org-id' is nil."
                                default
                              (apply #'append (mapcar #'cdr default)))
                            " "))))
-     ;; These two are unused as yet.
-     (cons '$structures-to-ignore (list "src" "comment" "example"))
-     (cons '$drawers-to-ignore
-           (delete-dups
-            (list (or (and (boundp 'org-super-links-backlink-into-drawer)
-                           (stringp org-super-links-backlink-into-drawer)
-                           org-super-links-backlink-into-drawer)
-                      "BACKLINKS")
-                  "BACKLINKS"
-                  "LOGBOOK"))))))
+     (cons '$ignore-regions-regexps org-mem-ignore-regions-regexps))))
 
 ;; Modified from part of `org-link-make-regexps'
 ;; I do not understand `rx-let'... may be wrong/unoptimal.

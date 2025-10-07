@@ -23,6 +23,7 @@
 (require 'org-mem)
 (require 'org-mem-roamy)
 (require 'org-mem-updater)
+(require 'org-mem-parser)
 
 (ert-deftest test-split-refs-field ()
   (let ((result
@@ -142,5 +143,32 @@
     (when (org-mem-link-type l)        (should (stringp (org-mem-link-type l))))
     (when (org-mem-link-description l) (should (stringp (org-mem-link-description l))))
     (when (org-mem-link-nearby-id l)   (should (stringp (org-mem-link-nearby-id l))))))
+
+(ert-deftest parser ()
+  (should (equal '((1 . 2) (3 . 9) (499 . 900))
+                (org-mem-parser--merge-overlapping-regions
+                 '((1 . 2)
+                   (5 . 6)
+                   (5 . 6)
+                   (900 . 900)
+                   (900 . 900)
+                   (1 . 2)
+                   (5 . 6)
+                   (3 . 9)
+                   (500 . 600)
+                   (500 . 900)
+                   (499 . 501)
+                   (7 . 8)))))
+  (should (equal '((1 . 2)
+                   (3 . 4))
+                 (org-mem-parser--merge-overlapping-regions
+                  '((1 . 2)
+                    (3 . 4)))))
+  (should (equal '((1 . 2))
+                 (org-mem-parser--merge-overlapping-regions
+                  '((1 . 2)))))
+  (should (equal nil
+                 (org-mem-parser--merge-overlapping-regions
+                  nil))))
 
 ;;; org-mem-test.el ends here
