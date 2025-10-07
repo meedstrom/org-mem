@@ -179,11 +179,13 @@ process, because `load-history' is used to find the corresponding file."
   :package-version '(org-mem . "0.21.0"))
 
 (defcustom org-mem-ignore-regions-regexps
-  '(("^[ \t]*:BACKLINKS:" . "$")
+  '(("^[ \t]*:ROAM_REFS:" . "$")
+    ("^[ \t]*:BACKLINKS:" . "$")
     ("^[ \t]*:BACKLINKS:" . "^[ \t]*:END:[ \t]*$")
     ("^[ \t]*#\\+begin_src" . "^[ \t]*#\\+end_src")
     ("^[ \t]*#\\+begin_example" . "^[ \t]*#\\+end_example")
-    ("^[ \t]*#\\+begin_comment" . "^[ \t]*#\\+end_comment"))
+    ("^[ \t]*#\\+begin_comment" . "^[ \t]*#\\+end_comment")
+    ("^[ \t]*#\\+begin_transclude" . "^[ \t]*#\\+end_transclude"))
   "Alist of regular expressions matching boundaries of regions to avoid.
 These regions will not be scanned for links nor active timestamps."
   :type '(alist :key-type regexp :value-type regexp)
