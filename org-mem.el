@@ -577,7 +577,8 @@ name you input to the org-mem API."
 
 (defun org-mem-entry-text (entry)
   "Full unfontified text content of ENTRY.
-Requires `org-mem-do-cache-text' t."
+Requires `org-mem-do-cache-text' t.
+Excludes text of child entries."
   (with-memoization (org-mem--table 28 entry)
     (let ((content (gethash (org-mem-entry-file-truename entry)
                             org-mem--truename<>content))

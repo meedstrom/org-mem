@@ -120,7 +120,10 @@ When one region overlaps with the next, merge the two."
     (nreverse safe)))
 
 (defun org-mem-parser--scan-visible-text (id-here file internal-entry-id)
-  "Call `org-mem-parser--scan-text-until-1', which see for arguments."
+  "Call `org-mem-parser--scan-text-until-1', which see for arguments.
+Use the whole visible buffer, but skip regions indicated by
+`org-mem-ignore-regions-regexps'.  Leave point at the end of buffer."
+  (goto-char (point-min))
   (let (regions)
     (cl-loop
      for (beg-re . end-re) in $ignore-regions-regexps
@@ -136,7 +139,8 @@ When one region overlaps with the next, merge the two."
      do
      (org-mem-parser--scan-text-until-1 beg id-here file internal-entry-id)
      (goto-char end)))
-  (org-mem-parser--scan-text-until-1 nil id-here file internal-entry-id))
+  (unless (eobp)
+    (org-mem-parser--scan-text-until-1 nil id-here file internal-entry-id)))
 
 (defvar org-mem-parser--found-links nil)
 (defvar org-mem-parser--found-active-stamps nil)
@@ -361,7 +365,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (setq NONHERITABLE-TAGS (if x (cdr x)
                                         $nonheritable-tags))))
 
-          ;;; Scan content before first heading, if any
+          ;; Scan content before first heading, if any
 
           (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file 0))
           (while (looking-at-p (rx (*? space) (or "# " "\n")))
@@ -430,10 +434,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                    (and USE-TAG-INHERITANCE
                         (seq-difference TAGS NONHERITABLE-TAGS))))
               (push (list 0 1 1 TITLE ID heritable-tags PROPS) CRUMBS))
-
-            ;; OK, got file title and properties.  Now look for things of
-            ;; interest in body text.
-            (goto-char (point-min))
             (org-mem-parser--scan-visible-text ID file INTERNAL-ENTRY-ID)
             (goto-char (point-max))
             ;; We should now be at the first heading.
@@ -467,7 +467,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           (setq org-mem-parser--found-active-stamps nil)
           (setq LNUM (line-number-at-pos))
 
-          ;;; Loop over the file's headings
+          ;; Loop over the file's headings
 
           (while (not (eobp))
             ;; Narrow til next heading
@@ -502,6 +502,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (goto-char (match-end 0))
               (skip-chars-forward "\s\t"))
             (setq LEFT (point))
+
             ;; Any tags in heading?
             (if (re-search-forward "[ \t]+:\\([^ ]+\\):[ \t]*$" (pos-eol) t)
                 (progn
@@ -510,6 +511,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (goto-char (pos-eol))
               (setq TAGS nil))
             (setq RIGHT (point))
+
             (skip-chars-backward "\s\t")
             (if (< (point) LEFT)
                 (setq TITLE "")
@@ -532,9 +534,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                             (buffer-substring LEFT RIGHT)))))
             ;; Put the cookies in the same order as they occurred in the heading.
             (setq STATS-COOKIES (nconc (nreverse INITIAL-STATS-COOKIES) STATS-COOKIES))
-            ;; Gotta go forward 1 line, see if it is a planning-line, and
-            ;; if it is, then go forward 1 more line, and if that is a
-            ;; :PROPERTIES: line, then we're safe to collect properties.
+
+            ;; See if the next line is a planning-line
             (forward-line 1)
             (setq LEFT (point))
             (setq RIGHT (pos-eol))
@@ -560,8 +561,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                          (+ (point) (skip-chars-forward "^]>\n"))))))
             (when (or SCHED DEADLINE CLOSED)
               ;; Alright, so there was a planning-line, meaning any
-              ;; :PROPERTIES: are not on this line but the next.
+              ;; :PROPERTIES: are not on this line, but the next.
               (forward-line 1))
+
             (setq PROPS
                   (if (looking-at-p "[ \t]*:PROPERTIES:")
                       (progn
@@ -577,6 +579,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq LEFT (point))
             ;; Rough start of body text (just a perf hack, fails gracefully)
             (setq RIGHT (re-search-forward "^[ \t]*[a-bd-z]" nil t))
+
             (goto-char LEFT)
             (while (re-search-forward "^[ \t]*CLOCK: " RIGHT t)
               (let ((clock-start
@@ -603,10 +606,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                 (push (if clock-end (list clock-start clock-end clock-seconds)
                         (list clock-start))
                       CLOCK-LINES)))
-            (goto-char LEFT)
 
-            ;; TODO: Document this elsewhere
-            ;; CRUMBS is a kind of state machine; a list that can look like
+            ;; `CRUMBS' is a kind of state machine; a list that can look like
             ;;    ((3 23 500 "Heading" "id1234" ("noexport" "work" "urgent"))
             ;;     (2 10 122 "Another heading" "id6532" ("work"))
             ;;     (... ... ... ...))
@@ -617,38 +618,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;;       :END:
             ;; It lets us track context so we know the outline path to the
             ;; current entry and what tags it should be able to inherit.
-
-            ;; Discussion: There are two ways we could store inherited tags
-            ;; for end use.  Either put them in a "tags-inherited" field, or
-            ;; put all heritable local tags inside CRUMBS that a function
-            ;; "tags-inherited" can later use to figure it out.
-
-            ;; Going with the former to simplify implementation of
-            ;; `org-mem-updater-mk-entry-atpt'.
-
-            ;; That constraint is also why we cannot just let CRUMBS be a flat
-            ;; list of positions and figure out everything else in real time,
-            ;; because positions change.
-
-            ;; Suppose someone filters entries by an inherited tag for display
-            ;; as completion candidates to some command, but org-mem can't
-            ;; find any ancestors to a newly inserted entry in an unsaved
-            ;; buffer because the positions don't match the cached positions,
-            ;; and so the new entry appears to inherit nothing.  Better to
-            ;; rely as little as possible on cross-referencing with other
-            ;; entries' positions.
-
-            ;; Rant: I'm not happy with hacks like `org-mem-updater-mk-entry-atpt'
-            ;; though, I hope to do away with the need for it one day.
-            ;; Would require saving the buffer much more often while the user
-            ;; works in it, which may not suit all users, but makes things
-            ;; easier to reason about.
-
-            ;; Or if ever we switch to using Org's own parser, then we'll be
-            ;; able to just translate the buffer's parse tree that is always
-            ;; correct even in an unsaved buffer.  In theory.
-            ;; https://lists.gnu.org/archive/html/emacs-orgmode/2025-05/msg00288.html
-
             (cl-loop until (> LEVEL (caar CRUMBS)) do (pop CRUMBS))
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE
@@ -658,11 +627,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags PROPS)
                     CRUMBS))
 
-            ;; Heading and properties analyzed, now seek links in entry text.
-
-            (setq ID-HERE
-                  (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb)))
-
+            (setq ID-HERE (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb)))
             (org-mem-parser--scan-visible-text ID-HERE file INTERNAL-ENTRY-ID)
 
             (push (record 'org-mem-entry
@@ -676,8 +641,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           CLOCK-LINES
                           CLOSED
                           ;; Same as CRUMBS but without the tags or props;
-                          ;; matter of perf, as printing lists is slow.
-                          (mapcar (lambda (x) (take 5 x)) CRUMBS)
+                          ;; big lists we won't need.
+                          (cl-loop for crumb in CRUMBS
+                                   collect (take 5 crumb))
                           DEADLINE
                           PRIORITY
                           ;; Inherited properties
