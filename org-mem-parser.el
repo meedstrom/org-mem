@@ -119,16 +119,31 @@ When one region overlaps with the next, merge the two."
         (push (pop regions) safe)))
     (nreverse safe)))
 
-(defvar org-mem-parser--found-links nil
-  "Link objects found so far.")
+(defun org-mem-parser--scan-visible-text (id-here file internal-entry-id)
+  "Call `org-mem-parser--scan-text-until-1', which see for arguments."
+  (let (regions)
+    (cl-loop
+     for (beg-re . end-re) in $ignore-regions-regexps
+     do (save-excursion
+          (while (re-search-forward beg-re nil t)
+            (push (cons (match-beginning 0)
+                        (or (re-search-forward end-re nil t)
+                            (error "Code 18: Matched BEG-RE but not END-RE: %s"
+                                   beg-re)))
+                  regions))))
+    (cl-loop
+     for (beg . end) in (org-mem-parser--merge-overlapping-regions regions)
+     do
+     (org-mem-parser--scan-text-until-1 beg id-here file internal-entry-id)
+     (goto-char end)))
+  (org-mem-parser--scan-text-until-1 nil id-here file internal-entry-id))
 
-(defvar org-mem-parser--found-active-stamps nil
-  "Active timestamps found so far.")
-
+(defvar org-mem-parser--found-links nil)
+(defvar org-mem-parser--found-active-stamps nil)
 (defconst org-mem-parser--org-ts-regexp
   "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
 
-(defun org-mem-parser--scan-text-until (end id-here file internal-entry-id)
+(defun org-mem-parser--scan-text-until-1 (end id-here file internal-entry-id)
   "From here to buffer position END, collect links and active timestamps.
 
 Argument ID-HERE is the ID of the subtree where this function is being
@@ -418,22 +433,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
             ;; OK, got file title and properties.  Now look for things of
             ;; interest in body text.
-            ;; Don't look inside a BACKLINKS drawer though, because links
-            ;; inside should not count as "forward links".
-            (goto-char LEFT)
-            (if (re-search-forward "^[ \t]*:BACKLINKS:" nil t)
-                (progn
-                  (unless (looking-at-p "[ \t]*$")
-                    (error "Code 1: Likely malformed drawer"))
-                  (setq RIGHT (point))
-                  (unless (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
-                    (error "Code 2: Could not find :END: of drawer"))
-                  ;; Scan stuff after the backlinks drawer.
-                  (org-mem-parser--scan-text-until nil ID file INTERNAL-ENTRY-ID))
-              (setq RIGHT (point-max)))
-            ;; Scan stuff before the backlinks drawer.
-            (goto-char LEFT)
-            (org-mem-parser--scan-text-until RIGHT ID file INTERNAL-ENTRY-ID)
+            (goto-char (point-min))
+            (org-mem-parser--scan-visible-text ID file INTERNAL-ENTRY-ID)
             (goto-char (point-max))
             ;; We should now be at the first heading.
             (widen))
@@ -662,23 +663,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq ID-HERE
                   (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb)))
 
-            (let (regions)
-              (cl-loop
-               for (beg-re . end-re) in $ignore-regions-regexps
-               do (save-excursion
-                    (while (re-search-forward beg-re nil t)
-                      (push (cons (match-beginning 0)
-                                  (or (re-search-forward end-re nil t)
-                                      (error "Code 18: Matched BEG-RE but not END-RE: %s"
-                                             beg-re)))
-                            regions))))
-              (cl-loop
-               for (beg . end) in (org-mem-parser--merge-overlapping-regions regions)
-               do
-               (org-mem-parser--scan-text-until beg ID-HERE file INTERNAL-ENTRY-ID)
-               (goto-char end))
-              (unless (eobp)
-                (org-mem-parser--scan-text-until nil ID-HERE file INTERNAL-ENTRY-ID)))
+            (org-mem-parser--scan-visible-text ID-HERE file INTERNAL-ENTRY-ID)
 
             (push (record 'org-mem-entry
                           file
