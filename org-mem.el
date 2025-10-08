@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.23.1
+;; Package-Version: 0.23.2
 ;; Package-Requires: ((emacs "29.1") (el-job "2.4.8") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -1762,7 +1762,7 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvar org-mem--bump-int 16 "Not a version number, but bumped sometimes.")
+(defvar org-mem--bump-int 17 "Not a version number, but bumped sometimes.")
 (defmacro org-mem--def-whiny-alias (old new when removed-by)
   "Define function OLD as effectively an alias for NEW.
 Also, calling OLD will emit a deprecation warning the first time.
