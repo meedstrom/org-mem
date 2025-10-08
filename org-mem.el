@@ -181,7 +181,7 @@ process, because `load-history' is used to find the corresponding file."
 (defcustom org-mem-ignore-regions-regexps
   '(("^[ \t]*:ROAM_REFS:" . "$")
     ("^[ \t]*:BACKLINKS:" . "$")
-    ("^[ \t]*:BACKLINKS:" . "^[ \t]*:END:[ \t]*$")
+    ("^[ \t]*:BACKLINKS:[ \t]*$" . "^[ \t]*:END:[ \t]*$")
     ("^[ \t]*#\\+begin_src" . "^[ \t]*#\\+end_src")
     ("^[ \t]*#\\+begin_example" . "^[ \t]*#\\+end_example")
     ("^[ \t]*#\\+begin_comment" . "^[ \t]*#\\+end_comment")
