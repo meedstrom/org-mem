@@ -178,6 +178,11 @@ process, because `load-history' is used to find the corresponding file."
   :type '(alist :key-type symbol :value-type sexp)
   :package-version '(org-mem . "0.21.0"))
 
+(defcustom org-mem-eval-forms nil
+  "Experimental.
+Quoted forms to eval in child process."
+  :type '(repeat sexp))
+
 (defcustom org-mem-ignore-regions-regexps
   '(("^[ \t]*:ROAM_REFS:" . "$")
     ("^[ \t]*:BACKLINKS:" . "$")
@@ -1231,13 +1236,26 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
       (redisplay t))
     (let ((files (org-mem--list-files-from-fs)))
       (when files
-        (el-job-launch :id 'org-mem
-                       :if-busy 'takeover
-                       :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
-                       :load-features (append '(org-mem-parser) org-mem-load-features)
-                       :inputs files
-                       :funcall-per-input #'org-mem-parser--parse-file
-                       :callback #'org-mem--finalize-full-scan)
+        (if (and (boundp 'el-job-old-internal-version)
+                 (>= el-job-old-internal-version 100))
+            ;; 2025-10-08: Use new argument :eval
+            (el-job-launch :id 'org-mem
+                           :if-busy 'takeover
+                           :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
+                           :load-features (append '(org-mem-parser) org-mem-load-features)
+                           :eval org-mem-eval-forms
+                           :inputs files
+                           :funcall-per-input #'org-mem-parser--parse-file
+                           :callback #'org-mem--finalize-full-scan)
+          (when org-mem-eval-forms
+            (message "Update el-job for `org-mem-eval-forms' to have any effect"))
+          (el-job-launch :id 'org-mem
+                         :if-busy 'takeover
+                         :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
+                         :load-features (append '(org-mem-parser) org-mem-load-features)
+                         :inputs files
+                         :funcall-per-input #'org-mem-parser--parse-file
+                         :callback #'org-mem--finalize-full-scan))
         ;; While the subprocesses are parsing each file, let main process
         ;; spend this time caching the raw file contents.
         ;; It may seem that the subprocesses could just send the raw content
