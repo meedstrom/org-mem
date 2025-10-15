@@ -1305,8 +1305,13 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
       (dolist (fdata file-data)
         (puthash (car fdata) fdata org-mem--truename<>metadata)
         (run-hook-with-args 'org-mem-record-file-functions fdata))
-      (mapc #'org-mem--record-entry entries)
-      (mapc #'org-mem--record-link links))
+      (dolist (entry entries)
+        (org-mem--record-entry entry)
+        (run-hook-with-args 'org-mem-record-entry-functions entry))
+      (dolist (link links)
+        (push link (gethash (org-mem-link--internal-entry-id link)
+                            org-mem--internal-entry-id<>links))
+        (run-hook-with-args 'org-mem-record-link-functions link)))
 
     (org-mem--rebuild-specially-indexed-tables)
     (setq org-mem--time-elapsed
@@ -1348,12 +1353,6 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
       (setq org-mem--problems (append problems org-mem--problems))
       (message "Scan had problems, see M-x org-mem-list-problems"))))
 
-(defun org-mem--record-link (link)
-  "Add info related to LINK to various tables."
-  (push link (gethash (org-mem-link--internal-entry-id link)
-                      org-mem--internal-entry-id<>links))
-  (run-hook-with-args 'org-mem-record-link-functions link))
-
 (defun org-mem--record-entry (entry)
   "Add info related to ENTRY to various tables."
   (let ((id (org-mem-entry-id entry))
@@ -1373,8 +1372,7 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
         ;; `org-mem-entry-title' instead of `org-mem-entry-title-maybe'?
         ;; It would affect function `org-mem-id-by-title'.
         (puthash title id org-mem--title<>id))
-      (puthash id entry org-mem--id<>entry))
-    (run-hook-with-args 'org-mem-record-entry-functions entry)))
+      (puthash id entry org-mem--id<>entry))))
 
 ;; A "specially indexed" table is one that cannot be trivially updated when
 ;; one file is re-scanned, since a given key in it may list values from
