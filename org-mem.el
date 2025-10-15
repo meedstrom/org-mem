@@ -1473,7 +1473,12 @@ changing the meaning of \"~\" or \"~USER\", or runtime changes to
       (and (stringp wild-file)
            (not (file-remote-p wild-file))
            (let (file-name-handler-alist)
-             (cl-assert (file-name-absolute-p wild-file))
+             (unless (file-name-absolute-p wild-file)
+               ;; NOTE: For a lot of users, the above condition always comes
+               ;; true, but it depends on e.g. which completion system you use
+               ;; with a command like `rename-file'.
+               ;; https://github.com/meedstrom/org-mem/issues/30
+               (setq wild-file (expand-file-name wild-file)))
              (if (file-exists-p wild-file)
                  (let* ((truename (file-truename wild-file))
                         (abbr-true (org-mem--fast-abbrev truename)))
