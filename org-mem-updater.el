@@ -64,9 +64,9 @@ In that case, there may be nothing wrong with the known name."
           (cached-true (gethash file org-mem--wild-filename<>truename)))
       (when (and cached-true (not (file-symlink-p file)))
         (push cached-true bad))
-      (org-mem-updater--forget-links-from-files bad) ;; REVIEW
       (org-mem-updater--forget-file-contents bad)
       (org-mem--invalidate-file-names bad)
+      (org-mem--rebuild-specially-indexed-tables)
       (mapc #'clrhash (hash-table-values org-mem--key<>subtable)))))
 
 (defun org-mem-updater--handle-save (&optional file)
@@ -95,9 +95,7 @@ In that case, there may be nothing wrong with the known name."
   "Handle PARSE-RESULTS from `org-mem-updater--scan-targeted'."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
   (seq-let (bad-paths file-data entries links problems) parse-results
-    (let ((stale-files (append bad-paths (mapcar #'car file-data))))
-      (org-mem-updater--forget-links-from-files stale-files)
-      (org-mem-updater--forget-file-contents stale-files))
+    (org-mem-updater--forget-file-contents (append bad-paths (mapcar #'car file-data)))
     (when bad-paths
       (org-mem--invalidate-file-names bad-paths))
     (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
@@ -109,13 +107,8 @@ In that case, there may be nothing wrong with the known name."
       (dolist (entry entries)
         (org-mem--record-entry entry))
       (dolist (link links)
-        (org-mem--record-link link)
-        (unless (gethash (org-mem-link-target link)
-                         org-mem-updater--id-or-ref-target<>old-links)
-          (when (or (org-mem-roam-reflink-p link)
-                    (org-mem-id-link-p link))
-            (push (org-mem-link-target link)
-                  org-mem-updater--new-id-or-ref-targets)))))
+        (org-mem--record-link link)))
+    (org-mem--rebuild-specially-indexed-tables)
     (dolist (prob problems)
       (push prob org-mem--problems))
     (run-hook-with-args 'org-mem-post-targeted-scan-functions parse-results)
@@ -127,8 +120,8 @@ In that case, there may be nothing wrong with the known name."
 
 (defun org-mem-updater--forget-file-contents (files)
   "Delete from tables, most info relating to FILES and their contents.
-You should also run `org-mem--invalidate-file-names',
-and potentially `org-mem-updater--forget-links-from-files'."
+You should also run `org-mem--invalidate-file-names'
+and `org-mem--rebuild-specially-indexed-tables'."
   (setq files (ensure-list files))
   (when files
     (with-current-buffer
@@ -137,54 +130,11 @@ and potentially `org-mem-updater--forget-links-from-files'."
         (dolist (entry (gethash file org-mem--truename<>entries))
           (remhash (org-mem-entry-id entry) org-mem--id<>entry)
           (remhash (org-mem-entry-title-maybe entry) org-mem--title<>id)
+          (remhash (org-mem-entry--internal-id entry) org-mem--internal-entry-id<>links)
           (run-hook-with-args 'org-mem-forget-entry-functions entry))
         (remhash file org-mem--truename<>entries)
         (remhash file org-mem--truename<>metadata)
         (run-hook-with-args 'org-mem-forget-file-functions file)))))
-
-;; For downstream use
-(defvar org-mem-updater--id-or-ref-target<>old-links (make-hash-table :test 'equal)
-  "Previous state of `org-mem--target<>links' for some targets.
-Only includes targets that are or were IDs or roam-refs, so that the
-values can be considered \"forward links\" qualified for backlinks under
-some paradigms.
-Values may be in different order.")
-
-(defvar org-mem-updater--new-id-or-ref-targets nil
-  "IDs and ROAM_REFS that had no links targeting them but now do.
-Even if the ID or ref is old, it would previously have had no presence
-in table `org-mem--target<>links'.")
-
-;; FIXME: It seems to remove too many, or they don't all get re-added or something
-(defun org-mem-updater--forget-links-from-files (stale-files)
-  "Remove from tables, all links in STALE-FILES.
-Also clear `org-mem-updater--id-or-ref-target<>old-links' and stash into it the
-relevant rows from `org-mem--target<>links' prior to updating those rows
-in the latter table."
-  (clrhash org-mem-updater--id-or-ref-target<>old-links)
-  (let ((stale-eids (mapcar #'org-mem-entry--internal-id
-                            (org-mem-entries-in-files stale-files)))
-        targets-to-update)
-    (dolist (eid stale-eids)
-      (dolist (link (gethash eid org-mem--internal-entry-id<>links))
-        (cl-pushnew (org-mem-link-target link) targets-to-update
-                    :test #'equal))
-      (remhash eid org-mem--internal-entry-id<>links))
-    (dolist (tgt targets-to-update)
-      (cl-loop
-       for link in (gethash tgt org-mem--target<>links)
-       if (memq (org-mem-link--internal-entry-id link) stale-eids)
-       collect link into stale-links
-       else collect link into reduced-link-set
-       finally do
-       (puthash tgt reduced-link-set org-mem--target<>links)
-       (dolist (link stale-links)
-         (run-hook-with-args 'org-mem-forget-link-functions link))
-       (dolist (link (nconc stale-links reduced-link-set))
-         ;; TODO: Don't waste perf checking every link, check tgt once
-         (when (or (org-mem-roam-reflink-p link)
-                   (org-mem-id-link-p link))
-           (push link (gethash tgt org-mem-updater--id-or-ref-target<>old-links))))))))
 
 
 ;;; Instant placeholders

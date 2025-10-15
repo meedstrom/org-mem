@@ -250,6 +250,10 @@ in `org-link-plain-re').  In practice, it is often an org-id like
 
 NOTE! A future version may omit the sigil @ in citekeys.")
 
+(defvar org-mem--target<>old-links (make-hash-table :test 'equal)
+  "Previous state of `org-mem--target<>links'.
+For downstream use.")
+
 (defvar org-mem--internal-entry-id<>links (make-hash-table :test 'eq)
   "1:N table mapping internal entry ID to list of `org-mem-link' records.
 The list represents all links found in that entry,
@@ -1292,7 +1296,6 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
   (clrhash org-mem--truename<>metadata)
   (clrhash org-mem--truename<>entries)
   (clrhash org-mem--internal-entry-id<>links)
-  (clrhash org-mem--target<>links)
   (setq org-mem--title-collisions nil)
   (seq-let (bad-paths file-data entries links problems) parse-results
     (when bad-paths
@@ -1305,6 +1308,7 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
       (mapc #'org-mem--record-entry entries)
       (mapc #'org-mem--record-link links))
 
+    (org-mem--rebuild-specially-indexed-tables)
     (setq org-mem--time-elapsed
           (float-time (time-since org-mem--time-at-begin-full-scan)))
     (when org-mem--next-message
@@ -1346,7 +1350,6 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
 
 (defun org-mem--record-link (link)
   "Add info related to LINK to various tables."
-  (push link (gethash (org-mem-link-target link) org-mem--target<>links))
   (push link (gethash (org-mem-link--internal-entry-id link)
                       org-mem--internal-entry-id<>links))
   (run-hook-with-args 'org-mem-record-link-functions link))
@@ -1372,6 +1375,19 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
         (puthash title id org-mem--title<>id))
       (puthash id entry org-mem--id<>entry))
     (run-hook-with-args 'org-mem-record-entry-functions entry)))
+
+;; A "specially indexed" table is one that cannot be trivially updated when
+;; one file is re-scanned, since a given key in it may list values from
+;; multiple files.  So rather than try to find the particular values to
+;; remove, it's easiest to wipe and re-build.
+(defun org-mem--rebuild-specially-indexed-tables ()
+  "Rebuild table `org-mem--target<>links'."
+  (setq org-mem--target<>old-links (copy-hash-table org-mem--target<>links))
+  (clrhash org-mem--target<>links)
+  (cl-loop
+   for links being each hash-value of org-mem--internal-entry-id<>links
+   do (dolist (link links)
+        (push link (gethash (org-mem-link-target link) org-mem--target<>links)))))
 
 (defun org-mem--maybe-snitch-to-org-id (entry)
   "Add applicable ENTRY data to `org-id-locations'.
