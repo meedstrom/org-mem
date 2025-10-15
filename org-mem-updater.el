@@ -348,6 +348,8 @@ Override this if you prefer different timer delays, or no timer."
 
 (org-mem--def-whiny-alias 'org-mem-updater-ensure-entry-at-point-known   #'org-mem-updater-ensure-id-node-at-point-known "2025-05-21" "November")
 (org-mem--def-whiny-alias 'org-mem-updater--activate-timer   #'org-mem-updater--adjust-timer "2025-05-24" "November")
+(defvar org-mem-updater--id-or-ref-target<>old-links :obsolete)
+(defvar org-mem-updater--new-id-or-ref-targets :obsolete)
 
 (provide 'org-mem-updater)
 

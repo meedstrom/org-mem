@@ -203,8 +203,7 @@ These are hooks called many times:
 - `org-mem-record-entry-functions'
 - `org-mem-record-link-functions'
 - `org-mem-forget-file-functions'
-- `org-mem-forget-entry-functions'
-- `org-mem-forget-link-functions'
+- `org-mem-forget-entry-functions''
 
 This lets a function on these hooks sidestep the performance overhead of
 `with-temp-buffer' or `with-work-buffer', in favor of using the
@@ -1200,9 +1199,6 @@ hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 (defvar org-mem-forget-entry-functions nil
   "Hook passed one forgotten `org-mem-entry' object.")
 
-(defvar org-mem-forget-link-functions nil
-  "Hook passed one forgotten `org-mem-link' object.")
-
 (defvar org-mem--problems nil)
 (defvar org-mem--title-collisions nil)
 (defvar org-mem--id-collisions nil)
@@ -1834,6 +1830,7 @@ may be removed from the package."
 
 (define-obsolete-function-alias 'org-mem-entry-olpath-with-file-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.22.0 (2025-10-01)")
 (define-obsolete-function-alias 'org-mem-olpath-with-file-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.22.0 (2025-10-01)")
+(defvar org-mem-forget-link-functions :obsolete) ;; 2025-10-15 but unused for long already
 
 (provide 'org-mem)
 
