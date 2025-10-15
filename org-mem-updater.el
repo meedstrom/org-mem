@@ -195,7 +195,10 @@ No support for citations."
                  (cl-notany (##string-search % truename)
                             org-mem-exclude))
         (org-mem-updater-ensure-buffer-file-known)
-        (org-mem--record-link (org-mem-updater-mk-link-atpt))))))
+        (let ((link (org-mem-updater-mk-link-atpt)))
+          (push link (gethash (org-mem-link--internal-entry-id link)
+                              org-mem--internal-entry-id<>links))
+          (run-hook-with-args 'org-mem-record-link-functions link))))))
 
 (defun org-mem-updater-ensure-id-node-at-point-known ()
   "Record ID-node at point.
