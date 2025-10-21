@@ -203,7 +203,7 @@ These are hooks called many times:
 - `org-mem-record-entry-functions'
 - `org-mem-record-link-functions'
 - `org-mem-forget-file-functions'
-- `org-mem-forget-entry-functions''
+- `org-mem-forget-entry-functions'
 
 This lets a function on these hooks sidestep the performance overhead of
 `with-temp-buffer' or `with-work-buffer', in favor of using the
@@ -341,8 +341,7 @@ perfectly with `org-id-locations'."
 (defun org-mem-all-files-expanded ()
   "All Org files, with tilde expansion applied."
   (with-memoization (org-mem--table 0 'org-mem-all-files-expanded)
-    (with-temp-buffer ;; No buffer-env
-      (mapcar #'expand-file-name (org-mem-all-files)))))
+    (mapcar #'directory-abbrev-apply (org-mem-all-file-truenames))))
 
 (defun org-mem-all-files ()
   "All Org files."
@@ -626,7 +625,7 @@ use `org-mem-entry-olpath-with-file-title-or-basename' instead."
           (pop olp))
         olp))))
 
-;; Better than above: single-argument func.
+;; Better than above; unary function.
 (defun org-mem-entry-olpath-with-file-title-or-basename (entry)
   "Outline path to ENTRY, including file #+title.
 Use file basename if there is no #+title."
@@ -1308,8 +1307,8 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
         (push link (gethash (org-mem-link--internal-entry-id link)
                             org-mem--internal-entry-id<>links))
         (run-hook-with-args 'org-mem-record-link-functions link)))
-
     (org-mem--rebuild-specially-indexed-tables)
+
     (setq org-mem--time-elapsed
           (float-time (time-since org-mem--time-at-begin-full-scan)))
     (when org-mem--next-message
@@ -1359,6 +1358,7 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
     (push entry (gethash truename org-mem--truename<>entries))
     (when id
       (org-mem--maybe-snitch-to-org-id entry)
+      (puthash id entry org-mem--id<>entry)
       (when title
         (let ((other-id (gethash title org-mem--title<>id)))
           (when (and other-id (not (string= id other-id)))
@@ -1367,13 +1367,13 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
         ;; REVIEW: Should we fallback on file name, i.e. use
         ;; `org-mem-entry-title' instead of `org-mem-entry-title-maybe'?
         ;; It would affect function `org-mem-id-by-title'.
-        (puthash title id org-mem--title<>id))
-      (puthash id entry org-mem--id<>entry))))
+        (puthash title id org-mem--title<>id)))))
 
 ;; A "specially indexed" table is one that cannot be trivially updated when
 ;; one file is re-scanned, since a given key in it may list values from
 ;; multiple files.  So rather than try to find the particular values to
 ;; remove, it's easiest to wipe and re-build.
+;; Note these tables are basically re-expressions of info that already exists.
 (defun org-mem--rebuild-specially-indexed-tables ()
   "Rebuild table `org-mem--target<>links'."
   (setq org-mem--target<>old-links (copy-hash-table org-mem--target<>links))
