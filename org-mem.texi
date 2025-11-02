@@ -70,7 +70,7 @@ Elisp API
 
 Tips
 
-* Encrypted and compressed files (@samp{.org.gpg}@comma{} @samp{.org.age}@comma{} @samp{.org.gz}): Encrypted and compressed files (@samp{orggpg}@comma{} @samp{orgage}@comma{} @samp{orggz}). 
+* Encrypted files (@samp{.org.gpg} @samp{.org.age}): Encrypted files (@samp{orggpg} @samp{orgage}). 
 
 Current limitations
 
@@ -473,11 +473,11 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @chapter Tips
 
 @menu
-* Encrypted and compressed files (@samp{.org.gpg}@comma{} @samp{.org.age}@comma{} @samp{.org.gz}): Encrypted and compressed files (@samp{orggpg}@comma{} @samp{orgage}@comma{} @samp{orggz}). 
+* Encrypted files (@samp{.org.gpg} @samp{.org.age}): Encrypted files (@samp{orggpg} @samp{orgage}). 
 @end menu
 
-@node Encrypted and compressed files (@samp{orggpg}@comma{} @samp{orgage}@comma{} @samp{orggz})
-@section Encrypted and compressed files (@samp{.org.gpg}@comma{} @samp{.org.age}@comma{} @samp{.org.gz})
+@node Encrypted files (@samp{orggpg} @samp{orgage})
+@section Encrypted files (@samp{.org.gpg} @samp{.org.age})
 
 Suppose you use @uref{https://github.com/anticomputer/age.el, age.el} to keep files encrypted.
 

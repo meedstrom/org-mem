@@ -274,7 +274,7 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
 - =org-mem-roam-reflinks-to-id=
 
 ** Tips
-*** Encrypted and compressed files (=.org.gpg=, =.org.age=, =.org.gz=)
+*** Encrypted files (=.org.gpg= =.org.age=)
 
 Suppose you use [[https://github.com/anticomputer/age.el][age.el]] to keep files encrypted.
 
