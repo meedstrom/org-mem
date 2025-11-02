@@ -96,8 +96,7 @@ In that case, there may be nothing wrong with the known name."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
   (seq-let (bad-paths file-data entries links problems) parse-results
     (org-mem-updater--forget-file-contents (append bad-paths (mapcar #'car file-data)))
-    (when bad-paths
-      (org-mem--invalidate-file-names bad-paths))
+    (org-mem--invalidate-file-names bad-paths)
     (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
     (with-current-buffer
         (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))

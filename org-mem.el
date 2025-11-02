@@ -1293,8 +1293,7 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
   (clrhash org-mem--internal-entry-id<>links)
   (setq org-mem--title-collisions nil)
   (seq-let (bad-paths file-data entries links problems) parse-results
-    (when bad-paths
-      (org-mem--invalidate-file-names bad-paths))
+    (org-mem--invalidate-file-names bad-paths)
     (with-current-buffer
         (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
       (dolist (fdata file-data)
@@ -1369,13 +1368,13 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
         ;; It would affect function `org-mem-id-by-title'.
         (puthash title id org-mem--title<>id)))))
 
-;; A "specially indexed" table is one that cannot be trivially updated when
-;; one file is re-scanned, since a given key in it may list values from
-;; multiple files.  So rather than try to find the particular values to
-;; remove, it's easiest to wipe and re-build.
-;; Note these tables are basically re-expressions of info that already exists.
 (defun org-mem--rebuild-specially-indexed-tables ()
-  "Rebuild table `org-mem--target<>links'."
+  "Rebuild table `org-mem--target<>links'.
+
+A \"specially indexed\" table is one that cannot be trivially updated when
+one file is re-scanned, since a given key in it may list values from
+multiple files.  So rather than try to find the particular values to
+remove, it's easiest to wipe and re-build."
   (setq org-mem--target<>old-links (copy-hash-table org-mem--target<>links))
   (clrhash org-mem--target<>links)
   (cl-loop
@@ -1500,22 +1499,23 @@ changing the meaning of \"~\" or \"~USER\", or runtime changes to
   "Scrub bad file names BAD in the tables that can pollute a reset.
 Notably, invalidate part of the cache used by `org-mem--truename-maybe'.
 If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
-  ;; Example situation: File WILD is a symlink that changed destination.
-  ;; So cached TRUE led to a nonexistent file in the last scan.
-  ;; Now invalidate it so we cache a correct TRUE next time.
-  (maphash (lambda (wild true)
-             (when (member true bad)
-               (push wild bad)))
-           org-mem--wild-filename<>truename)
-  (dolist (bad bad)
-    (remhash bad org-mem--wild-filename<>truename))
-  (when (and org-mem-do-sync-with-org-id
-             (org-mem--try-ensure-org-id-table-p))
-    (setq org-id-locations
-          (org-id-alist-to-hash
-           (cl-loop for cell in (org-id-hash-to-alist org-id-locations)
-                    unless (member (car cell) bad)
-                    collect cell)))))
+  (when bad
+    ;; Example situation: File WILD is a symlink that changed destination.
+    ;; So cached TRUE led to a nonexistent file in the last scan.
+    ;; Now invalidate it so we cache a correct TRUE next time.
+    (maphash (lambda (wild true)
+               (when (member true bad)
+                 (push wild bad)))
+             org-mem--wild-filename<>truename)
+    (dolist (bad bad)
+      (remhash bad org-mem--wild-filename<>truename))
+    (when (and org-mem-do-sync-with-org-id
+               (org-mem--try-ensure-org-id-table-p))
+      (setq org-id-locations
+            (org-id-alist-to-hash
+             (cl-loop for cell in (org-id-hash-to-alist org-id-locations)
+                      unless (member (car cell) bad)
+                      collect cell))))))
 
 (defun org-mem--try-ensure-org-id-table-p ()
   "Coerce `org-id-locations' into hash table form, return nil on fail."
