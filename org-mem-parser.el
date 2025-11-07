@@ -279,7 +279,11 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
 ;;; Main
 
-(defconst org-mem-parser--org-drawer-regexp "^[ \t]*:[_[:word:]-]+:[ \t]*$")
+(defconst org-mem-parser--org-drawer-regexp
+  "^[ \t]*:[_[:word:]-]+:[ \t]*$")
+(defconst org-mem-parser--todo-keyword-re
+  (rx bol (* space) (or "#+todo: " "#+seq_todo: " "#+typ_todo: ")))
+
 (defvar org-mem-parser--outline-regexp nil)
 (defvar org-mem-parser--buf nil)
 
@@ -321,8 +325,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
   (setq org-mem-parser--found-active-stamps nil)
   (let ((case-fold-search t)
         (buffer-read-only t)
-        (file-todo-option-re
-         (rx bol (* space) (or "#+todo: " "#+seq_todo: " "#+typ_todo: ")))
         bad-path
         found-entries
         file-data
@@ -430,7 +432,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                          ":" t))))
             (goto-char LEFT)
             (let (collected-todo-lines)
-              (while (re-search-forward file-todo-option-re RIGHT t)
+              (while (re-search-forward org-mem-parser--todo-keyword-re RIGHT t)
                 (push (buffer-substring (point) (pos-eol))
                       collected-todo-lines))
               (when collected-todo-lines
