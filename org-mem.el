@@ -301,6 +301,7 @@ Note: All tables cleared often, meant for memoizations."
   (description        nil :read-only t :type string-or-nil)
   (citation-p         nil :read-only t :type boolean)
   (nearby-id          nil :read-only t :type string-or-nil)
+  (supplement         nil :read-only t :type string-or-nil)
   (-internal-entry-id -1  :read-only t :type integer))
 
 (cl-defstruct org-mem-entry

@@ -158,7 +158,7 @@ INTERNAL-ENTRY-ID likewise.
 It is important that END does not extend past any sub-heading, as
 the subheading potentially has an ID of its own."
   (let ((beg (point))
-        LINK-TYPE LINK-PATH LINK-POS LINK-DESC)
+        LINK-TYPE LINK-PATH LINK-POS LINK-DESC SUPPLEMENT)
     ;; Here it may help to know that:
     ;; - `$plain-re' will be morally the same as `org-link-plain-re'
     ;; - `$merged-re' merges the above with `org-link-bracket-re'
@@ -187,9 +187,12 @@ the subheading potentially has an ID of its own."
                 (goto-char (pos-bol))
                 (looking-at-p "[\s\t]*# "))
         ;; Handle a special case opened by Org 9.7 `org-id-link-use-context'
-        (when (and (equal LINK-TYPE "id"))
+        (setq SUPPLEMENT nil)
+        (when (equal LINK-TYPE "id")
           (let ((chop (string-search "::" LINK-PATH)))
-            (when chop (setq LINK-PATH (substring LINK-PATH 0 chop)))))
+            (when chop
+              (setq SUPPLEMENT (substring LINK-PATH (+ 2 chop))
+                    LINK-PATH (substring LINK-PATH 0 chop)))))
         (push (record 'org-mem-link
                       file
                       LINK-POS
@@ -198,6 +201,7 @@ the subheading potentially has an ID of its own."
                       LINK-DESC
                       nil
                       id-here
+                      SUPPLEMENT
                       internal-entry-id)
               org-mem-parser--found-links)
         ;; TODO: Fish any org-ref v3 &citekeys out of LINK-PATH and make a new link
@@ -233,6 +237,7 @@ the subheading potentially has an ID of its own."
                           LINK-DESC
                           t
                           id-here
+                          nil
                           internal-entry-id)
                   org-mem-parser--found-links)))))
 

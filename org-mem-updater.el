@@ -235,10 +235,11 @@ No support for citations."
                 truename
                 (point)
                 type
-                target
+                target ;; HACK: includes supplement
                 (and desc-beg (buffer-substring-no-properties desc-beg desc-end))
                 nil
                 (org-entry-get-with-inheritance "ID")
+                nil ;; HACK: supplement field is nil
                 (org-mem-parser--mk-id
                  truename (if (org-before-first-heading-p) 0
                             (org-entry-beginning-position)))))
