@@ -282,21 +282,28 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 (defconst org-mem-parser--org-drawer-regexp "^[ \t]*:[_[:word:]-]+:[ \t]*$")
 (defvar org-mem-parser--outline-regexp nil)
 (defvar org-mem-parser--buf nil)
-(defun org-mem-parser--parse-file (file)
-  "Gather entries, links and other data in FILE."
+
+(defun org-mem-parser--dirty-setup-if-edebug ()
+  "Irreversibly mutate the environment!"
+  ;; In the normal case, we run in subprocesses where this condition fails.
   (when (and (fboundp 'org-mem--mk-work-vars)
              (fboundp 'el-job--ensure-compiled-lib)
              (boundp 'org-mem-load-features)
              (boundp 'org-mem-inject-vars))
-    ;; For debugging in main process; el-job already sets these in subprocesses
-    ;; (the above condition fails if subprocess is calling this).
+    ;; If we are edebugging `org-mem-parser--parse-file' and passing it a FILE
+    ;; directly, these variables have not been set (normally el-job would take
+    ;; care of it, but el-job was never called).  Set them now.
     (dolist (var (org-mem--mk-work-vars))
       (set (car var) (cdr var)))
     (dolist (var org-mem-inject-vars)
       (when (consp var)
         (set (car var) (cdr var))))
     (dolist (lib org-mem-load-features)
-      (load (el-job--ensure-compiled-lib lib))))
+      (load (el-job--ensure-compiled-lib lib)))))
+
+(defun org-mem-parser--parse-file (file)
+  "Gather entries, links and other data in FILE."
+  (org-mem-parser--dirty-setup-if-edebug)
   (unless (eq org-mem-parser--buf (current-buffer))
     (switch-to-buffer
      (setq org-mem-parser--buf (get-buffer-create " *org-mem-parser*" t))))
