@@ -120,7 +120,7 @@ When one region overlaps with the next, merge the two."
     (nreverse safe)))
 
 (defun org-mem-parser--scan-visible-text (id-here file internal-entry-id)
-  "Call `org-mem-parser--scan-text-until-1', which see for arguments.
+  "Call `org-mem-parser--scan-text-until', which see for arguments.
 Use the whole visible buffer, but skip regions indicated by
 `org-mem-ignore-regions-regexps'.  Leave point at the end of buffer."
   (goto-char (point-min))
@@ -137,17 +137,17 @@ Use the whole visible buffer, but skip regions indicated by
     (cl-loop
      for (beg . end) in (org-mem-parser--merge-overlapping-regions regions)
      do
-     (org-mem-parser--scan-text-until-1 beg id-here file internal-entry-id)
+     (org-mem-parser--scan-text-until beg id-here file internal-entry-id)
      (goto-char end)))
   (unless (eobp)
-    (org-mem-parser--scan-text-until-1 nil id-here file internal-entry-id)))
+    (org-mem-parser--scan-text-until nil id-here file internal-entry-id)))
 
 (defvar org-mem-parser--found-links nil)
 (defvar org-mem-parser--found-active-stamps nil)
 (defconst org-mem-parser--org-ts-regexp
   "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
 
-(defun org-mem-parser--scan-text-until-1 (end id-here file internal-entry-id)
+(defun org-mem-parser--scan-text-until (end id-here file internal-entry-id)
   "From here to buffer position END, collect links and active timestamps.
 
 Argument ID-HERE is the ID of the subtree where this function is being
