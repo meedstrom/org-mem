@@ -20,7 +20,7 @@
 ;; Created:  2025-03-15
 ;; Keywords: text
 ;; Package-Version: 0.24.0
-;; Package-Requires: ((emacs "29.1") (el-job "2.4.8") (llama "0.5.0"))
+;; Package-Requires: ((emacs "29.1") (el-job "2.5.1") (llama "0.5.0"))
 
 ;;; Commentary:
 
@@ -59,6 +59,9 @@
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
 (define-obsolete-variable-alias 'org-mem-watch-dirs-exclude 'org-mem-exclude "0.13.0 (May 2025)")
+(unless (and (boundp 'el-job-old-internal-version)
+             (>= el-job-old-internal-version 100))
+  (error "Update to el-job 2.5.1+ to use this version of org-mem"))
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
@@ -1236,26 +1239,14 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
       (redisplay t))
     (let ((files (org-mem--list-files-from-fs)))
       (when files
-        (if (and (boundp 'el-job-old-internal-version)
-                 (>= el-job-old-internal-version 100))
-            ;; 2025-10-08: Use new argument :eval
-            (el-job-launch :id 'org-mem
-                           :if-busy 'takeover
-                           :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
-                           :load-features (append '(org-mem-parser) org-mem-load-features)
-                           :eval org-mem-eval-forms
-                           :inputs files
-                           :funcall-per-input #'org-mem-parser--parse-file
-                           :callback #'org-mem--finalize-full-scan)
-          (when org-mem-eval-forms
-            (message "Update el-job for `org-mem-eval-forms' to have any effect"))
-          (el-job-launch :id 'org-mem
-                         :if-busy 'takeover
-                         :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
-                         :load-features (append '(org-mem-parser) org-mem-load-features)
-                         :inputs files
-                         :funcall-per-input #'org-mem-parser--parse-file
-                         :callback #'org-mem--finalize-full-scan))
+        (el-job-launch :id 'org-mem
+                       :if-busy 'takeover
+                       :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
+                       :load-features (append '(org-mem-parser) org-mem-load-features)
+                       :eval org-mem-eval-forms
+                       :inputs files
+                       :funcall-per-input #'org-mem-parser--parse-file
+                       :callback #'org-mem--finalize-full-scan)
         ;; While the subprocesses are parsing each file, let main process
         ;; spend this time caching the raw file contents.
         ;; It may seem that the subprocesses could just send the raw content
