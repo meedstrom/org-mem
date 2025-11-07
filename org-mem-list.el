@@ -50,11 +50,26 @@
       (inspector-inspect (org-mem-all-entries))
     (message "Command org-mem-list-entries depends on package \"inspector\"")))
 
+;;;###autoload
 (defun org-mem-list-entries-in-file ()
   (interactive)
   (if (fboundp 'inspector-inspect)
-      (inspector-inspect (org-mem-entries-in-file (buffer-file-name)))
+      (inspector-inspect (org-mem-entries-in-file (buffer-file-name (buffer-base-buffer))))
     (message "Command org-mem-list-entries-in-file depends on package \"inspector\"")))
+
+;;;###autoload
+(defun org-mem-list-links ()
+  (interactive)
+  (if (fboundp 'inspector-inspect)
+      (inspector-inspect (org-mem-all-links))
+    (message "Command org-mem-list-entries depends on package \"inspector\"")))
+
+;;;###autoload
+(defun org-mem-list-links-in-file ()
+  (interactive)
+  (if (fboundp 'inspector-inspect)
+      (inspector-inspect (org-mem-links-in-file (buffer-file-name (buffer-base-buffer))))
+    (message "Command org-mem-list-entries depends on package \"inspector\"")))
 
 ;;;###autoload
 (defun org-mem-list-problems ()
