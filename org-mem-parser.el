@@ -301,9 +301,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
     (dolist (lib org-mem-load-features)
       (load (el-job--ensure-compiled-lib lib)))))
 
-(defun org-mem-parser--parse-file (file)
-  "Gather entries, links and other data in FILE."
-  (org-mem-parser--dirty-setup-if-edebug)
+(defun org-mem-parser--init ()
+  "Initialize things, then become a no-op in the normal case."
   (unless (eq org-mem-parser--buf (current-buffer))
     (switch-to-buffer
      (setq org-mem-parser--buf (get-buffer-create " *org-mem-parser*" t))))
@@ -312,7 +311,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           (if $inlinetask-min-level
               (rx-to-string
                `(seq bol (repeat 1 ,(1- $inlinetask-min-level) "*") " "))
-            (rx bol (repeat 1 14 "*") " "))))
+            (rx bol (repeat 1 14 "*") " ")))))
+
+(defun org-mem-parser--parse-file (file)
+  "Gather entries, links and other data in FILE."
+  (org-mem-parser--dirty-setup-if-edebug)
+  (org-mem-parser--init)
   (setq org-mem-parser--found-links nil)
   (setq org-mem-parser--found-active-stamps nil)
   (let ((case-fold-search t)
