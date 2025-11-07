@@ -53,12 +53,12 @@ the custom TODO words thus defined."
 (defconst org-mem-parser--max-safe-hex-digits
   (- (length (format "%x" most-positive-fixnum)) 1))
 
-(defun org-mem-parser--mk-id (file-name pos)
-  "Reduce FILE-NAME and POS into an `eq'-safe probably-unique fixnum."
-  (+ (string-to-number (substring (secure-hash 'md5 file-name)
-                                  (- org-mem-parser--max-safe-hex-digits))
-                       16)
-     pos))
+(defun org-mem-parser--hash (string)
+  "Summarize STRING as an `eq'-safe hopefully unique fixnum.
+Unlike `sxhash', result is deterministic given the same Emacs executable."
+  (string-to-number (substring (secure-hash 'md5 string)
+                               (- org-mem-parser--max-safe-hex-digits))
+                    16))
 
 (defun org-mem-parser--org-link-display-format (s)
   "Copy of `org-link-display-format'.
@@ -385,7 +385,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
           ;; Scan content before first heading, if any
 
-          (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file 0))
+          (setq INTERNAL-ENTRY-ID (org-mem-parser--hash file))
           (while (looking-at-p (rx (*? space) (or "# " "\n")))
             (forward-line))
           (unless (looking-at-p "\\*")
@@ -593,7 +593,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                            (error "Code 9: Couldn't find :END: of drawer"))))
                     nil))
             (setq ID (cdr (assoc "ID" PROPS)))
-            (setq INTERNAL-ENTRY-ID (org-mem-parser--mk-id file HEADING-POS))
+            (setq INTERNAL-ENTRY-ID (+ (org-mem-parser--hash file) HEADING-POS))
             (setq LEFT (point))
             ;; Rough start of body text (just a perf hack, fails gracefully)
             (setq RIGHT (re-search-forward "^[ \t]*[a-bd-z]" nil t))

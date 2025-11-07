@@ -240,9 +240,10 @@ No support for citations."
                 nil
                 (org-entry-get-with-inheritance "ID")
                 nil ;; HACK: supplement field is nil
-                (org-mem-parser--mk-id
-                 truename (if (org-before-first-heading-p) 0
-                            (org-entry-beginning-position)))))
+                (+ (org-mem-parser--hash truename)
+                   (if (org-before-first-heading-p)
+                       0
+                     (org-entry-beginning-position)))))
     (error "No link at point %d in %s" (point) (current-buffer))))
 
 (defun org-mem-updater-mk-entry-atpt ()
@@ -296,7 +297,7 @@ Some fields are incomplete or left at nil."
             (org-mem-updater--tags-at-point-inherited-only)
             (org-get-tags nil t)
             (when heading (org-get-todo-state))
-            (org-mem-parser--mk-id truename (if heading pos 0)))))
+            (+ (org-mem-parser--hash truename) (if heading pos 0)))))
 
 (defun org-mem-updater--tags-at-point-inherited-only ()
   "Like `org-get-tags', but get only the inherited tags."
