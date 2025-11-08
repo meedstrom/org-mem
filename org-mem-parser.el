@@ -103,6 +103,15 @@ brackets."
 	            nil -1 nil)))
       (and ts (time-convert (encode-time ts) 'integer)))))
 
+
+;;; Links, citations and active timestamps
+
+(defvar org-mem-parser--found-links nil)
+(defvar org-mem-parser--found-active-stamps nil)
+(defconst org-mem-parser--org-ts-regexp
+  "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>"
+  "Copy of `org-ts-regexp'.")
+
 (defun org-mem-parser--merge-overlapping-regions (regions)
   "Sort and simplify REGIONS, an alist of positions \((BEG . END)).
 When one region overlaps with the next, merge the two."
@@ -141,11 +150,6 @@ Use the whole visible buffer, but skip regions indicated by
      (goto-char end)))
   (unless (eobp)
     (org-mem-parser--scan-text-until nil id-here file internal-entry-id)))
-
-(defvar org-mem-parser--found-links nil)
-(defvar org-mem-parser--found-active-stamps nil)
-(defconst org-mem-parser--org-ts-regexp
-  "<\\([[:digit:]]\\{4\\}-[[:digit:]]\\{2\\}-[[:digit:]]\\{2\\}\\(?: .*?\\)?\\)>")
 
 (defun org-mem-parser--scan-text-until (end id-here file internal-entry-id)
   "From here to buffer position END, collect links and active timestamps.
@@ -247,6 +251,9 @@ the subheading potentially has an ID of its own."
       (push (org-mem-parser--time-string-to-int (match-string 0))
             org-mem-parser--found-active-stamps)))
   (goto-char (or end (point-max))))
+
+
+;;; Properties
 
 (defun org-mem-parser--collect-properties (beg end)
   "Collect Org properties between BEG and END into an alist.
