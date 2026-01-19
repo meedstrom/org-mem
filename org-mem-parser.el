@@ -298,7 +298,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
   "Irreversibly mutate the environment!"
   ;; In the normal case, we run in subprocesses where this condition fails.
   (when (and (fboundp 'org-mem--mk-work-vars)
-             (fboundp 'el-job--ensure-compiled-lib)
              (boundp 'org-mem-load-features)
              (boundp 'org-mem-inject-vars))
     ;; If we are edebugging `org-mem-parser--parse-file' and passing it a FILE
@@ -310,7 +309,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       (when (consp var)
         (set (car var) (cdr var))))
     (dolist (lib org-mem-load-features)
-      (load (el-job--ensure-compiled-lib lib)))))
+      (load (locate-library (symbol-name lib))))))
 
 (defun org-mem-parser--init ()
   "Initialize things, then become a no-op in the normal case."
@@ -324,7 +323,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                `(seq bol (repeat 1 ,(1- $inlinetask-min-level) "*") " "))
             (rx bol (repeat 1 14 "*") " ")))))
 
-(defun org-mem-parser--parse-file (file)
+(defun org-mem-parser--parse-file (file &optional _)
   "Gather entries, links and other data in FILE."
   (org-mem-parser--dirty-setup-if-edebug)
   (org-mem-parser--init)

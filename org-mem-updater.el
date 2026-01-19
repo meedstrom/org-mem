@@ -32,6 +32,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'llama)
+(require 'el-job-ng)
 (require 'org-mem)
 (require 'org-mem-parser)
 
@@ -84,15 +85,20 @@ In that case, there may be nothing wrong with the known name."
                      (seq-uniq)
                      (seq-filter (##cl-loop for xclude in org-mem-exclude
                                             never (string-search xclude %))))))
-    (el-job-launch :id 'org-mem-updater
-                   :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
-                   :load-features (append '(org-mem-parser) org-mem-load-features)
+    (el-job-ng-run :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
+                   :require (append '(org-mem-parser) org-mem-load-features)
                    :inputs truenames
                    :funcall-per-input #'org-mem-parser--parse-file
                    :callback #'org-mem-updater--finalize-targeted-scan)))
 
-(defun org-mem-updater--finalize-targeted-scan (parse-results _job)
+(defun org-mem-updater--finalize-targeted-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem-updater--scan-targeted'."
+  ;; Transitional #33
+  (let* ((ng-style-results parse-results)
+         (merged (pop ng-style-results)))
+    (while ng-style-results
+      (setq merged (org-mem--zip (pop ng-style-results) merged)))
+    (setq parse-results merged))
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
   (seq-let (bad-paths file-data entries links problems) parse-results
     (org-mem-updater--forget-file-contents (append bad-paths (mapcar #'car file-data)))

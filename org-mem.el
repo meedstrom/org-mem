@@ -43,7 +43,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'llama)
-(require 'el-job)
+(require 'el-job-ng)
 (require 'org-mem-parser)
 
 (defvar org-id-locations)
@@ -59,9 +59,8 @@
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
 (define-obsolete-variable-alias 'org-mem-watch-dirs-exclude 'org-mem-exclude "0.13.0 (May 2025)")
-(unless (and (boundp 'el-job-old-internal-version)
-             (>= el-job-old-internal-version 100))
-  (error "Update to el-job 2.5.1+ to use this version of org-mem"))
+(unless (fboundp 'el-job-ng-run)
+  (error "Update to el-job 2.6.0+ to use this version of org-mem"))
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
@@ -1239,10 +1238,9 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
       (redisplay t))
     (let ((files (org-mem--list-files-from-fs)))
       (when files
-        (el-job-launch :id 'org-mem
-                       :if-busy 'takeover
+        (el-job-ng-run :id 'org-mem
                        :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
-                       :load-features (append '(org-mem-parser) org-mem-load-features)
+                       :require (append '(org-mem-parser) org-mem-load-features)
                        :eval org-mem-eval-forms
                        :inputs files
                        :funcall-per-input #'org-mem-parser--parse-file
@@ -1273,9 +1271,28 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
           (message nil)
           (redisplay))))))
 
+;; Transitional #33
+(defun org-mem--zip (list1 list2)
+  "Destructively zip two lists into one.
+Like the Dash expression \(-zip-with #\\='nconc list1 list2).
+
+LIST1 and LIST2 must be lists of identical length,
+and each element in them must be a list or nil."
+  (let (merged)
+    (while list1
+      (push (nconc (pop list1) (pop list2)) merged))
+    (when list2 (error "Lists differed in length"))
+    (nreverse merged)))
+
 (defvar org-mem--caused-retry nil)
-(defun org-mem--finalize-full-scan (parse-results _job)
+(defun org-mem--finalize-full-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem--scan-full'."
+  ;; Transitional #33
+  (let* ((ng-style-results parse-results)
+         (merged (pop ng-style-results)))
+    (while ng-style-results
+      (setq merged (org-mem--zip (pop ng-style-results) merged)))
+    (setq parse-results merged))
   (run-hook-with-args 'org-mem-pre-full-scan-functions parse-results)
   (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
   (clrhash org-mem--title<>id)
