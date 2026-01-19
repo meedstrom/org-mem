@@ -1230,7 +1230,7 @@ With TAKEOVER t, stop any already ongoing scan to start a new one.
 
 Argument MSG is an optional message to print.  If provided, it also
 overrides a default message printed when `org-mem-do-cache-text' is t."
-  (when (or takeover (not (el-job-is-busy 'org-mem)))
+  (when (or takeover (not (el-job-ng-busy-p 'org-mem)))
     (setq org-mem--time-at-begin-full-scan (current-time))
     (when msg
       (setq org-mem--reset-msg msg)
@@ -1706,8 +1706,8 @@ As an obsolete calling convention, MESSAGE can also be a symbol
 corresponding to your package name."
   (when (symbolp message)
     (setq message (format "%S waiting for org-mem..." message)))
-  (el-job-await 'org-mem-targeted n-secs message)
-  (el-job-await 'org-mem n-secs message))
+  (el-job-ng-await 'org-mem-targeted n-secs message)
+  (el-job-ng-await 'org-mem n-secs message))
 
 ;; REVIEW: Mixed feelings about including this tool, but it's the obvious tool
 ;; to use with `org-mem-entry-text' to generate backlink previews, for
