@@ -1560,13 +1560,6 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
                    (not (eq ?_ (aref other-dir (length (file-name-as-directory dir))))))
           (message "Option `org-mem-watch-dirs' has redundant subdirectories"))))))
 
-;; Benchmarks.  Try with (setq org-mem-watch-dirs nil) too!
-
-;; (clrhash org-mem--wild-filename<>truename)
-;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.043 s
-;; (benchmark-call #'org-mem--list-files-from-fs)  => 0.004 s
-;; (benchmark-call #'org-roam-list-files)          => 4.145 s
-
 (defvar org-mem--dir<>bare-files (make-hash-table :test 'equal))
 (defvar org-mem--dedup-tbl (make-hash-table :test 'equal))
 (defun org-mem--list-files-from-fs ()

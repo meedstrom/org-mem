@@ -295,8 +295,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 (defvar org-mem-parser--buf nil)
 
 (defun org-mem-parser--dirty-setup-if-edebug ()
-  "Irreversibly mutate the environment!"
-  ;; In the normal case, we run in subprocesses where this condition fails.
+  "Maybe irreversibly mutate the environment!"
+  ;; In the normal case, this is only ever called in a subprocess, where these
+  ;; conditions fail because only org-mem-parser.el is loaded, not org-mem.el.
   (when (and (fboundp 'org-mem--mk-work-vars)
              (boundp 'org-mem-load-features)
              (boundp 'org-mem-inject-vars))
@@ -306,10 +307,13 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
     (dolist (var (org-mem--mk-work-vars))
       (set (car var) (cdr var)))
     (dolist (var org-mem-inject-vars)
-      (when (consp var)
-        (set (car var) (cdr var))))
+      (cl-assert (consp var))
+      (unless (equal (symbol-value (car var)) (cdr var))
+        (when (y-or-n-p (format "Globally set %S?  To: %s"
+                                (car var) (cdr var)))
+          (set (car var) (cdr var)))))
     (dolist (lib org-mem-load-features)
-      (load (locate-library (symbol-name lib))))))
+      (require lib))))
 
 (defun org-mem-parser--init ()
   "Initialize things, then become a no-op in the normal case."
@@ -398,7 +402,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; Narrow until first heading, if there is one
             (save-excursion
               (when (re-search-forward org-mem-parser--outline-regexp nil t)
-                (narrow-to-region 1 (pos-bol))))
+                (narrow-to-region (point-min) (pos-bol))))
             ;; A bug introduced in org-node 5035a33 (fixed ~5 days later)
             ;; could insert BACKLINKS before PROPERTIES.  Add a warning so
             ;; user can fix the affected notes.
