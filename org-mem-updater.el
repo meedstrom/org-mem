@@ -89,11 +89,17 @@ In that case, there may be nothing wrong with the known name."
                      (seq-uniq)
                      (seq-filter (##cl-loop for xclude in org-mem-exclude
                                             never (string-search xclude %))))))
-    (el-job-ng-run :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
-                   :require (append '(org-mem-parser) org-mem-load-features)
+    (el-job-ng-run :id 'org-mem-updater
+                   :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
+                   :require (cons 'org-mem-parser org-mem-load-features)
                    :inputs truenames
                    :funcall-per-input #'org-mem-parser--parse-file
-                   :callback #'org-mem-updater--finalize-targeted-scan)))
+                   :callback #'org-mem-updater--finalize-targeted-scan)
+    ;; XXX
+    ;; To have :id, we must enforce synchronous.
+    ;; If allowing async, we must remove :id bc of poentially simultaneous jobs.
+    ;; What's best?  See comments in `org-node-insert-transclusion'
+    (el-job-ng-await-or-die 'org-mem-updater 100)))
 
 (defun org-mem-updater--finalize-targeted-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem-updater--scan-targeted'."
