@@ -192,7 +192,7 @@ Quoted forms to eval in child process."
     ("^[ \t]*#\\+begin_src" . "^[ \t]*#\\+end_src")
     ("^[ \t]*#\\+begin_example" . "^[ \t]*#\\+end_example")
     ("^[ \t]*#\\+begin_comment" . "^[ \t]*#\\+end_comment")
-    ("^[ \t]*#\\+begin_transclude" . "^[ \t]*#\\+end_transclude"))
+    ("^[ \t]*#\\+transclude:" . "$"))
   "Alist of regular expressions matching boundaries of regions to avoid.
 These regions will not be scanned for links nor active timestamps."
   :type '(alist :key-type regexp :value-type regexp)
