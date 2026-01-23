@@ -147,6 +147,7 @@ Turns out I have only about 30 files worth checking, the challenge was always kn
          unless (string-search "archive" file)
          when (seq-find (lambda (entry)
                           (or (org-mem-entry-active-timestamps entry)
+                              (org-mem-entry-dangling-clocks entry)
                               (org-mem-entry-todo-state entry)
                               (org-mem-entry-scheduled entry)
                               (org-mem-entry-deadline entry)))
@@ -165,7 +166,10 @@ Now the following is an alternative:
 
 #+begin_src elisp
 (defun my-warn-dangling-clock (&rest _)
-  (let ((not-clocked-out (org-mem-all-entries-with-dangling-clock)))
+  (let ((not-clocked-out
+         (cl-loop for entry in (org-mem-all-entries)
+                  when (org-mem-entry-dangling-clocks entry)
+                  collect entry)))
     (when not-clocked-out
       (warn "Didn't clock out in files: %S"
             (delete-dups (mapcar #'org-mem-entry-file not-clocked-out))))))
@@ -302,13 +306,13 @@ where file "~/.emacs.d/my-org-mem-extra.el" contains the following.  Sorry it's 
 
 Files over TRAMP are excluded from org-mem's database, so as far as org-mem is concerned, it is as if they do not exist.
 
-(However, org-mem is also careful not to scrub them from your =org-id-locations=, so your ID-links should still work.)
+(However, org-mem is also careful not to scrub them from your =org-id-locations=, even if =org-mem-do-sync-with-org-id= is t, so your ID-links should still work.)
 
 This limitation comes from the fact that org-mem parses your files in many parallel subprocesses that do not inherit your TRAMP setup.  It is fixable in theory.
 
 *** Limitation: Encrypted entries
 
-Specific entries in a file may be encrypted by =org-crypt=.   Org-mem cannot find links nor active timestamps inside these.
+The body text of specific entries may be encrypted by =org-crypt=.   If so, org-mem cannot find links nor timestamps inside.
 
 *** Limitation: SETUPFILE
 
@@ -316,4 +320,7 @@ No support yet for buffer settings from =#+SETUPFILE:=.
 
 ** Future work
 
-Use Org's own parser. https://lists.gnu.org/archive/html/emacs-orgmode/2025-05/msg00288.html
+Use Org's own parser.
+
+- https://lists.gnu.org/archive/html/emacs-orgmode/2025-05/msg00288.html
+- https://github.com/meedstrom/org-mem/issues/29
