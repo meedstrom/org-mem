@@ -1819,26 +1819,12 @@ may be removed from the package."
                 ,when ,removed-by ,new))
        (apply ,new args))))
 
-(org-mem--def-whiny-alias 'org-mem-link-dest                         #'org-mem-link-target                             "0.8.0 (2025-05-15)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-dest                              #'org-mem-target                                  "0.8.0 (2025-05-15)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-x-fontify-like-org                #'org-mem-fontify-like-org                        "0.10.0 (2025-05-18)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-block                             #'org-mem-await                                   "0.12.0 (2025-05-22)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem--abbr-truename                    #'org-mem--truename-maybe                         "0.12.0 (2025-05-22)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-title           #'org-mem-entry-olpath-with-file-title            "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-self-with-title #'org-mem-entry-olpath-with-self-with-file-title  "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-olpath-with-title                 #'org-mem-olpath-with-file-title                  "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-olpath-with-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-olpath-with-self-with-title       #'org-mem-olpath-with-self-with-file-title        "0.13.1 (2025-05-28)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-file-mtime-int                    #'org-mem-file-mtime-floor                        "0.14.0 (2025-05-30)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-entries-with-active-timestamps    #'org-mem-all-entries-with-active-timestamps      "0.14.0 (2025-05-30)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-files-with-active-timestamps      #'org-mem-all-files-with-active-timestamps        "0.14.0 (2025-05-30)" "2025-11-30")
-(org-mem--def-whiny-alias 'org-mem-heading-lvl                       #'org-mem-level                                   "0.21.0 (2025-09-30)" "2026-01-30")
 (defvar org-mem--file<>metadata :renamed)
 (defvar org-mem--file<>entries  :renamed)
 
-(define-obsolete-function-alias 'org-mem-entry-olpath-with-file-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.22.0 (2025-10-01)")
-(define-obsolete-function-alias 'org-mem-olpath-with-file-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.22.0 (2025-10-01)")
+(org-mem--def-whiny-alias 'org-mem-entry-olpath-with-file-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.22.0 (2025-10-01)" "2026-04-30")
+(org-mem--def-whiny-alias 'org-mem-olpath-with-file-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.22.0 (2025-10-01)" "2026-04-30")
+
 (defvar org-mem-forget-link-functions :obsolete) ;; 2025-10-15 but unused for long already
 
 (provide 'org-mem)
