@@ -1239,7 +1239,8 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
     (let ((files (org-mem--list-files-from-fs)))
       (when files
         (el-job-ng-run :id 'org-mem
-                       :inject-vars (append (org-mem--mk-work-vars) org-mem-inject-vars)
+                       :inject-vars (append (org-mem--mk-work-vars)
+                                            (el-job-ng-vars org-mem-inject-vars))
                        :require (append '(org-mem-parser) org-mem-load-features)
                        :eval org-mem-eval-forms
                        :inputs files
