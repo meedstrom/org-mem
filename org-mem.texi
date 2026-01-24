@@ -66,7 +66,7 @@ Elisp API
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
 * Entries and links::
-* Full list of functions @emph{<2025-May-30 1126>}::
+* Full list of functions @emph{[2025-05-30 Fri 1126]}::
 
 Tips
 
@@ -222,7 +222,7 @@ Use @samp{M-x org-mem-list-db-contents}.
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
 * Entries and links::
-* Full list of functions @emph{<2025-May-30 1126>}::
+* Full list of functions @emph{[2025-05-30 Fri 1126]}::
 @end menu
 
 @node Example Let org-agenda cast its net wide
@@ -259,7 +259,10 @@ Now the following is an alternative:
 
 @lisp
 (defun my-warn-dangling-clock (&rest _)
-  (let ((not-clocked-out (org-mem-all-entries-with-dangling-clock)))
+  (let ((not-clocked-out
+         (cl-loop for entry in (org-mem-all-entries)
+                  when (org-mem-entry-dangling-clocks entry)
+                  collect entry)))
     (when not-clocked-out
       (warn "Didn't clock out in files: %S"
             (delete-dups (mapcar #'org-mem-entry-file not-clocked-out))))))
@@ -297,8 +300,8 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @end itemize
 @end itemize
 
-@node Full list of functions @emph{<2025-May-30 1126>}
-@section Full list of functions @emph{<2025-May-30 11:26>}
+@node Full list of functions @emph{[2025-05-30 Fri 1126]}
+@section Full list of functions @emph{[2025-05-30 Fri 11:26]}
 
 @itemize
 @item
@@ -484,19 +487,9 @@ Suppose you use @uref{https://github.com/anticomputer/age.el, age.el} to keep fi
 This needs extra config to tell org-mem's subprocesses how to open them. The following should do the trick:
 
 @lisp
-(load "~/.emacs.d/my-org-mem-extra.el") ;; a file that contains "(age-file-enable)"
-(setq org-mem-load-features '(age my-org-mem-extra))
 (setq org-mem-inject-vars '(age-default-identity age-default-recipient age-program))
+(setq org-mem-eval-forms '((require 'age) (age-file-enable)))
 (add-to-list 'org-mem-suffixes ".org.age")
-@end lisp
-
-where file "~/.emacs.d/my-org-mem-extra.el" contains the following.  Sorry it's a bit roundabout@comma{} but that's the API for now.
-
-@lisp
-;; -*- lexical-binding: t; -*-
-(require 'age)
-(age-file-enable)
-(provide 'my-org-mem-extra)
 @end lisp
 
 @node Current limitations
@@ -513,14 +506,14 @@ where file "~/.emacs.d/my-org-mem-extra.el" contains the following.  Sorry it's 
 
 Files over TRAMP are excluded from org-mem's database@comma{} so as far as org-mem is concerned@comma{} it is as if they do not exist.
 
-(However@comma{} org-mem is also careful not to scrub them from your @samp{org-id-locations}@comma{} so your ID-links should still work.)
+(However@comma{} org-mem is also careful not to scrub them from your @samp{org-id-locations}@comma{} even if @samp{org-mem-do-sync-with-org-id} is t@comma{} so your ID-links should still work.)
 
 This limitation comes from the fact that org-mem parses your files in many parallel subprocesses that do not inherit your TRAMP setup.  It is fixable in theory.
 
 @node Limitation Encrypted entries
 @section Limitation: Encrypted entries
 
-Specific entries in a file may be encrypted by @samp{org-crypt}.   Org-mem cannot find links nor active timestamps inside these.
+The body text of specific entries may be encrypted by @samp{org-crypt}.   If so@comma{} org-mem cannot find links nor timestamps inside.
 
 @node Limitation SETUPFILE
 @section Limitation: SETUPFILE
@@ -530,6 +523,13 @@ No support yet for buffer settings from @samp{#+SETUPFILE:}.
 @node Future work
 @chapter Future work
 
-Use Org's own parser. @uref{https://lists.gnu.org/archive/html/emacs-orgmode/2025-05/msg00288.html}
+Use Org's own parser.
+
+@itemize
+@item
+@uref{https://lists.gnu.org/archive/html/emacs-orgmode/2025-05/msg00288.html}
+@item
+@uref{https://github.com/meedstrom/org-mem/issues/29}
+@end itemize
 
 @bye

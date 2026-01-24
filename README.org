@@ -147,7 +147,6 @@ Turns out I have only about 30 files worth checking, the challenge was always kn
          unless (string-search "archive" file)
          when (seq-find (lambda (entry)
                           (or (org-mem-entry-active-timestamps entry)
-                              (org-mem-entry-dangling-clocks entry)
                               (org-mem-entry-todo-state entry)
                               (org-mem-entry-scheduled entry)
                               (org-mem-entry-deadline entry)))
@@ -285,19 +284,9 @@ Suppose you use [[https://github.com/anticomputer/age.el][age.el]] to keep files
 This needs extra config to tell org-mem's subprocesses how to open them. The following should do the trick:
 
 #+begin_src elisp
-(load "~/.emacs.d/my-org-mem-extra.el") ;; a file that contains "(age-file-enable)"
-(setq org-mem-load-features '(age my-org-mem-extra))
 (setq org-mem-inject-vars '(age-default-identity age-default-recipient age-program))
+(setq org-mem-eval-forms '((require 'age) (age-file-enable)))
 (add-to-list 'org-mem-suffixes ".org.age")
-#+end_src
-
-where file "~/.emacs.d/my-org-mem-extra.el" contains the following.  Sorry it's a bit roundabout, but that's the API for now.
-
-#+begin_src elisp
-;; -*- lexical-binding: t; -*-
-(require 'age)
-(age-file-enable)
-(provide 'my-org-mem-extra)
 #+end_src
 
 
