@@ -306,7 +306,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
     ;; care of it, but el-job was never called).  Set them now.
     (dolist (var (org-mem--mk-work-vars))
       (set (car var) (cdr var)))
-    (dolist (var org-mem-inject-vars)
+    (dolist (var (el-job-ng-vars org-mem-inject-vars))
       (cl-assert (consp var))
       (unless (equal (symbol-value (car var)) (cdr var))
         (when (y-or-n-p (format "Globally set %S?  To: %s"
