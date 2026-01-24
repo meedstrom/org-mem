@@ -19,8 +19,8 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.26.2
-;; Package-Requires: ((emacs "29.1") (el-job "2.6.1") (llama "0.5.0"))
+;; Package-Version: 0.26.3
+;; Package-Requires: ((emacs "29.1") (el-job "2.7.1") (llama "0.5.0"))
 
 ;;; Commentary:
 
@@ -59,8 +59,8 @@
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
 (define-obsolete-variable-alias 'org-mem-watch-dirs-exclude 'org-mem-exclude "0.13.0 (May 2025)")
-(unless (fboundp 'el-job-ng-run)
-  (error "Update to el-job 2.6.1+ to use this version of org-mem"))
+(unless (fboundp 'el-job-ng-vars)
+  (error "Update to el-job 2.7.1+ to use this version of org-mem"))
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
@@ -170,8 +170,7 @@ this expression:
 
 (defcustom org-mem-load-features nil
   "List of features to load in child process.
-These features must have been loaded at some point in the current
-process, because `load-history' is used to find the corresponding file."
+These features must be discoverable on `load-path'."
   :type '(repeat symbol)
   :package-version '(org-mem . "0.21.0"))
 
