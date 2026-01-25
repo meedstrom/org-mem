@@ -39,6 +39,9 @@
 
 ;;; Targeted-scan
 
+;; FIXME: Causes `org-mem--rebuild-specially-indexed-tables' to be called
+;; twice, which causes table `org-mem--target<>old-links' to be less useful
+;; for purposes of `org-node-backlink--maybe-fix-proactively'.
 (defun org-mem-updater--handle-rename (file newname &rest _)
   "Arrange to scan NEWNAME for entries and links, and forget FILE."
   (org-mem-updater--handle-delete file)
