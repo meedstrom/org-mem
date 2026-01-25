@@ -357,7 +357,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (setq bad-path file)
             (signal 'skip-file t))
           (when (not (file-readable-p file))
-            ;; NOTE: Don't declare it bad, that'd delist it from
+            ;; NOTE: Don't declare it a bad-path, that'd delist it from
             ;;       org-id-locations, which the user may not want.
             (error "Code 8: File not readable"))
           ;; NOTE: Don't use `insert-file-contents-literally'!  It sets
@@ -635,7 +635,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         (list clock-start))
                       CLOCK-LINES)))
 
-            ;; `CRUMBS' is a kind of state machine; a list that can look like
+            ;; `CRUMBS' is kind of a state machine; a list that can look like
             ;;    ((3 23 500 "Heading" "id1234" ("noexport" "work" "urgent"))
             ;;     (2 10 122 "Another heading" "id6532" ("work"))
             ;;     (... ... ... ...))
@@ -697,7 +697,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           ;; Done analyzing this file.
           (cl-assert (eobp))
           (setq file-data (list file
-                                (file-attributes file 'string)
+                                (file-attributes file)
                                 LNUM
                                 (point)
                                 coding-system)))
@@ -708,12 +708,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
        (setq problem (list (format-time-string "%H:%M") file (point) err))
        (widen)
        (setq file-data (list file
-                             (file-attributes file 'string)
+                             (file-attributes file)
                              (line-number-at-pos (point-max))
                              (point-max)
                              coding-system)))
 
-      ;; Catch fake `skip-file' signal.
+      ;; Catch fake `skip-file' signal.  Already caught real error signals.
       (t
        (cl-assert (null file-data))
        (cl-assert (null found-entries))
