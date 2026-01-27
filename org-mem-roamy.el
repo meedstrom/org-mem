@@ -26,9 +26,9 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sqlite)
+(require 'eieio)
 (require 'org-mem)
 (require 'llama)
-(declare-function eieio-oref "eieio-core")
 (defvar org-mem-updater-mode)
 
 (defcustom org-mem-roamy-do-overwrite-real-db nil
