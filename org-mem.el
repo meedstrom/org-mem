@@ -1750,6 +1750,39 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
       (message msg)
       msg)))
 
+(defun org-mem-translate-parse-results (ng-style-results)
+  "Translate NG-STYLE-RESULTS into style from before org-mem 0.27.0.
+
+This is a transition helper.  Org-mem 0.27.0 changed the style of
+PARSE-RESULTS passed to `org-mem-pre-full-scan-functions' & co.
+
+For reference, the new style is a list as long as the number of files,
+each element being a list:
+
+   \(BAD-PATH PROBLEM FILE-DATUM ENTRIES LINKS)
+
+Old style was a list of 5 lists:
+
+   \(BAD-PATHS FILE-DATA ENTRIES LINKS PROBLEMS)"
+  (cl-flet* ((fix-element (elt)
+               (if (stringp (car elt)) (list elt) (ensure-list elt)))
+             (zip-specially (list1 list2)
+               (let (merged)
+                 (while list1
+                   (push (append (fix-element (pop list1))
+                                 (fix-element (pop list2)))
+                         merged))
+                 (when list2 (error "Lists differed in length"))
+                 (nreverse merged))))
+    (let* ((ng-style-results (copy-sequence ng-style-results))
+           (merged (pop ng-style-results)))
+      (while ng-style-results
+        (setq merged (zip-specially (pop ng-style-results) merged)))
+      ;; Move PROBLEMS from second to fifth place
+      (let ((problems (pop (cdr merged))))
+        (setq merged (nconc merged (list problems))))
+      merged)))
+
 
 ;;; End-user tool
 
