@@ -102,37 +102,35 @@ In that case, there may be nothing wrong with the known name."
 
 (defun org-mem-updater--finalize-targeted-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem-updater--scan-targeted'."
-  ;; Transitional #33
-  (let* ((ng-style-results parse-results)
-         (merged (pop ng-style-results)))
-    (while ng-style-results
-      (setq merged (org-mem--zip (pop ng-style-results) merged)))
-    (setq parse-results merged))
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
-  (seq-let (bad-paths file-data entries links problems) parse-results
-    (org-mem-updater--forget-file-contents (append bad-paths (mapcar #'car file-data)))
+  (let (bad-paths problems)
+    (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
+      (cl-loop for (bad-path problem file-datum entries links) in parse-results do
+               (when bad-path (push bad-path bad-paths))
+               (when problem (push problem problems))
+               (org-mem-updater--forget-file-contents (car file-datum))
+               (puthash (car file-datum) file-datum org-mem--truename<>metadata)
+               (run-hook-with-args 'org-mem-record-file-functions file-datum)
+               (dolist (entry entries)
+                 (org-mem--record-entry entry)
+                 (run-hook-with-args 'org-mem-record-entry-functions entry))
+               (dolist (link links)
+                 (push link (gethash (org-mem-link--internal-entry-id link)
+                                     org-mem--internal-entry-id<>links))
+                 (run-hook-with-args 'org-mem-record-link-functions link))))
+    ;; REVIEW: Assuming it is fine to invalidate now and no need to
+    ;;         move this line to before the above loop
     (org-mem--invalidate-file-names bad-paths)
-    (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
-    (with-current-buffer
-        (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
-      (dolist (datum file-data)
-        (puthash (car datum) datum org-mem--truename<>metadata)
-        (run-hook-with-args 'org-mem-record-file-functions datum))
-      (dolist (entry entries)
-        (org-mem--record-entry entry)
-        (run-hook-with-args 'org-mem-record-entry-functions entry))
-      (dolist (link links)
-        (push link (gethash (org-mem-link--internal-entry-id link)
-                            org-mem--internal-entry-id<>links))
-        (run-hook-with-args 'org-mem-record-link-functions link)))
     (org-mem--rebuild-specially-indexed-tables)
-    (dolist (prob problems)
-      (push prob org-mem--problems))
+
     (run-hook-with-args 'org-mem-post-targeted-scan-functions parse-results)
     (when bad-paths
-      (let ((good-paths (seq-keep #'org-mem--truename-maybe bad-paths)))
-        (org-mem-updater--scan-targeted (seq-difference good-paths bad-paths))))
+      (let ((good-paths (seq-difference (seq-keep #'org-mem--truename-maybe bad-paths)
+                                        bad-paths)))
+        (when good-paths
+          (org-mem-updater--scan-targeted good-paths))))
     (when problems
+      (setq org-mem--problems (append problems org-mem--problems))
       (message "Scan had problems, see M-x org-mem-list-problems"))))
 
 (defun org-mem-updater--forget-file-contents (files)
@@ -141,8 +139,7 @@ You should also run `org-mem--invalidate-file-names'
 and `org-mem--rebuild-specially-indexed-tables'."
   (setq files (ensure-list files))
   (when files
-    (with-current-buffer
-        (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
+    (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
       (dolist (file files)
         (dolist (entry (gethash file org-mem--truename<>entries))
           (remhash (org-mem-entry-id entry) org-mem--id<>entry)

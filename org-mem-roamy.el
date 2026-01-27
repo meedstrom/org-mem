@@ -473,7 +473,7 @@ With SPECIFIC-FILES, only return data that involves those files."
 (defun org-mem-roamy--update-db (parse-results)
   "Update currently connected DB, with data from PARSE-RESULTS.
 Designed for `org-mem-post-targeted-scan-functions'."
-  (seq-let (bad-paths file-data entries) parse-results
+  (seq-let (bad-paths file-data entries) (org-mem-translate-parse-results parse-results)
     (when (or bad-paths file-data)
       (let* ((T (current-time))
              (db (eieio-oref (org-mem-roamy-db) 'handle))

@@ -1271,28 +1271,9 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
           (message nil)
           (redisplay))))))
 
-;; Transitional #33
-(defun org-mem--zip (list1 list2)
-  "Destructively zip two lists into one.
-Like the Dash expression \(-zip-with #\\='nconc list1 list2).
-
-LIST1 and LIST2 must be lists of identical length,
-and each element in them must be a list or nil."
-  (let (merged)
-    (while list1
-      (push (nconc (pop list1) (pop list2)) merged))
-    (when list2 (error "Lists differed in length"))
-    (nreverse merged)))
-
 (defvar org-mem--caused-retry nil)
 (defun org-mem--finalize-full-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem--scan-full'."
-  ;; Transitional #33
-  (let* ((ng-style-results parse-results)
-         (merged (pop ng-style-results)))
-    (while ng-style-results
-      (setq merged (org-mem--zip (pop ng-style-results) merged)))
-    (setq parse-results merged))
   (run-hook-with-args 'org-mem-pre-full-scan-functions parse-results)
   (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
   (clrhash org-mem--title<>id)
@@ -1301,22 +1282,27 @@ and each element in them must be a list or nil."
   (clrhash org-mem--truename<>entries)
   (clrhash org-mem--internal-entry-id<>links)
   (setq org-mem--title-collisions nil)
-  (seq-let (bad-paths file-data entries links problems) parse-results
+  (let (bad-paths problems)
+
+    ;; Build tables.
+    (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
+      (cl-loop for (bad-path problem file-data entries links) in parse-results do
+               (when bad-path (push bad-path bad-paths))
+               (when problem (push problem problems))
+               (puthash (car file-data) file-data org-mem--truename<>metadata)
+               (run-hook-with-args 'org-mem-record-file-functions file-data)
+               (dolist (entry entries)
+                 (org-mem--record-entry entry)
+                 (run-hook-with-args 'org-mem-record-entry-functions entry))
+               (dolist (link links)
+                 (push link (gethash (org-mem-link--internal-entry-id link)
+                                     org-mem--internal-entry-id<>links))
+                 (run-hook-with-args 'org-mem-record-link-functions link))))
     (org-mem--invalidate-file-names bad-paths)
-    (with-current-buffer
-        (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
-      (dolist (fdata file-data)
-        (puthash (car fdata) fdata org-mem--truename<>metadata)
-        (run-hook-with-args 'org-mem-record-file-functions fdata))
-      (dolist (entry entries)
-        (org-mem--record-entry entry)
-        (run-hook-with-args 'org-mem-record-entry-functions entry))
-      (dolist (link links)
-        (push link (gethash (org-mem-link--internal-entry-id link)
-                            org-mem--internal-entry-id<>links))
-        (run-hook-with-args 'org-mem-record-link-functions link)))
     (org-mem--rebuild-specially-indexed-tables)
 
+    ;; Message on interactive reset.
+    ;; Ensure the message can be edited by `org-mem-post-full-scan-functions'.
     (setq org-mem--time-elapsed
           (float-time (time-since org-mem--time-at-begin-full-scan)))
     (when org-mem--next-message
@@ -1338,6 +1324,7 @@ and each element in them must be a list or nil."
           (message "%s" (concat org-mem--reset-msg " done"))
         (message nil)))
 
+    ;; Other stuff.
     (while org-mem-initial-scan-hook
       (funcall (pop org-mem-initial-scan-hook)))
     (when bad-paths
@@ -1830,7 +1817,9 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvar org-mem--bump-int 21 "Not a version number, but bumped sometimes.")
+(defvaralias 'org-mem-internal-version 'org-mem--bump-int) ; Alias added 2026-01-27 (after 0.26.3)
+(defconst org-mem--bump-int 22 "Not a version number, but bumped sometimes.")
+
 (defmacro org-mem--def-whiny-alias (old new when removed-by)
   "Define function OLD as effectively an alias for NEW.
 Also, calling OLD will emit a deprecation warning the first time.

@@ -715,16 +715,16 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
       ;; Catch fake `skip-file' signal.  Already caught real error signals.
       (t
+       (cl-assert (null problem))
        (cl-assert (null file-data))
        (cl-assert (null found-entries))
-       (cl-assert (null org-mem-parser--found-links))
-       (cl-assert (null problem))))
+       (cl-assert (null org-mem-parser--found-links))))
 
-    (list (if bad-path (list bad-path))
-          (if file-data (list file-data))
+    (list bad-path
+          problem
+          file-data
           found-entries
-          org-mem-parser--found-links
-          (if problem (list problem)))))
+          org-mem-parser--found-links)))
 
 (provide 'org-mem-parser)
 
