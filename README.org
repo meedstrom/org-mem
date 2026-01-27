@@ -3,10 +3,13 @@
 #+TEXINFO_DIR_TITLE: Org-mem: (org-mem).
 #+TEXINFO_DIR_DESC: Quick database of Org file contents
 #+TEXINFO_DIR_CATEGORY: Emacs
+#+HTML: <a href="https://repology.org/project/emacs%3Aorg-mem/versions"> <img src="https://repology.org/badge/vertical-allrepos/emacs%3Aorg-mem.svg" alt="Packaging status" align="right"> </a>
 
 A cache of metadata about the contents of all your Org files -- headings, links, timestamps and so on.
 
-Builds quickly, so that there is no need to persist data across sessions. My =M-x org-mem-reset=:
+Builds quickly, so that there is no need to persist data across sessions.
+
+My =M-x org-mem-reset=:
 
 #+begin_example
 Org-mem saw 2418 files, 8388 headings, 8624 links (3418 IDs, 4874 ID-links) in 1.95s
@@ -20,7 +23,7 @@ Example: org-roam's DB, org-node's hash tables, and other packages just re-run g
 
 And they must do this, because Org ships no tool to query across lots of files.
 
-Well---Org does ship the agenda.  But you know what happens if you put 2,000 files into =org-agenda-files=!  It needs to open each file in real-time to check anything in them, so everyday commands grind to a halt, or even crash: many OSes have a cap of 1,024 simultaneous file handles.
+Well---Org does ship the agenda, which has tools.  But you know what happens if you put 2,000 files into =org-agenda-files=!  It needs to open each file in real-time to check anything in them, so everyday commands grind to a halt, or even crash: many OSes have a cap of 1,024 simultaneous file handles.
 
 ** Quick start
 
