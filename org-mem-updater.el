@@ -39,6 +39,21 @@
 
 ;;; Targeted-scan
 
+;; FIXME: I think it'd be best not to advise rename-file nor delete-file.
+;; Take e.g. the case where you rename a large number of files in dired...
+;; potentially spawning 1 scan process for each?
+;;
+;; Instead, use `directory-files-and-attributes' like in:
+;; https://github.com/org-roam/org-roam/pull/2558
+;; I.e. re-scan files with changed mtime, remove goners (including renamed)
+;; and scan new files (including renamed), all in one go.
+;;
+;; It'd be triggered after a short timer, or if pseudo-synchrony is important,
+;; triggered after the likes of `dired-do-delete' (or if dired-async used,
+;; `dired-async-message-function'), or an interactive call of `delete-file',
+;; but certainly not on just `delete-file' called from Lisp.
+;; And equivalents for save, write, rename &c.
+
 (defun org-mem-updater--handle-rename (file newname &rest _)
   "Arrange to scan NEWNAME for entries and links, and forget FILE."
   (org-mem-updater--handle-delete file)

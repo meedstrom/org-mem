@@ -208,7 +208,7 @@ These are hooks called many times:
 
 This lets a function on these hooks sidestep the performance overhead of
 `with-temp-buffer' or `with-work-buffer', in favor of using the
-already current buffer:
+already current buffer.  Just erase it first:
     \(cl-assert (eq (current-buffer) org-mem-scratch))
     \(erase-buffer)
 
