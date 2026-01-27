@@ -39,16 +39,19 @@
 
 ;;; Targeted-scan
 
-;; FIXME: Causes `org-mem--rebuild-specially-indexed-tables' to be called
-;; twice, which causes table `org-mem--target<>old-links' to be less useful
-;; for purposes of `org-node-backlink--maybe-fix-proactively'.
 (defun org-mem-updater--handle-rename (file newname &rest _)
   "Arrange to scan NEWNAME for entries and links, and forget FILE."
   (org-mem-updater--handle-delete file)
-  (unless (memq 'move-file-to-trash
-                (cl-loop for i from 1 to 15 collect (cadr (backtrace-frame i))))
-    (cl-assert newname) ;; b/c below func would accept nil
-    (org-mem-updater--handle-save newname)))
+  ;; HACK: This function causes `org-mem--rebuild-specially-indexed-tables' to
+  ;; be called twice, making `org-mem--target<>old-links' less useful for
+  ;; downstream use such as `org-node-backlink--maybe-fix-proactively'.
+  ;; Set the table manually to work around that.
+  (let ((tbl (copy-hash-table org-mem--target<>links)))
+    (unless (memq 'move-file-to-trash
+                  (cl-loop for i from 1 to 15 collect (cadr (backtrace-frame i))))
+      (cl-assert newname) ;; b/c below func would accept nil
+      (org-mem-updater--handle-save newname)
+      (setq org-mem--target<>old-links tbl))))
 
 (defun org-mem-updater--handle-delete (file &optional _trash)
   "Forget entries and links in FILE.
