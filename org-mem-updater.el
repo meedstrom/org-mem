@@ -92,12 +92,13 @@ In that case, there may be nothing wrong with the known name."
                      (seq-uniq)
                      (seq-filter (##cl-loop for xclude in org-mem-exclude
                                             never (string-search xclude %))))))
-    (el-job-ng-run :inject-vars (append (org-mem--mk-work-vars)
-                                        (el-job-ng-vars org-mem-inject-vars))
-                   :require (append '(org-mem-parser) org-mem-load-features)
-                   :inputs truenames
-                   :funcall-per-input #'org-mem-parser--parse-file
-                   :callback #'org-mem-updater--finalize-targeted-scan)))
+    (when truenames
+      (el-job-ng-run :inject-vars (append (org-mem--mk-work-vars)
+                                          (el-job-ng-vars org-mem-inject-vars))
+                     :require (append '(org-mem-parser) org-mem-load-features)
+                     :inputs truenames
+                     :funcall-per-input #'org-mem-parser--parse-file
+                     :callback #'org-mem-updater--finalize-targeted-scan))))
 
 (defun org-mem-updater--finalize-targeted-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem-updater--scan-targeted'."
