@@ -25,6 +25,23 @@
 (require 'org-mem-updater)
 (require 'org-mem-parser)
 
+(ert-deftest org-mem-translate-parse-results ()
+  (should                               ; 3 files parsed
+   (equal
+    (let ((ng-style-results
+           '((nil        ("problem1" "" 0 (a . b)) ("fdata1" nil 0 0 t) ([entry1a] [entry1b]) ([link1a] [link1b]))
+             (nil        nil                       ("fdata2" nil 0 0 t) ([entry2a] [entry2b]) ([link2a] [link2b]))
+             ("badpath3" nil                       nil              nil                   nil)
+             ("badpath4" nil                       nil              nil                   nil)
+             (nil        ("problem5" "" 0 (a . b)) ("fdata5" nil 0 0 t) ([entry5a] [entry5b]) ([link5a] [link5b])))))
+      (org-mem-translate-parse-results ng-style-results) ;; In case of in-place modification
+      (org-mem-translate-parse-results ng-style-results))
+    '(("badpath3" "badpath4")
+      (("fdata1" nil 0 0 t) ("fdata2" nil 0 0 t) ("fdata5" nil 0 0 t))
+      ([entry1a] [entry1b] [entry2a] [entry2b] [entry5a] [entry5b])
+      ([link1a]  [link1b]  [link2a]  [link2b]  [link5a]  [link5b])
+      (("problem1" "" 0 (a . b)) ("problem5" "" 0 (a . b)))))))
+
 (ert-deftest test-split-refs-field ()
   (let ((result
          (org-mem--split-roam-refs-field
