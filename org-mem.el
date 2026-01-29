@@ -1751,24 +1751,15 @@ each element being a list:
 Old style was a list of 5 lists:
 
    \(BAD-PATHS FILE-DATA ENTRIES LINKS PROBLEMS)"
-  (cl-flet* ((fix-element (elt)
-               (if (stringp (car elt)) (list elt) (ensure-list elt)))
-             (zip-specially (list1 list2)
-               (let (merged)
-                 (while list1
-                   (push (append (fix-element (pop list1))
-                                 (fix-element (pop list2)))
-                         merged))
-                 (when list2 (error "Lists differed in length"))
-                 (nreverse merged))))
-    (let* ((ng-style-results (copy-sequence ng-style-results))
-           (merged (pop ng-style-results)))
-      (while ng-style-results
-        (setq merged (zip-specially (pop ng-style-results) merged)))
-      ;; Move PROBLEMS from second to fifth place
-      (let ((problems (pop (cdr merged))))
-        (setq merged (nconc merged (list problems))))
-      merged)))
+  (cl-loop
+   for (badpath problem fdatum entries links) in (copy-sequence ng-style-results)
+   when badpath collect badpath into badpaths
+   when problem collect problem into problems
+   when fdatum collect fdatum into fdata
+   nconc entries into all-entries
+   nconc links into all-links
+   finally return (list badpaths fdata all-entries all-links problems)))
+
 
 
 ;;; End-user tool
