@@ -462,7 +462,9 @@ With SPECIFIC-FILES, only return data that involves those files."
     (list file
           (org-mem-file-title-strict file)
           ""                            ; HACK: SHA1 hashing is slow, skip
-          ;; HACK: So things don't appear newer b/c of rounding
+          ;; HACK: Use integer representation b/c list-style time values take
+          ;; nontrivial CPU cycles to print to string.  Add 1 second so things
+          ;; don't appear newer b/c of rounding.
           (1+ (time-convert atime 'integer))
           (1+ (time-convert mtime 'integer)))))
 

@@ -180,8 +180,7 @@ These features must be discoverable on `load-path'."
   :package-version '(org-mem . "0.21.0"))
 
 (defcustom org-mem-eval-forms nil
-  "Experimental.
-Quoted forms to eval in child process."
+  "Quoted forms to eval once in child process, before starting parse."
   :type '(repeat sexp))
 
 (defcustom org-mem-ignore-regions-regexps
