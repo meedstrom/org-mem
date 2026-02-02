@@ -1744,11 +1744,11 @@ This is a transition helper.  Org-mem 0.27.0 changed the style of
 PARSE-RESULTS passed to `org-mem-pre-full-scan-functions' & co.
 
 For reference, the new style is a list as long as the number of files,
-each element being a list:
+each element being a list of 5 lists:
 
-   \(BAD-PATH PROBLEM FILE-DATUM ENTRIES LINKS)
+   \((BAD-PATH PROBLEM FILE-DATUM ENTRIES LINKS) ...)
 
-Old style was a list of 5 lists:
+Old style was single list of 5 lists:
 
    \(BAD-PATHS FILE-DATA ENTRIES LINKS PROBLEMS)"
   (cl-loop
