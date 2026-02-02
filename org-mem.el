@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.27.1
+;; Package-Version: 0.27.2
 ;; Package-Requires: ((emacs "29.1") (el-job "2.7.1") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -1809,7 +1809,7 @@ org-id-locations:
 
 
 (defvaralias 'org-mem-internal-version 'org-mem--bump-int) ; Alias added 2026-01-27 (after 0.26.3)
-(defconst org-mem--bump-int 23 "Not a version number, but bumped sometimes.")
+(defconst org-mem--bump-int 24 "Not a version number, but bumped sometimes.")
 
 (defmacro org-mem--def-whiny-alias (old new when removed-by)
   "Define function OLD as effectively an alias for NEW.
