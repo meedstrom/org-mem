@@ -40,6 +40,9 @@
 
 ;;; Code:
 
+(define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
+(defconst org-mem-internal-version 24 "Not a version number, but bumped sometimes.")
+
 (require 'cl-lib)
 (require 'subr-x)
 (require 'llama)
@@ -1807,9 +1810,6 @@ org-id-locations:
       (org-mem--scan-full))))
 
 
-(defvaralias 'org-mem-internal-version 'org-mem--bump-int) ; Alias added 2026-01-27 (after 0.26.3)
-(defconst org-mem--bump-int 24 "Not a version number, but bumped sometimes.")
-
 (defmacro org-mem--def-whiny-alias (old new when removed-by)
   "Define function OLD as effectively an alias for NEW.
 Also, calling OLD will emit a deprecation warning the first time.
