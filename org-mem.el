@@ -994,8 +994,8 @@ These link-targets are determined by `org-mem--split-roam-refs-field'."
 
 (defun org-mem-roam-reflinks-into-file (file)
   "Reflinks from anywhere, leading into somewhere in FILE."
-  (mapcan #'org-mem-roam-reflinks-to-entry
-          (org-mem-entries-in-file file)))
+  (seq-mapcat #'org-mem-roam-reflinks-to-entry
+              (org-mem-entries-in-file file)))
 
 (defun org-mem-roam-reflinks-into-files (files)
   "Reflinks from anywhere, leading into somewhere in FILES."
