@@ -23,7 +23,9 @@
 
 A cache of metadata about the contents of all your Org files -- headings@comma{} links@comma{} timestamps and so on.
 
-Builds quickly@comma{} so that there is no need to persist data across sessions. My @samp{M-x org-mem-reset}:
+Builds quickly@comma{} so that there is no need to persist data across sessions.
+
+My @samp{M-x org-mem-reset}:
 
 @example
 Org-mem saw 2418 files@comma{} 8388 headings@comma{} 8624 links (3418 IDs@comma{} 4874 ID-links) in 1.95s
@@ -37,7 +39,7 @@ Example: org-roam's DB@comma{} org-node's hash tables@comma{} and other packages
 
 And they must do this@comma{} because Org ships no tool to query across lots of files.
 
-Well---Org does ship the agenda.  But you know what happens if you put 2@comma{}000 files into @samp{org-agenda-files}!  It needs to open each file in real-time to check anything in them@comma{} so everyday commands grind to a halt@comma{} or even crash: many OSes have a cap of 1@comma{}024 simultaneous file handles.
+Well---Org does ship the agenda@comma{} which has tools.  But you know what happens if you put 2@comma{}000 files into @samp{org-agenda-files}!  It needs to open each file in real-time to check anything in them@comma{} so everyday commands grind to a halt@comma{} or even crash: many OSes have a cap of 1@comma{}024 simultaneous file handles.
 
 @end ifnottex
 
@@ -66,7 +68,7 @@ Elisp API
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
 * Entries and links::
-* Full list of functions @emph{[2025-05-30 Fri 1126]}::
+* Full list of functions @emph{[2026-02-02 Mon]}::
 
 Tips
 
@@ -222,7 +224,7 @@ Use @samp{M-x org-mem-list-db-contents}.
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
 * Entries and links::
-* Full list of functions @emph{[2025-05-30 Fri 1126]}::
+* Full list of functions @emph{[2026-02-02 Mon]}::
 @end menu
 
 @node Example Let org-agenda cast its net wide
@@ -237,6 +239,7 @@ Turns out I have only about 30 files worth checking@comma{} the challenge was al
   (setq org-agenda-files
         (cl-loop
          for file in (org-mem-all-files)
+         ;; Exclude *.org_archive or *archive/2025.org or similar
          unless (string-search "archive" file)
          when (seq-find (lambda (entry)
                           (or (org-mem-entry-active-timestamps entry)
@@ -246,14 +249,15 @@ Turns out I have only about 30 files worth checking@comma{} the challenge was al
                         (org-mem-entries-in file))
          collect file)))
 (add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
-
 (org-mem-updater-mode)
 @end lisp
 
 @node Example Warn about dangling clocks at init
 @section Example: Warn about dangling clocks at init
 
-While Org can warn about dangling clocks through the @samp{org-clock-persist} setting@comma{} that requires loading Org at some point during your session.  Which means that if it is a matter of concern for you to forget you had a clock going@comma{} that you effectively have to put @samp{(require 'org)} in your initfiles@comma{} @emph{just in case}.
+While Org can warn about dangling clocks through the @samp{org-clock-persist} setting@comma{} that requires loading Org at some point during your session.  Which means that if it is a matter of concern for you to forget you had a clock going@comma{} that you effectively have to put @samp{(require 'org)} which does that for you) in your initfiles@comma{} @emph{just in case}.
+
+(Actually you're told to call @samp{(org-clock-persistence-insinuate)} which does load Org for you@comma{} but you might forget that if you put it in a @samp{(use-package org :config ...)} form and lazy-load it.)
 
 Now the following is an alternative:
 
@@ -265,9 +269,8 @@ Now the following is an alternative:
                   collect entry)))
     (when not-clocked-out
       (warn "Didn't clock out in files: %S"
-            (delete-dups (mapcar #'org-mem-entry-file not-clocked-out))))))
+            (seq-uniq (mapcar #'org-mem-entry-file not-clocked-out))))))
 (add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
-
 (org-mem-updater-mode)
 @end lisp
 
@@ -300,18 +303,26 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @end itemize
 @end itemize
 
-@node Full list of functions @emph{[2025-05-30 Fri 1126]}
-@section Full list of functions @emph{[2025-05-30 Fri 11:26]}
+@node Full list of functions @emph{[2026-02-02 Mon]}
+@section Full list of functions @emph{[2026-02-02 Mon]}
+
+Getters taking no arguments
 
 @itemize
+@item
+@samp{org-mem-all-entries}
 @item
 @samp{org-mem-all-entries-with-active-timestamps}
 @item
 @samp{org-mem-all-entries-with-dangling-clock}
 @item
-@samp{org-mem-all-entries}
+@samp{org-mem-all-file-truenames}
 @item
 @samp{org-mem-all-files}
+@item
+@samp{org-mem-all-files-expanded}
+@item
+@samp{org-mem-all-files-with-active-timestamps}
 @item
 @samp{org-mem-all-id-links}
 @item
@@ -324,82 +335,98 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @samp{org-mem-all-roam-reflinks}
 @item
 @samp{org-mem-all-roam-refs}
+@end itemize
+
+Getters operating on an entry object
+
+@itemize
 @item
-@samp{org-mem-entries-in-file}
+@samp{org-mem-entry-active-timestamps}
 @item
-@samp{org-mem-entries-in-files}
+@samp{org-mem-entry-active-timestamps-int}
 @item
-@samp{org-mem-entries-in}
+@samp{org-mem-entry-clocks}
 @item
-@samp{org-mem-entry-at-file-lnum}
-@item
-@samp{org-mem-entry-at-file-pos}
-@item
-@samp{org-mem-entry-at-lnum-in-file}
-@item
-@samp{org-mem-entry-at-pos-in-file}
-@item
-@samp{org-mem-entry-by-id}
-@item
-@samp{org-mem-entry-by-roam-ref}
+@samp{org-mem-entry-clocks-int}
 @item
 @samp{org-mem-entry-closed}
 @item
-@samp{org-mem-entry-crumbs}
+@samp{org-mem-entry-closed-int}
+@item
+@samp{org-mem-entry-dangling-clocks}
 @item
 @samp{org-mem-entry-deadline}
 @item
+@samp{org-mem-entry-deadline-int}
+@item
 @samp{org-mem-entry-file}
 @item
-@samp{org-mem-entry-id}
-@item
-@samp{org-mem-entry-level}
-@item
-@samp{org-mem-entry-lnum}
-@item
-@samp{org-mem-entry-olpath-with-file-title-with-self}
-@item
-@samp{org-mem-entry-olpath-with-file-title}
-@item
-@samp{org-mem-entry-olpath-with-self-with-file-title}
-@item
-@samp{org-mem-entry-olpath-with-self}
+@samp{org-mem-entry-file-truename}
 @item
 @samp{org-mem-entry-olpath}
 @item
-@samp{org-mem-entry-pos}
+@samp{org-mem-entry-olpath-with-file-title}
 @item
-@samp{org-mem-entry-priority}
+@samp{org-mem-entry-olpath-with-file-title-or-basename}
+@item
+@samp{org-mem-entry-olpath-with-self}
+@item
+@samp{org-mem-entry-olpath-with-self-with-file-title}
+@item
+@samp{org-mem-entry-olpath-with-self-with-file-title-or-basename}
 @item
 @samp{org-mem-entry-properties}
 @item
+@samp{org-mem-entry-properties-inherited}
+@item
 @samp{org-mem-entry-property}
+@item
+@samp{org-mem-entry-property-with-inheritance}
+@item
+@samp{org-mem-entry-roam-aliases}
 @item
 @samp{org-mem-entry-roam-refs}
 @item
 @samp{org-mem-entry-scheduled}
 @item
+@samp{org-mem-entry-scheduled-int}
+@item
+@samp{org-mem-entry-stats-cookies}
+@item
 @samp{org-mem-entry-subtree-p}
+@item
+@samp{org-mem-entry-tags}
 @item
 @samp{org-mem-entry-tags-inherited}
 @item
 @samp{org-mem-entry-tags-local}
 @item
-@samp{org-mem-entry-tags}
-@item
-@samp{org-mem-entry-that-contains-link}
-@item
-@samp{org-mem-entry-title-maybe}
+@samp{org-mem-entry-text} --- Always nil unless @samp{org-mem-do-cache-text} is t
 @item
 @samp{org-mem-entry-title}
 @item
 @samp{org-mem-entry-todo-state}
 @item
+@samp{org-mem-id-links-to-entry}
+@item
+@samp{org-mem-links-in-entry}
+@item
+@samp{org-mem-next-entry}
+@item
+@samp{org-mem-previous-entry}
+@item
+@samp{org-mem-roam-reflinks-to-entry}
+@end itemize
+
+Getters operating on a file name @emph{or} entry object
+
+@itemize
+@item
 @samp{org-mem-file-attributes}
 @item
-@samp{org-mem-file-by-id}
+@samp{org-mem-file-char-count}
 @item
-@samp{org-mem-file-entries}
+@samp{org-mem-file-coding-system}
 @item
 @samp{org-mem-file-id-strict}
 @item
@@ -407,9 +434,9 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @item
 @samp{org-mem-file-line-count}
 @item
-@samp{org-mem-file-mtime-floor}
-@item
 @samp{org-mem-file-mtime}
+@item
+@samp{org-mem-file-mtime-floor}
 @item
 @samp{org-mem-file-ptmax}
 @item
@@ -420,20 +447,28 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @samp{org-mem-file-title-strict}
 @item
 @samp{org-mem-file-title-topmost}
+@end itemize
+
+Getters operating on a file name only
+
+@itemize
 @item
-@samp{org-mem-file-truename}
+@samp{org-mem-entries-in-file} --- Alias @samp{org-mem-file-entries}
 @item
-@samp{org-mem-id-by-title}
+@samp{org-mem-entries-in-files}
 @item
-@samp{org-mem-id-links-from-id}
+@samp{org-mem-entry-at-lnum-in-file} --- Semi-alias @samp{org-mem-entry-at-file-lnum}
 @item
-@samp{org-mem-id-links-to-entry}
+@samp{org-mem-entry-at-pos-in-file} --- Semi-alias @samp{org-mem-entry-at-file-pos}
 @item
-@samp{org-mem-id-links-to-id}
+@samp{org-mem-file-known-p}
+@end itemize
+
+Getters operating on a link object
+
+@itemize
 @item
-@samp{org-mem-id-node-by-title}
-@item
-@samp{org-mem-id-nodes-in-files}
+@samp{org-mem-id-link-p}
 @item
 @samp{org-mem-link-citation-p}
 @item
@@ -441,13 +476,69 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @item
 @samp{org-mem-link-file}
 @item
+@samp{org-mem-link-file-truename}
+@item
 @samp{org-mem-link-nearby-id}
 @item
 @samp{org-mem-link-pos}
 @item
+@samp{org-mem-link-supplement}
+@item
 @samp{org-mem-link-target}
 @item
 @samp{org-mem-link-type}
+@item
+@samp{org-mem-roam-reflink-p}
+@end itemize
+
+Getters that return entries
+
+@itemize
+@item
+@samp{org-mem-all-entries}
+@item
+@samp{org-mem-all-entries-with-active-timestamps}
+@item
+@samp{org-mem-all-entries-with-dangling-clock}
+@item
+@samp{org-mem-all-id-nodes}
+@item
+@samp{org-mem-entries-in-file} --- Alias @samp{org-mem-file-entries}
+@item
+@samp{org-mem-entries-in-files}
+@item
+@samp{org-mem-entry-at-lnum-in-file} --- Semi-alias @samp{org-mem-entry-at-file-lnum}
+@item
+@samp{org-mem-entry-at-pos-in-file} --- Semi-alias @samp{org-mem-entry-at-file-pos}
+@item
+@samp{org-mem-entry-by-id}
+@item
+@samp{org-mem-entry-by-roam-ref}
+@item
+@samp{org-mem-entry-that-contains-link}
+@item
+@samp{org-mem-id-node-by-title}
+@item
+@samp{org-mem-id-nodes-in-files}
+@end itemize
+
+Getters that return links
+
+@itemize
+@item
+@samp{org-mem-all-id-links}
+@item
+@samp{org-mem-all-links}
+@item
+@samp{org-mem-all-roam-reflinks}
+@item
+@samp{org-mem-id-links-from-id}
+@item
+@samp{org-mem-id-links-into-file}
+@item
+@samp{org-mem-id-links-to-entry}
+@item
+@samp{org-mem-id-links-to-id}
 @item
 @samp{org-mem-links-from-id}
 @item
@@ -457,19 +548,37 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @item
 @samp{org-mem-links-of-type}
 @item
+@samp{org-mem-links-to-roam-ref}
+@item
 @samp{org-mem-links-to-target}
 @item
 @samp{org-mem-links-with-type-and-path}
 @item
-@samp{org-mem-next-entry}
-@item
-@samp{org-mem-previous-entry}
-@item
 @samp{org-mem-roam-reflinks-into-file}
+@item
+@samp{org-mem-roam-reflinks-into-files}
 @item
 @samp{org-mem-roam-reflinks-to-entry}
 @item
 @samp{org-mem-roam-reflinks-to-id}
+@end itemize
+
+Misc
+
+@itemize
+@item
+@samp{org-mem-file-by-id}
+@item
+@samp{org-mem-id-by-title}
+@end itemize
+
+Some API for actually activating & using org-mem as a library:
+
+@itemize
+@item
+@samp{org-mem-reset}
+@item
+@samp{org-mem-await}
 @end itemize
 
 @node Tips

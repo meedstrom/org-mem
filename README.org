@@ -147,6 +147,7 @@ Turns out I have only about 30 files worth checking, the challenge was always kn
   (setq org-agenda-files
         (cl-loop
          for file in (org-mem-all-files)
+         ;; Exclude *.org_archive or *archive/2025.org or similar
          unless (string-search "archive" file)
          when (seq-find (lambda (entry)
                           (or (org-mem-entry-active-timestamps entry)
@@ -156,13 +157,14 @@ Turns out I have only about 30 files worth checking, the challenge was always kn
                         (org-mem-entries-in file))
          collect file)))
 (add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
-
 (org-mem-updater-mode)
 #+end_src
 
 *** Example: Warn about dangling clocks at init
 
-While Org can warn about dangling clocks through the =org-clock-persist= setting, that requires loading Org at some point during your session.  Which means that if it is a matter of concern for you to forget you had a clock going, that you effectively have to put =(require 'org)= in your initfiles, /just in case/.
+While Org can warn about dangling clocks through the =org-clock-persist= setting, that requires loading Org at some point during your session.  Which means that if it is a matter of concern for you to forget you had a clock going, that you effectively have to put =(require 'org)= which does that for you) in your initfiles, /just in case/.
+
+(Actually you're told to call =(org-clock-persistence-insinuate)= which does load Org for you, but you might forget that if you put it in a =(use-package org :config ...)= form and lazy-load it.)
 
 Now the following is an alternative:
 
@@ -174,9 +176,8 @@ Now the following is an alternative:
                   collect entry)))
     (when not-clocked-out
       (warn "Didn't clock out in files: %S"
-            (delete-dups (mapcar #'org-mem-entry-file not-clocked-out))))))
+            (seq-uniq (mapcar #'org-mem-entry-file not-clocked-out))))))
 (add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
-
 (org-mem-updater-mode)
 #+end_src
 
@@ -193,91 +194,149 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
     - Or if you're looking at the list of entries output by =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always a zeroth-level entry.  The rest (the =cdr=) are subtrees.
   - If the zeroth-level entry is absolutely empty, such that the first proper Org heading is on line 1, then =(org-mem-entry-at-lnum-in-file 1 FILE)= returns the entry for that heading instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
 
-*** Full list of functions [2025-05-30 Fri 11:26]
+*** Full list of functions [2026-02-02]
 
+Getters taking no arguments
+
+- =org-mem-all-entries=
 - =org-mem-all-entries-with-active-timestamps=
 - =org-mem-all-entries-with-dangling-clock=
-- =org-mem-all-entries=
+- =org-mem-all-file-truenames=
 - =org-mem-all-files=
+- =org-mem-all-files-expanded=
+- =org-mem-all-files-with-active-timestamps=
 - =org-mem-all-id-links=
 - =org-mem-all-id-nodes=
 - =org-mem-all-ids=
 - =org-mem-all-links=
 - =org-mem-all-roam-reflinks=
 - =org-mem-all-roam-refs=
-- =org-mem-entries-in-file=
-- =org-mem-entries-in-files=
-- =org-mem-entries-in=
-- =org-mem-entry-at-file-lnum=
-- =org-mem-entry-at-file-pos=
-- =org-mem-entry-at-lnum-in-file=
-- =org-mem-entry-at-pos-in-file=
-- =org-mem-entry-by-id=
-- =org-mem-entry-by-roam-ref=
+
+Getters operating on an entry object
+
+- =org-mem-entry-active-timestamps=
+- =org-mem-entry-active-timestamps-int=
+- =org-mem-entry-clocks=
+- =org-mem-entry-clocks-int=
 - =org-mem-entry-closed=
-- =org-mem-entry-crumbs=
+- =org-mem-entry-closed-int=
+- =org-mem-entry-dangling-clocks=
 - =org-mem-entry-deadline=
+- =org-mem-entry-deadline-int=
 - =org-mem-entry-file=
-- =org-mem-entry-id=
-- =org-mem-entry-level=
-- =org-mem-entry-lnum=
-- =org-mem-entry-olpath-with-file-title-with-self=
-- =org-mem-entry-olpath-with-file-title=
-- =org-mem-entry-olpath-with-self-with-file-title=
-- =org-mem-entry-olpath-with-self=
+- =org-mem-entry-file-truename=
 - =org-mem-entry-olpath=
-- =org-mem-entry-pos=
-- =org-mem-entry-priority=
+- =org-mem-entry-olpath-with-file-title=
+- =org-mem-entry-olpath-with-file-title-or-basename=
+- =org-mem-entry-olpath-with-self=
+- =org-mem-entry-olpath-with-self-with-file-title=
+- =org-mem-entry-olpath-with-self-with-file-title-or-basename=
 - =org-mem-entry-properties=
+- =org-mem-entry-properties-inherited=
 - =org-mem-entry-property=
+- =org-mem-entry-property-with-inheritance=
+- =org-mem-entry-roam-aliases=
 - =org-mem-entry-roam-refs=
 - =org-mem-entry-scheduled=
+- =org-mem-entry-scheduled-int=
+- =org-mem-entry-stats-cookies=
 - =org-mem-entry-subtree-p=
+- =org-mem-entry-tags=
 - =org-mem-entry-tags-inherited=
 - =org-mem-entry-tags-local=
-- =org-mem-entry-tags=
-- =org-mem-entry-that-contains-link=
-- =org-mem-entry-title-maybe=
+- =org-mem-entry-text= --- Always nil unless =org-mem-do-cache-text= is t
 - =org-mem-entry-title=
 - =org-mem-entry-todo-state=
+- =org-mem-id-links-to-entry=
+- =org-mem-links-in-entry=
+- =org-mem-next-entry=
+- =org-mem-previous-entry=
+- =org-mem-roam-reflinks-to-entry=
+
+Getters operating on a file name /or/ entry object
+
 - =org-mem-file-attributes=
-- =org-mem-file-by-id=
-- =org-mem-file-entries=
+- =org-mem-file-char-count=
+- =org-mem-file-coding-system=
 - =org-mem-file-id-strict=
 - =org-mem-file-id-topmost=
 - =org-mem-file-line-count=
-- =org-mem-file-mtime-floor=
 - =org-mem-file-mtime=
+- =org-mem-file-mtime-floor=
 - =org-mem-file-ptmax=
 - =org-mem-file-size=
 - =org-mem-file-title-or-basename=
 - =org-mem-file-title-strict=
 - =org-mem-file-title-topmost=
-- =org-mem-file-truename=
-- =org-mem-id-by-title=
-- =org-mem-id-links-from-id=
-- =org-mem-id-links-to-entry=
-- =org-mem-id-links-to-id=
-- =org-mem-id-node-by-title=
-- =org-mem-id-nodes-in-files=
+
+Getters operating on a file name only
+
+- =org-mem-entries-in-file= --- Alias =org-mem-file-entries=
+- =org-mem-entries-in-files=
+- =org-mem-entry-at-lnum-in-file= --- Semi-alias =org-mem-entry-at-file-lnum=
+- =org-mem-entry-at-pos-in-file= --- Semi-alias =org-mem-entry-at-file-pos=
+- =org-mem-file-known-p=
+
+Getters operating on a link object
+
+- =org-mem-id-link-p=
 - =org-mem-link-citation-p=
 - =org-mem-link-description=
 - =org-mem-link-file=
+- =org-mem-link-file-truename=
 - =org-mem-link-nearby-id=
 - =org-mem-link-pos=
+- =org-mem-link-supplement=
 - =org-mem-link-target=
 - =org-mem-link-type=
+- =org-mem-roam-reflink-p=
+
+Getters that return entries
+
+- =org-mem-all-entries=
+- =org-mem-all-entries-with-active-timestamps=
+- =org-mem-all-entries-with-dangling-clock=
+- =org-mem-all-id-nodes=
+- =org-mem-entries-in-file= --- Alias =org-mem-file-entries=
+- =org-mem-entries-in-files=
+- =org-mem-entry-at-lnum-in-file= --- Semi-alias =org-mem-entry-at-file-lnum=
+- =org-mem-entry-at-pos-in-file= --- Semi-alias =org-mem-entry-at-file-pos=
+- =org-mem-entry-by-id=
+- =org-mem-entry-by-roam-ref=
+- =org-mem-entry-that-contains-link=
+- =org-mem-id-node-by-title=
+- =org-mem-id-nodes-in-files=
+
+Getters that return links
+
+- =org-mem-all-id-links=
+- =org-mem-all-links=
+- =org-mem-all-roam-reflinks=
+- =org-mem-id-links-from-id=
+- =org-mem-id-links-into-file=
+- =org-mem-id-links-to-entry=
+- =org-mem-id-links-to-id=
 - =org-mem-links-from-id=
 - =org-mem-links-in-entry=
 - =org-mem-links-in-file=
 - =org-mem-links-of-type=
+- =org-mem-links-to-roam-ref=
 - =org-mem-links-to-target=
 - =org-mem-links-with-type-and-path=
-- =org-mem-next-entry=
-- =org-mem-previous-entry=
 - =org-mem-roam-reflinks-into-file=
+- =org-mem-roam-reflinks-into-files=
 - =org-mem-roam-reflinks-to-entry=
 - =org-mem-roam-reflinks-to-id=
+
+Misc
+
+- =org-mem-file-by-id=
+- =org-mem-id-by-title=
+
+Some API for actually activating & using org-mem as a library:
+
+- =org-mem-reset=
+- =org-mem-await=
 
 ** Tips
 *** Encrypted files (=.org.gpg= =.org.age=)
