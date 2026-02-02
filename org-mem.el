@@ -1752,12 +1752,12 @@ Old style was a list of 5 lists:
 
    \(BAD-PATHS FILE-DATA ENTRIES LINKS PROBLEMS)"
   (cl-loop
-   for (badpath problem fdatum entries links) in (copy-sequence ng-style-results)
+   for (badpath problem fdatum entries links) in ng-style-results
    when badpath collect badpath into badpaths
    when problem collect problem into problems
    when fdatum collect fdatum into fdata
-   nconc entries into all-entries
-   nconc links into all-links
+   append entries into all-entries
+   append links into all-links
    finally return (list badpaths fdata all-entries all-links problems)))
 
 
