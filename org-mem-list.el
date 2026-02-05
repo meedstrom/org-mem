@@ -82,10 +82,12 @@
        :reverter #'org-mem-list-problems
        :entries
        (cl-loop
-        for ( time file pos signal ) in org-mem--problems collect
+        for (time file pos signal lnum) in org-mem--problems collect
         (list (sxhash (cons file pos))
               (vector time
-                      (buttonize (format "%s:%d" (file-name-nondirectory file)
+                      (buttonize (format "%s:%d:%d"
+                                         (file-name-nondirectory file)
+                                         lnum
                                          pos)
                                  #'org-mem-list--goto-file-pos
                                  (cons file pos))

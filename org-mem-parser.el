@@ -705,8 +705,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       ;; Don't crash on error signal, just record the problem so it can
       ;; optionally be reported to user, and move on to next file.
       (( error )
-       (setq problem (list (format-time-string "%H:%M") file (point) err))
        (widen)
+       (setq problem (list (format-time-string "%H:%M") file (point) err (line-number-at-pos)))
        (setq file-data (list file
                              (file-attributes file)
                              (line-number-at-pos (point-max))
