@@ -263,13 +263,11 @@ Now the following is an alternative:
 
 @lisp
 (defun my-warn-dangling-clock (&rest _)
-  (let ((not-clocked-out
-         (cl-loop for entry in (org-mem-all-entries)
-                  when (org-mem-entry-dangling-clocks entry)
-                  collect entry)))
-    (when not-clocked-out
+  (let ((entries (seq-filter #'org-mem-entry-dangling-clocks
+                             (org-mem-all-entries))))
+    (when entries
       (warn "Didn't clock out in files: %S"
-            (seq-uniq (mapcar #'org-mem-entry-file not-clocked-out))))))
+            (seq-uniq (mapcar #'org-mem-entry-file entries))))))
 (add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
 (org-mem-updater-mode)
 @end lisp
@@ -281,7 +279,7 @@ We use two types of objects to help represent file contents: @samp{org-mem-entry
 
 @itemize
 @item
-An @samp{org-mem-link} object corresponds either to a proper Org link@comma{} or to a citation fragment.
+An @samp{org-mem-link} object corresponds either to a proper Org link@comma{} or to a citation fragment like @samp{@@key1} in @samp{[cite:@@key1;@@key2;@@key3]}.
 @itemize
 @item
 Check which it is with @samp{org-mem-link-citation-p}.

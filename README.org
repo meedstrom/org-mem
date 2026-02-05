@@ -170,13 +170,11 @@ Now the following is an alternative:
 
 #+begin_src elisp
 (defun my-warn-dangling-clock (&rest _)
-  (let ((not-clocked-out
-         (cl-loop for entry in (org-mem-all-entries)
-                  when (org-mem-entry-dangling-clocks entry)
-                  collect entry)))
-    (when not-clocked-out
+  (let ((entries (seq-filter #'org-mem-entry-dangling-clocks
+                             (org-mem-all-entries))))
+    (when entries
       (warn "Didn't clock out in files: %S"
-            (seq-uniq (mapcar #'org-mem-entry-file not-clocked-out))))))
+            (seq-uniq (mapcar #'org-mem-entry-file entries))))))
 (add-hook 'org-mem-initial-scan-hook #'my-warn-dangling-clock)
 (org-mem-updater-mode)
 #+end_src
@@ -185,7 +183,7 @@ Now the following is an alternative:
 
 We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some simplifications:
 
-- An =org-mem-link= object corresponds either to a proper Org link, or to a citation fragment.
+- An =org-mem-link= object corresponds either to a proper Org link, or to a citation fragment like =@key1= in =[cite:@key1;@key2;@key3]=.
   - Check which it is with =org-mem-link-citation-p=.
 
 - The content before the first heading also counts as an "entry", with heading level zero.
