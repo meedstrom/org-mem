@@ -93,12 +93,8 @@ In that case, there may be nothing wrong with the known name."
 
 (defun org-mem-updater--handle-save (&optional file)
   "Arrange to scan entries and links in FILE, or current buffer file."
-  (unless file
-    (if buffer-file-name
-        (setq file buffer-file-name)
-      (error "org-mem-updater--handle-save: Called with nil argument in %S"
-             (current-buffer))))
-  (when (and (seq-find (##string-suffix-p % file) org-mem-suffixes)
+  (when (and (setq file (or file buffer-file-name))
+             (seq-find (##string-suffix-p % file) org-mem-suffixes)
              (not (backup-file-name-p file)))
     (org-mem-updater--scan-targeted file)))
 
