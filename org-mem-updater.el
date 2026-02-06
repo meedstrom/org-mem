@@ -39,83 +39,47 @@
 
 ;;; Targeted-scan
 
-;; FIXME: I think it'd be best not to advise rename-file nor delete-file.
-;; Take e.g. the case where you rename a large number of files in dired...
-;; potentially spawning 1 scan process for each?
-;;
-;; Instead, use `directory-files-and-attributes' like in:
-;; https://github.com/org-roam/org-roam/pull/2558
-;; I.e. re-scan files with changed mtime, remove goners (including renamed)
-;; and scan new files (including renamed), all in one go.
-;;
-;; It'd be triggered after a short timer, or if pseudo-synchrony is important,
-;; triggered after the likes of `dired-do-delete' (or if dired-async used,
-;; `dired-async-message-function'), or an interactive call of `delete-file',
-;; but certainly not on just `delete-file' called from Lisp.
-;; And equivalents for save, write, rename &c.
+(defun org-mem-updater-update ()
+  "Update cache for each file that has changed, appeared or disappeared."
+  (let* ((db-files (copy-hash-table org-mem--truename<>metadata))
+         (modified-files
+          (cl-loop for truename in (org-mem--list-files-from-fs)
+                   as attr = (file-attributes truename)
+                   as real-mtime = (and attr (file-attribute-modification-time attr))
+                   as db-mtime = (prog1 (org-mem-file-mtime truename)
+                                   (remhash truename db-files))
+                   when (or (not db-mtime)
+                            (not (time-equal-p db-mtime real-mtime)))
+                   collect truename))
+         (removed-files
+          (hash-table-keys db-files)))
+    (el-job-ng-run
+     :inject-vars (append (org-mem--mk-work-vars)
+                          (el-job-ng-vars org-mem-inject-vars))
+     :require (cons 'org-mem-parser org-mem-load-features)
+     :inputs (append removed-files modified-files)
+     :funcall-per-input #'org-mem-parser--parse-file
+     :callback #'org-mem-updater--finalize-targeted-scan)))
 
-(defun org-mem-updater--handle-rename (file newname &rest _)
-  "Arrange to scan NEWNAME for entries and links, and forget FILE."
-  (org-mem-updater--handle-delete file)
-  ;; HACK: This function causes `org-mem--rebuild-specially-indexed-tables' to
-  ;; be called twice, making `org-mem--target<>old-links' less useful for
-  ;; downstream use such as `org-node-backlink--maybe-fix-proactively'.
-  ;; Set the table manually to work around that.
-  (let ((tbl (copy-hash-table org-mem--target<>links)))
-    (unless (memq 'move-file-to-trash
-                  (cl-loop for i from 1 to 15 collect (cadr (backtrace-frame i))))
-      (cl-assert newname) ;; b/c below func would accept nil
-      (org-mem-updater--handle-save newname)
-      (setq org-mem--target<>old-links tbl))))
+(defvar org-mem-updater--massing-timer nil)
+(defun org-mem-updater--update-soon (&optional file &rest _)
+  "Schedule to run `org-mem-updater-update' very soon.
+If already scheduled, reschedule to very soon.
 
-(defun org-mem-updater--handle-delete (file &optional _trash)
-  "Forget entries and links in FILE.
-
-If FILE differs from the name by which the actual file is listed in our
-tables, because a parent directory is a symlink or the abbreviation
-differs, try to discover the known name variant, then forget the data
-from that file.
-
-However, do not do so when FILE itself satisfies `file-symlink-p'.
-In that case, there may be nothing wrong with the known name."
-  (when (and (seq-find (##string-suffix-p % file) org-mem-suffixes)
-             ;; Don't accidentally scrub Tramp paths from org-id-locations
-             ;; just because we chose to never scan them.
-             (not (file-remote-p file)))
-    (let ((bad (list file))
-          (cached-true (gethash file org-mem--wild-filename<>truename)))
-      (when (and cached-true (not (file-symlink-p file)))
-        (push cached-true bad))
-      (org-mem-updater--forget-file-contents bad)
-      (org-mem--invalidate-file-names bad)
-      (org-mem--rebuild-specially-indexed-tables)
-      (mapc #'clrhash (hash-table-values org-mem--key<>subtable)))))
-
-(defun org-mem-updater--handle-save (&optional file)
-  "Arrange to scan entries and links in FILE, or current buffer file."
-  (when (and (setq file (or file buffer-file-name))
-             (seq-find (##string-suffix-p % file) org-mem-suffixes)
-             (not (backup-file-name-p file)))
-    (org-mem-updater--scan-targeted file)))
-
-(defun org-mem-updater--scan-targeted (file)
-  "Arrange to scan FILE or FILEs."
-  (let ((truenames (thread-last
-                     (ensure-list file)
-                     (seq-keep #'org-mem--truename-maybe)
-                     (seq-uniq)
-                     (seq-filter (##cl-loop for xclude in org-mem-exclude
-                                            never (string-search xclude %))))))
-    (when truenames
-      (el-job-ng-run :inject-vars (append (org-mem--mk-work-vars)
-                                          (el-job-ng-vars org-mem-inject-vars))
-                     :require (append '(org-mem-parser) org-mem-load-features)
-                     :inputs truenames
-                     :funcall-per-input #'org-mem-parser--parse-file
-                     :callback #'org-mem-updater--finalize-targeted-scan))))
+Designed for `after-save-hook' and as advice for `delete-file' and
+`rename-file'.  Such functions might be called many times in a loop,
+and this design is meant to avoid invoking `org-mem-updater-update' many
+times."
+  (setq file (or file buffer-file-name))
+  (when (and file (cl-some (##string-suffix-p % file) org-mem-suffixes))
+    (if (memq org-mem-updater--massing-timer timer-list)
+        (timer-set-time org-mem-updater--massing-timer
+                        (time-add (current-time) 0.5))
+      (setq org-mem-updater--massing-timer
+            (run-with-timer 0.5 nil #'org-mem-updater-update)))))
 
 (defun org-mem-updater--finalize-targeted-scan (parse-results)
-  "Handle PARSE-RESULTS from `org-mem-updater--scan-targeted'."
+  "Handle PARSE-RESULTS from `org-mem-updater-update'."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
   (let (bad-paths problems)
     (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
@@ -138,11 +102,6 @@ In that case, there may be nothing wrong with the known name."
     (org-mem--rebuild-specially-indexed-tables)
 
     (run-hook-with-args 'org-mem-post-targeted-scan-functions parse-results)
-    (when bad-paths
-      (let ((good-paths (seq-difference (seq-keep #'org-mem--truename-maybe bad-paths)
-                                        bad-paths)))
-        (when good-paths
-          (org-mem-updater--scan-targeted good-paths))))
     (when problems
       (setq org-mem--problems (append problems org-mem--problems))
       (message "Scan had problems, see M-x org-mem-list-problems"))))
@@ -365,15 +324,15 @@ Override this if you prefer different timer delays, or no timer."
   (if org-mem-updater-mode
       (progn
         (add-hook 'org-mem-post-full-scan-functions #'org-mem-updater--adjust-timer 90)
-        (add-hook 'after-save-hook                  #'org-mem-updater--handle-save)
-        (advice-add 'rename-file :after             #'org-mem-updater--handle-rename)
-        (advice-add 'delete-file :after             #'org-mem-updater--handle-delete)
+        (add-hook 'after-save-hook                  #'org-mem-updater--update-soon)
+        (advice-add 'rename-file :after             #'org-mem-updater--update-soon)
+        (advice-add 'delete-file :after             #'org-mem-updater--update-soon)
         (org-mem-updater--adjust-timer)
         (org-mem--scan-full))
     (remove-hook 'org-mem-post-full-scan-functions #'org-mem-updater--adjust-timer)
-    (remove-hook 'after-save-hook                  #'org-mem-updater--handle-save)
-    (advice-remove 'rename-file                    #'org-mem-updater--handle-rename)
-    (advice-remove 'delete-file                    #'org-mem-updater--handle-delete)
+    (remove-hook 'after-save-hook                  #'org-mem-updater--update-soon)
+    (advice-remove 'rename-file                    #'org-mem-updater--update-soon)
+    (advice-remove 'delete-file                    #'org-mem-updater--update-soon)
     (cancel-timer org-mem-updater--timer)))
 
 (defvar org-mem-updater--id-or-ref-target<>old-links :obsolete)
