@@ -443,9 +443,17 @@ Getters operating on an entry object
 @samp{org-mem-roam-reflinks-to-entry}
 @end itemize
 
-Getters operating on a file name @emph{or} entry object
+Getters operating on a file name
 
 @itemize
+@item
+@samp{org-mem-entries-in-file} --- Alias @samp{org-mem-file-entries}
+@item
+@samp{org-mem-entries-in-files}
+@item
+@samp{org-mem-entry-at-lnum-in-file} --- Near-alias @samp{org-mem-entry-at-file-lnum}
+@item
+@samp{org-mem-entry-at-pos-in-file} --- Near-alias @samp{org-mem-entry-at-file-pos}
 @item
 @samp{org-mem-file-attributes}
 @item
@@ -457,11 +465,13 @@ Getters operating on a file name @emph{or} entry object
 @item
 @samp{org-mem-file-id-topmost}
 @item
+@samp{org-mem-file-known-p}
+@item
 @samp{org-mem-file-line-count}
 @item
-@samp{org-mem-file-mtime}
-@item
 @samp{org-mem-file-mtime-floor}
+@item
+@samp{org-mem-file-mtime}
 @item
 @samp{org-mem-file-ptmax}
 @item
@@ -472,21 +482,6 @@ Getters operating on a file name @emph{or} entry object
 @samp{org-mem-file-title-strict}
 @item
 @samp{org-mem-file-title-topmost}
-@end itemize
-
-Getters operating on a file name only
-
-@itemize
-@item
-@samp{org-mem-entries-in-file} --- Alias @samp{org-mem-file-entries}
-@item
-@samp{org-mem-entries-in-files}
-@item
-@samp{org-mem-entry-at-lnum-in-file} --- Semi-alias @samp{org-mem-entry-at-file-lnum}
-@item
-@samp{org-mem-entry-at-pos-in-file} --- Semi-alias @samp{org-mem-entry-at-file-pos}
-@item
-@samp{org-mem-file-known-p}
 @end itemize
 
 Getters operating on a link object
@@ -532,9 +527,9 @@ Getters that return entries
 @item
 @samp{org-mem-entries-in-files}
 @item
-@samp{org-mem-entry-at-lnum-in-file} --- Semi-alias @samp{org-mem-entry-at-file-lnum}
+@samp{org-mem-entry-at-lnum-in-file} --- Near-alias @samp{org-mem-entry-at-file-lnum}
 @item
-@samp{org-mem-entry-at-pos-in-file} --- Semi-alias @samp{org-mem-entry-at-file-pos}
+@samp{org-mem-entry-at-pos-in-file} --- Near-alias @samp{org-mem-entry-at-file-pos}
 @item
 @samp{org-mem-entry-by-id}
 @item

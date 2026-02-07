@@ -276,29 +276,26 @@ Getters operating on an entry object
 - =org-mem-previous-entry=
 - =org-mem-roam-reflinks-to-entry=
 
-Getters operating on a file name /or/ entry object
+Getters operating on a file name
 
+- =org-mem-entries-in-file= --- Alias =org-mem-file-entries=
+- =org-mem-entries-in-files=
+- =org-mem-entry-at-lnum-in-file= --- Near-alias =org-mem-entry-at-file-lnum=
+- =org-mem-entry-at-pos-in-file= --- Near-alias =org-mem-entry-at-file-pos=
 - =org-mem-file-attributes=
 - =org-mem-file-char-count=
 - =org-mem-file-coding-system=
 - =org-mem-file-id-strict=
 - =org-mem-file-id-topmost=
+- =org-mem-file-known-p=
 - =org-mem-file-line-count=
-- =org-mem-file-mtime=
 - =org-mem-file-mtime-floor=
+- =org-mem-file-mtime=
 - =org-mem-file-ptmax=
 - =org-mem-file-size=
 - =org-mem-file-title-or-basename=
 - =org-mem-file-title-strict=
 - =org-mem-file-title-topmost=
-
-Getters operating on a file name only
-
-- =org-mem-entries-in-file= --- Alias =org-mem-file-entries=
-- =org-mem-entries-in-files=
-- =org-mem-entry-at-lnum-in-file= --- Semi-alias =org-mem-entry-at-file-lnum=
-- =org-mem-entry-at-pos-in-file= --- Semi-alias =org-mem-entry-at-file-pos=
-- =org-mem-file-known-p=
 
 Getters operating on a link object
 
@@ -322,8 +319,8 @@ Getters that return entries
 - =org-mem-all-id-nodes=
 - =org-mem-entries-in-file= --- Alias =org-mem-file-entries=
 - =org-mem-entries-in-files=
-- =org-mem-entry-at-lnum-in-file= --- Semi-alias =org-mem-entry-at-file-lnum=
-- =org-mem-entry-at-pos-in-file= --- Semi-alias =org-mem-entry-at-file-pos=
+- =org-mem-entry-at-lnum-in-file= --- Near-alias =org-mem-entry-at-file-lnum=
+- =org-mem-entry-at-pos-in-file= --- Near-alias =org-mem-entry-at-file-pos=
 - =org-mem-entry-by-id=
 - =org-mem-entry-by-roam-ref=
 - =org-mem-entry-that-contains-link=
