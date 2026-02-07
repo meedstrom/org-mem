@@ -41,7 +41,7 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
-(defconst org-mem-internal-version 26 "Not a version number, but bumped sometimes.")
+(defconst org-mem-internal-version 27 "Not a version number, but bumped sometimes.")
 
 (require 'cl-lib)
 (require 'subr-x)
@@ -189,8 +189,9 @@ These features must be discoverable on `load-path'."
 (defcustom org-mem-ignore-regions-regexps
   '(("^[ \t]*:ROAM_REFS:" . "$")
     ("^[ \t]*:BACKLINKS:" . "$")
-    ("^[ \t]*:BACKLINKS:[ \t]*$" . "^[ \t]*:END:[ \t]*$")
-    ("^[ \t]*#\\+begin_src" . "^[ \t]*#\\+end_src")
+    ("^[ \t]*:BACKLINKS:[ \t]*$" . "^[ \t]*:END:[ \t]*$")         ; Cf. `org-clock-drawer-end-re'
+    ("^[ \t]*\\(\\(?:CLOSED\\|DEADLINE\\|SCHEDULED\\):\\)" . "$") ; Cf. `org-planning-line-re'
+    ("^[ \t]*#\\+begin_src" . "^[ \t]*#\\+end_src")               ; Cf. `org-babel-src-block-regexp'
     ("^[ \t]*#\\+begin_example" . "^[ \t]*#\\+end_example")
     ("^[ \t]*#\\+begin_comment" . "^[ \t]*#\\+end_comment")
     ("^[ \t]*#\\+transclude:" . "$"))
@@ -740,7 +741,9 @@ this returns nil!"
     (and ts (org-mem--iso8601 ts))))
 
 (defun org-mem-entry-active-timestamps (entry)
-  "Active timestamps in ENTRY, suitable for `iso8601-parse'."
+  "Active timestamps in ENTRY, suitable for `iso8601-parse'.
+Excludes such timestamps in DEADLINE or SCHEDULED, since there is
+`org-mem-entry-deadline' &c for that."
   (mapcar #'org-mem--iso8601 (org-mem-entry-active-timestamps-int entry)))
 
 (defun org-mem-entry-clocks (entry)
