@@ -135,6 +135,8 @@ A known issue when when you run multiple Emacs instances: "attempt to write a re
 
 Use =M-x org-mem-list-db-contents=.
 
+Or the new =M-x org-roam-db-explore=, with exactly the same UI.
+
 ** Elisp API
 *** Example: Let org-agenda cast its net wide
 
@@ -151,9 +153,10 @@ Turns out I have only about 30 files worth checking, the challenge was always kn
          unless (string-search "archive" file)
          when (seq-find (lambda (entry)
                           (or (org-mem-entry-active-timestamps entry)
-                              (org-mem-entry-todo-state entry)
-                              (org-mem-entry-scheduled entry)
-                              (org-mem-entry-deadline entry)))
+                              (and (not (org-mem-entry-closed entry))
+                                   (or (org-mem-entry-todo-state entry)
+                                       (org-mem-entry-scheduled entry)
+                                       (org-mem-entry-deadline entry)))))
                         (org-mem-entries-in file))
          collect file)))
 (add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
@@ -162,7 +165,7 @@ Turns out I have only about 30 files worth checking, the challenge was always kn
 
 *** Example: Warn about dangling clocks at init
 
-While Org can warn about dangling clocks through the =org-clock-persist= setting, that requires loading Org at some point during your session.  Which means that if it is a matter of concern for you to forget you had a clock going, that you effectively have to put =(require 'org)= which does that for you) in your initfiles, /just in case/.
+While Org can warn about dangling clocks through the =org-clock-persist= setting, that requires loading Org at some point during your session.  Which means that if it is a matter of concern for you to forget you had a clock going, that you effectively have to put =(require 'org)= in your initfiles, /just in case/.
 
 (Actually you're told to call =(org-clock-persistence-insinuate)= which does load Org for you, but you might forget that if you put it in a =(use-package org :config ...)= form and lazy-load it.)
 
@@ -199,26 +202,33 @@ To do a full reset:
 We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some simplifications:
 
 - An =org-mem-link= object corresponds either to a proper Org link, or to a citation fragment like =@key1= in =[cite:@key1;@key2;@key3]=.
+
   - Check which it is with =org-mem-link-citation-p=.
 
 - The content before the first heading also counts as an "entry", with heading level zero.
+
   - Some predictable differences from normal entries: the zeroth-level entry obviously cannot have a TODO state, so =org-mem-entry-todo-state= always returns nil, and so on.
+
   - Check with =org-mem-entry-subtree-p=.
-    - Or if you're looking at the list of entries output by =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always a zeroth-level entry.  The rest (the =cdr=) are subtrees.
-  - If the zeroth-level entry is absolutely empty, such that the first proper Org heading is on line 1, then =(org-mem-entry-at-lnum-in-file 1 FILE)= returns the entry for that heading instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
+
+    - Or if you're looking at the list of entries output by =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always a zeroth-level entry, no matter if it's empty or not.  The rest (the =cdr=) are subtrees.
+
+  - Some functions behave specially if the zeroth-level entry is empty, such that the first proper Org heading is on line 1: =(org-mem-entry-at-lnum-in-file 1 FILE)= then returns the entry for that heading instead of the zeroth-level entry. Ditto for =(org-mem-entry-at-pos-in-file 1 FILE)=.
+
+    That is hopefully intuitive.  Opinions on API design are very welcome!
 
 *** Full list of functions
-Updated [2026-02-07]
+Updated [2026-02-07].
 
 Getters taking no arguments
 
-- =org-mem-all-entries=
 - =org-mem-all-entries-with-active-timestamps=
 - =org-mem-all-entries-with-dangling-clock=
+- =org-mem-all-entries=
 - =org-mem-all-file-truenames=
-- =org-mem-all-files=
 - =org-mem-all-files-expanded=
 - =org-mem-all-files-with-active-timestamps=
+- =org-mem-all-files=
 - =org-mem-all-id-links=
 - =org-mem-all-id-nodes=
 - =org-mem-all-ids=
@@ -228,37 +238,43 @@ Getters taking no arguments
 
 Getters operating on an entry object
 
-- =org-mem-entry-active-timestamps=
 - =org-mem-entry-active-timestamps-int=
-- =org-mem-entry-clocks=
+- =org-mem-entry-active-timestamps=
 - =org-mem-entry-clocks-int=
-- =org-mem-entry-closed=
+- =org-mem-entry-clocks=
 - =org-mem-entry-closed-int=
+- =org-mem-entry-closed=
 - =org-mem-entry-dangling-clocks=
-- =org-mem-entry-deadline=
 - =org-mem-entry-deadline-int=
-- =org-mem-entry-file=
+- =org-mem-entry-deadline=
 - =org-mem-entry-file-truename=
-- =org-mem-entry-olpath=
-- =org-mem-entry-olpath-with-file-title=
+- =org-mem-entry-file=
+- =org-mem-entry-id=
+- =org-mem-entry-level=
+- =org-mem-entry-lnum=
 - =org-mem-entry-olpath-with-file-title-or-basename=
-- =org-mem-entry-olpath-with-self=
-- =org-mem-entry-olpath-with-self-with-file-title=
+- =org-mem-entry-olpath-with-file-title=
 - =org-mem-entry-olpath-with-self-with-file-title-or-basename=
-- =org-mem-entry-properties=
+- =org-mem-entry-olpath-with-self-with-file-title=
+- =org-mem-entry-olpath-with-self=
+- =org-mem-entry-olpath=
+- =org-mem-entry-pos=
+- =org-mem-entry-priority=
 - =org-mem-entry-properties-inherited=
-- =org-mem-entry-property=
+- =org-mem-entry-properties-local= --- Alias =org-mem-entry-properties=
 - =org-mem-entry-property-with-inheritance=
+- =org-mem-entry-property=
 - =org-mem-entry-roam-aliases=
 - =org-mem-entry-roam-refs=
-- =org-mem-entry-scheduled=
 - =org-mem-entry-scheduled-int=
+- =org-mem-entry-scheduled=
 - =org-mem-entry-stats-cookies=
 - =org-mem-entry-subtree-p=
-- =org-mem-entry-tags=
 - =org-mem-entry-tags-inherited=
 - =org-mem-entry-tags-local=
+- =org-mem-entry-tags=
 - =org-mem-entry-text= --- Always nil unless =org-mem-do-cache-text= is t
+- =org-mem-entry-title-maybe=
 - =org-mem-entry-title=
 - =org-mem-entry-todo-state=
 - =org-mem-id-links-to-entry=
@@ -293,8 +309,8 @@ Getters operating on a link object
 - =org-mem-id-link-p=
 - =org-mem-link-citation-p=
 - =org-mem-link-description=
-- =org-mem-link-file=
 - =org-mem-link-file-truename=
+- =org-mem-link-file=
 - =org-mem-link-nearby-id=
 - =org-mem-link-pos=
 - =org-mem-link-supplement=
@@ -304,9 +320,9 @@ Getters operating on a link object
 
 Getters that return entries
 
-- =org-mem-all-entries=
 - =org-mem-all-entries-with-active-timestamps=
 - =org-mem-all-entries-with-dangling-clock=
+- =org-mem-all-entries=
 - =org-mem-all-id-nodes=
 - =org-mem-entries-in-file= --- Alias =org-mem-file-entries=
 - =org-mem-entries-in-files=
@@ -347,10 +363,10 @@ Getters that return file names
 - =org-mem-all-files=
 - =org-mem-entry-file-truename=
 - =org-mem-entry-file=
+- =org-mem-file-by-id=
 - =org-mem-file-known-p=
 - =org-mem-link-file-truename=
 - =org-mem-link-file=
-- =org-mem-file-by-id=
 
 Misc
 
@@ -360,9 +376,9 @@ Misc
 
 Some API for actually activating & using org-mem as a library:
 
+- =org-mem-await=
 - =org-mem-reset=
 - =org-mem-updater-update=
-- =org-mem-await=
 
 ** Tips
 *** Encrypted files (=.org.gpg= =.org.age=)

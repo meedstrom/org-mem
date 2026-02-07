@@ -218,6 +218,8 @@ A known issue when when you run multiple Emacs instances: "attempt to write a re
 
 Use @samp{M-x org-mem-list-db-contents}.
 
+Or the new @samp{M-x org-roam-db-explore}@comma{} with exactly the same UI@.
+
 @node Elisp API
 @chapter Elisp API
 
@@ -245,9 +247,10 @@ Turns out I have only about 30 files worth checking@comma{} the challenge was al
          unless (string-search "archive" file)
          when (seq-find (lambda (entry)
                           (or (org-mem-entry-active-timestamps entry)
-                              (org-mem-entry-todo-state entry)
-                              (org-mem-entry-scheduled entry)
-                              (org-mem-entry-deadline entry)))
+                              (and (not (org-mem-entry-closed entry))
+                                   (or (org-mem-entry-todo-state entry)
+                                       (org-mem-entry-scheduled entry)
+                                       (org-mem-entry-deadline entry)))))
                         (org-mem-entries-in file))
          collect file)))
 (add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
@@ -257,7 +260,7 @@ Turns out I have only about 30 files worth checking@comma{} the challenge was al
 @node Example Warn about dangling clocks at init
 @section Example: Warn about dangling clocks at init
 
-While Org can warn about dangling clocks through the @samp{org-clock-persist} setting@comma{} that requires loading Org at some point during your session.  Which means that if it is a matter of concern for you to forget you had a clock going@comma{} that you effectively have to put @samp{(require 'org)} which does that for you) in your initfiles@comma{} @emph{just in case}.
+While Org can warn about dangling clocks through the @samp{org-clock-persist} setting@comma{} that requires loading Org at some point during your session.  Which means that if it is a matter of concern for you to forget you had a clock going@comma{} that you effectively have to put @samp{(require 'org)} in your initfiles@comma{} @emph{just in case}.
 
 (Actually you're told to call @samp{(org-clock-persistence-insinuate)} which does load Org for you@comma{} but you might forget that if you put it in a @samp{(use-package org :config ...)} form and lazy-load it.)
 
@@ -298,6 +301,7 @@ We use two types of objects to help represent file contents: @samp{org-mem-entry
 @itemize
 @item
 An @samp{org-mem-link} object corresponds either to a proper Org link@comma{} or to a citation fragment like @samp{@@key1} in @samp{[cite:@@key1;@@key2;@@key3]}.
+
 @itemize
 @item
 Check which it is with @samp{org-mem-link-citation-p}.
@@ -305,42 +309,48 @@ Check which it is with @samp{org-mem-link-citation-p}.
 
 @item
 The content before the first heading also counts as an "entry"@comma{} with heading level zero.
+
 @itemize
 @item
 Some predictable differences from normal entries: the zeroth-level entry obviously cannot have a TODO state@comma{} so @samp{org-mem-entry-todo-state} always returns nil@comma{} and so on.
+
 @item
 Check with @samp{org-mem-entry-subtree-p}.
+
 @itemize
 @item
-Or if you're looking at the list of entries output by @samp{(org-mem-entries-in-file FILE)}@comma{} the first element (the @samp{car}) is always a zeroth-level entry.  The rest (the @samp{cdr}) are subtrees.
+Or if you're looking at the list of entries output by @samp{(org-mem-entries-in-file FILE)}@comma{} the first element (the @samp{car}) is always a zeroth-level entry@comma{} no matter if it's empty or not.  The rest (the @samp{cdr}) are subtrees.
 @end itemize
+
 @item
-If the zeroth-level entry is absolutely empty@comma{} such that the first proper Org heading is on line 1@comma{} then @samp{(org-mem-entry-at-lnum-in-file 1 FILE)} returns the entry for that heading instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
+Some functions behave specially if the zeroth-level entry is empty@comma{} such that the first proper Org heading is on line 1: @samp{(org-mem-entry-at-lnum-in-file 1 FILE)} then returns the entry for that heading instead of the zeroth-level entry. Ditto for @samp{(org-mem-entry-at-pos-in-file 1 FILE)}.
+
+That is hopefully intuitive.  Opinions on API design are very welcome!
 @end itemize
 @end itemize
 
 @node Full list of functions
 @section Full list of functions
 
-Updated @emph{[2026-02-07 Sat]}
+Updated @emph{[2026-02-07 Sat]}.
 
 Getters taking no arguments
 
 @itemize
 @item
-@samp{org-mem-all-entries}
-@item
 @samp{org-mem-all-entries-with-active-timestamps}
 @item
 @samp{org-mem-all-entries-with-dangling-clock}
 @item
-@samp{org-mem-all-file-truenames}
+@samp{org-mem-all-entries}
 @item
-@samp{org-mem-all-files}
+@samp{org-mem-all-file-truenames}
 @item
 @samp{org-mem-all-files-expanded}
 @item
 @samp{org-mem-all-files-with-active-timestamps}
+@item
+@samp{org-mem-all-files}
 @item
 @samp{org-mem-all-id-links}
 @item
@@ -359,67 +369,79 @@ Getters operating on an entry object
 
 @itemize
 @item
-@samp{org-mem-entry-active-timestamps}
-@item
 @samp{org-mem-entry-active-timestamps-int}
 @item
-@samp{org-mem-entry-clocks}
+@samp{org-mem-entry-active-timestamps}
 @item
 @samp{org-mem-entry-clocks-int}
 @item
-@samp{org-mem-entry-closed}
+@samp{org-mem-entry-clocks}
 @item
 @samp{org-mem-entry-closed-int}
 @item
-@samp{org-mem-entry-dangling-clocks}
+@samp{org-mem-entry-closed}
 @item
-@samp{org-mem-entry-deadline}
+@samp{org-mem-entry-dangling-clocks}
 @item
 @samp{org-mem-entry-deadline-int}
 @item
-@samp{org-mem-entry-file}
+@samp{org-mem-entry-deadline}
 @item
 @samp{org-mem-entry-file-truename}
 @item
-@samp{org-mem-entry-olpath}
+@samp{org-mem-entry-file}
 @item
-@samp{org-mem-entry-olpath-with-file-title}
+@samp{org-mem-entry-id}
+@item
+@samp{org-mem-entry-level}
+@item
+@samp{org-mem-entry-lnum}
 @item
 @samp{org-mem-entry-olpath-with-file-title-or-basename}
 @item
-@samp{org-mem-entry-olpath-with-self}
-@item
-@samp{org-mem-entry-olpath-with-self-with-file-title}
+@samp{org-mem-entry-olpath-with-file-title}
 @item
 @samp{org-mem-entry-olpath-with-self-with-file-title-or-basename}
 @item
-@samp{org-mem-entry-properties}
+@samp{org-mem-entry-olpath-with-self-with-file-title}
+@item
+@samp{org-mem-entry-olpath-with-self}
+@item
+@samp{org-mem-entry-olpath}
+@item
+@samp{org-mem-entry-pos}
+@item
+@samp{org-mem-entry-priority}
 @item
 @samp{org-mem-entry-properties-inherited}
 @item
-@samp{org-mem-entry-property}
+@samp{org-mem-entry-properties-local} --- Alias @samp{org-mem-entry-properties}
 @item
 @samp{org-mem-entry-property-with-inheritance}
+@item
+@samp{org-mem-entry-property}
 @item
 @samp{org-mem-entry-roam-aliases}
 @item
 @samp{org-mem-entry-roam-refs}
 @item
-@samp{org-mem-entry-scheduled}
-@item
 @samp{org-mem-entry-scheduled-int}
+@item
+@samp{org-mem-entry-scheduled}
 @item
 @samp{org-mem-entry-stats-cookies}
 @item
 @samp{org-mem-entry-subtree-p}
 @item
-@samp{org-mem-entry-tags}
-@item
 @samp{org-mem-entry-tags-inherited}
 @item
 @samp{org-mem-entry-tags-local}
 @item
+@samp{org-mem-entry-tags}
+@item
 @samp{org-mem-entry-text} --- Always nil unless @samp{org-mem-do-cache-text} is t
+@item
+@samp{org-mem-entry-title-maybe}
 @item
 @samp{org-mem-entry-title}
 @item
@@ -487,9 +509,9 @@ Getters operating on a link object
 @item
 @samp{org-mem-link-description}
 @item
-@samp{org-mem-link-file}
-@item
 @samp{org-mem-link-file-truename}
+@item
+@samp{org-mem-link-file}
 @item
 @samp{org-mem-link-nearby-id}
 @item
@@ -508,11 +530,11 @@ Getters that return entries
 
 @itemize
 @item
-@samp{org-mem-all-entries}
-@item
 @samp{org-mem-all-entries-with-active-timestamps}
 @item
 @samp{org-mem-all-entries-with-dangling-clock}
+@item
+@samp{org-mem-all-entries}
 @item
 @samp{org-mem-all-id-nodes}
 @item
@@ -592,13 +614,13 @@ Getters that return file names
 @item
 @samp{org-mem-entry-file}
 @item
+@samp{org-mem-file-by-id}
+@item
 @samp{org-mem-file-known-p}
 @item
 @samp{org-mem-link-file-truename}
 @item
 @samp{org-mem-link-file}
-@item
-@samp{org-mem-file-by-id}
 @end itemize
 
 Misc
@@ -616,11 +638,11 @@ Some API for actually activating & using org-mem as a library:
 
 @itemize
 @item
+@samp{org-mem-await}
+@item
 @samp{org-mem-reset}
 @item
 @samp{org-mem-updater-update}
-@item
-@samp{org-mem-await}
 @end itemize
 
 @node Tips
