@@ -192,6 +192,31 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
     - Or if you're looking at the list of entries output by =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always a zeroth-level entry.  The rest (the =cdr=) are subtrees.
   - If the zeroth-level entry is absolutely empty, such that the first proper Org heading is on line 1, then =(org-mem-entry-at-lnum-in-file 1 FILE)= returns the entry for that heading instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
 
+*** Force an update
+
+If you want to force-update the cache, you should now (since 0.28.0) be able to do it one of two ways.
+
+#+BEGIN_SRC elisp
+(org-mem-updater-update t)
+#+END_SRC
+
+or
+
+#+BEGIN_SRC elisp
+(org-mem-updater-update)
+(org-mem-await "Manually updating..." 60)
+#+END_SRC
+
+The former cancels on ~C-g~, the latter continues to completion even if ~C-g~. Should usually not be an important distinction.
+
+A full reset is very similar:
+
+#+BEGIN_SRC elisp
+(org-mem-reset t)
+(org-mem-await "Manually resetting..." 60)
+#+END_SRC
+
+
 *** Full list of functions [2026-02-02]
 
 Getters taking no arguments

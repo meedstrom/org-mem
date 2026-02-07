@@ -68,6 +68,7 @@ Elisp API
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
 * Entries and links::
+* Force an update::
 * Full list of functions @emph{[2026-02-02 Mon]}::
 
 Tips
@@ -224,6 +225,7 @@ Use @samp{M-x org-mem-list-db-contents}.
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
 * Entries and links::
+* Force an update::
 * Full list of functions @emph{[2026-02-02 Mon]}::
 @end menu
 
@@ -300,6 +302,31 @@ Or if you're looking at the list of entries output by @samp{(org-mem-entries-in-
 If the zeroth-level entry is absolutely empty@comma{} such that the first proper Org heading is on line 1@comma{} then @samp{(org-mem-entry-at-lnum-in-file 1 FILE)} returns the entry for that heading instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
 @end itemize
 @end itemize
+
+@node Force an update
+@section Force an update
+
+If you want to force-update the cache@comma{} you should now (since 0.28.0) be able to do it one of two ways.
+
+@lisp
+(org-mem-updater-update t)
+@end lisp
+
+or
+
+@lisp
+(org-mem-updater-update)
+(org-mem-await "Manually updating..." 60)
+@end lisp
+
+The former cancels on @code{C-g}@comma{} the latter continues to completion even if @code{C-g}. Should usually not be an important distinction.
+
+A full reset is very similar:
+
+@lisp
+(org-mem-reset t)
+(org-mem-await "Manually resetting..." 60)
+@end lisp
 
 @node Full list of functions @emph{[2026-02-02 Mon]}
 @section Full list of functions @emph{[2026-02-02 Mon]}
