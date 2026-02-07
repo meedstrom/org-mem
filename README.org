@@ -179,6 +179,21 @@ Now the following is an alternative:
 (org-mem-updater-mode)
 #+end_src
 
+*** Force an update
+
+If you want to force-update the cache in synchronous code, you should now (since version 0.28.0) be able to do it like this.
+
+#+BEGIN_SRC elisp
+(org-mem-updater-update t)
+#+END_SRC
+
+To do a full reset:
+
+#+BEGIN_SRC elisp
+(org-mem-reset t)
+(org-mem-await "Manually resetting..." 60)
+#+END_SRC
+
 *** Entries and links
 
 We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some simplifications:
@@ -192,32 +207,8 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
     - Or if you're looking at the list of entries output by =(org-mem-entries-in-file FILE)=, the first element (the =car=) is always a zeroth-level entry.  The rest (the =cdr=) are subtrees.
   - If the zeroth-level entry is absolutely empty, such that the first proper Org heading is on line 1, then =(org-mem-entry-at-lnum-in-file 1 FILE)= returns the entry for that heading instead of the zeroth-level entry.  That is hopefully intuitive.  Opinions on API design are very welcome!
 
-*** Force an update
-
-If you want to force-update the cache in synchronous code, you should now (since version 0.28.0) be able to do it one of two ways.
-
-#+BEGIN_SRC elisp
-(org-mem-updater-update t)
-#+END_SRC
-
-or
-
-#+BEGIN_SRC elisp
-(org-mem-updater-update)
-(org-mem-await "Manually updating..." 60)
-#+END_SRC
-
-Pick the former, it's usually not important.  The former cancels on ~C-g~, the latter continues the update in the background even after ~C-g~.
-
-To do a full reset:
-
-#+BEGIN_SRC elisp
-(org-mem-reset t)
-(org-mem-await "Manually resetting..." 60)
-#+END_SRC
-
-
-*** Full list of functions [2026-02-07]
+*** Full list of functions
+Updated [2026-02-07]
 
 Getters taking no arguments
 
@@ -364,6 +355,7 @@ Getters that return file names
 Misc
 
 - =org-mem-all-ids=
+- =org-mem-all-roam-refs=
 - =org-mem-id-by-title=
 
 Some API for actually activating & using org-mem as a library:

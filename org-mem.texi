@@ -67,9 +67,9 @@ Elisp API
 
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
-* Entries and links::
 * Force an update::
-* Full list of functions @emph{[2026-02-07 Sat]}::
+* Entries and links::
+* Full list of functions::
 
 Tips
 
@@ -224,9 +224,9 @@ Use @samp{M-x org-mem-list-db-contents}.
 @menu
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
-* Entries and links::
 * Force an update::
-* Full list of functions @emph{[2026-02-07 Sat]}::
+* Entries and links::
+* Full list of functions::
 @end menu
 
 @node Example Let org-agenda cast its net wide
@@ -274,6 +274,22 @@ Now the following is an alternative:
 (org-mem-updater-mode)
 @end lisp
 
+@node Force an update
+@section Force an update
+
+If you want to force-update the cache in synchronous code@comma{} you should now (since version 0.28.0) be able to do it like this.
+
+@lisp
+(org-mem-updater-update t)
+@end lisp
+
+To do a full reset:
+
+@lisp
+(org-mem-reset t)
+(org-mem-await "Manually resetting..." 60)
+@end lisp
+
 @node Entries and links
 @section Entries and links
 
@@ -303,33 +319,10 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @end itemize
 @end itemize
 
-@node Force an update
-@section Force an update
+@node Full list of functions
+@section Full list of functions
 
-If you want to force-update the cache in synchronous code@comma{} you should now (since version 0.28.0) be able to do it one of two ways.
-
-@lisp
-(org-mem-updater-update t)
-@end lisp
-
-or
-
-@lisp
-(org-mem-updater-update)
-(org-mem-await "Manually updating..." 60)
-@end lisp
-
-Pick the former@comma{} it's usually not important.  The former cancels on @code{C-g}@comma{} the latter continues the update in the background even after @code{C-g}.
-
-To do a full reset:
-
-@lisp
-(org-mem-reset t)
-(org-mem-await "Manually resetting..." 60)
-@end lisp
-
-@node Full list of functions @emph{[2026-02-07 Sat]}
-@section Full list of functions @emph{[2026-02-07 Sat]}
+Updated @emph{[2026-02-07 Sat]}
 
 Getters taking no arguments
 
@@ -613,6 +606,8 @@ Misc
 @itemize
 @item
 @samp{org-mem-all-ids}
+@item
+@samp{org-mem-all-roam-refs}
 @item
 @samp{org-mem-id-by-title}
 @end itemize
