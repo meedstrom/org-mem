@@ -57,8 +57,9 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
          (removed-files
           (hash-table-keys db-files))
          (all (append removed-files modified-files)))
+    ;; If async job already ongoing, this will cancel that and run a new one
     (el-job-ng-run
-     :id (if synchronous 'org-mem-updater)
+     :id 'org-mem-updater
      :inject-vars (append (org-mem--mk-work-vars)
                           (el-job-ng-vars org-mem-inject-vars))
      :require (cons 'org-mem-parser org-mem-load-features)
