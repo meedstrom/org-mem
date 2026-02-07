@@ -24,7 +24,7 @@
 (define-obsolete-function-alias 'org-mem-x-ensure-buffer-file-known    #'org-mem-updater-ensure-buffer-file-known     "0.10.0 (2025-05-18)")
 (define-obsolete-function-alias 'org-mem-x-ensure-link-at-point-known  #'org-mem-updater-ensure-link-at-point-known   "0.10.0 (2025-05-18)")
 (define-obsolete-function-alias 'org-mem-x-ensure-entry-at-point-known #'org-mem-updater-ensure-id-node-at-point-known"0.10.0 (2025-05-18)")
-(define-obsolete-function-alias 'org-mem-x--activate-timer             #'org-mem-updater--adjust-timer              "0.10.0 (2025-05-18)")
+(define-obsolete-function-alias 'org-mem-x--activate-timer             #'org-mem-updater-adjust-reset-timer           "0.10.0 (2025-05-18)")
 (provide 'org-mem-x)
 
 ;;; org-mem-x.el ends here

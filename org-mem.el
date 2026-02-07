@@ -76,7 +76,7 @@ This makes the raw text available via accessor `org-mem-entry-text'.
 May slow Emacs init if set to t before enabling `org-mem-updater-mode',
 so you might consider setting it afterwards, instead.
 If so, the text would only be available from the first time that
-`org-mem-updater--timer' fires."
+`org-mem-updater--reset-timer' fires."
   :type 'boolean
   :package-version '(org-mem . "0.9.0"))
 
