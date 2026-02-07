@@ -306,7 +306,7 @@ If the zeroth-level entry is absolutely empty@comma{} such that the first proper
 @node Force an update
 @section Force an update
 
-If you want to force-update the cache@comma{} you should now (since 0.28.0) be able to do it one of two ways.
+If you want to force-update the cache in synchronous code@comma{} you should now (since version 0.28.0) be able to do it one of two ways.
 
 @lisp
 (org-mem-updater-update t)
@@ -319,9 +319,9 @@ or
 (org-mem-await "Manually updating..." 60)
 @end lisp
 
-The former cancels on @code{C-g}@comma{} the latter continues to completion even if @code{C-g}. Should usually not be an important distinction.
+The former cancels on @code{C-g}@comma{} the latter continues the update in the background even if @code{C-g}.  Should usually not be an important distinction@comma{} so pick the former because it's shorter.
 
-A full reset is very similar:
+To do a full reset:
 
 @lisp
 (org-mem-reset t)
