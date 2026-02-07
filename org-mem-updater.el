@@ -312,14 +312,14 @@ for every FILE, but wait and do a massed invocation afterwards."
   (when (and file (cl-some (##string-suffix-p % file) org-mem-suffixes))
     (org-mem-updater--update-soon)))
 
-(defvar org-mem-updater--massing-timer nil)
+(defvar org-mem-updater--debounce-timer nil)
 (defun org-mem-updater--update-soon ()
   "Schedule to run `org-mem-updater-update' very soon.
 If already scheduled, postpone to very soon."
-  (if (memq org-mem-updater--massing-timer timer-list)
-      (timer-set-time org-mem-updater--massing-timer
+  (if (memq org-mem-updater--debounce-timer timer-list)
+      (timer-set-time org-mem-updater--debounce-timer
                       (time-add (current-time) 0.5))
-    (setq org-mem-updater--massing-timer
+    (setq org-mem-updater--debounce-timer
           (run-with-timer 0.5 nil #'org-mem-updater-update))))
 
 ;;;###autoload
