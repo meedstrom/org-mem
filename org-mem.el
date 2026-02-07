@@ -46,7 +46,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'llama)
-(require 'el-job-ng)
+(require 'el-job)
 (require 'org-mem-parser)
 
 (defvar org-id-locations)

@@ -32,7 +32,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'llama)
-(require 'el-job-ng)
+(require 'el-job)
 (require 'org-mem)
 (require 'org-mem-parser)
 (define-obsolete-variable-alias 'org-mem-updater--timer 'org-mem-updater--reset-timer "0.28.0 (2026-02-07)")
