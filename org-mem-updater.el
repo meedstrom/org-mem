@@ -81,9 +81,17 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
       (cl-loop for (bad-path problem file-datum entries links) in parse-results do
                (when bad-path (push bad-path bad-paths))
                (when problem (push problem problems))
-               (org-mem-updater--forget-file-contents (car file-datum))
-               (puthash (car file-datum) file-datum org-mem--truename<>metadata)
-               (run-hook-with-args 'org-mem-record-file-functions file-datum)
+               (let ((file (car file-datum)))
+                 (dolist (entry (gethash file org-mem--truename<>entries))
+                   (remhash (org-mem-entry-id entry) org-mem--id<>entry)
+                   (remhash (org-mem-entry-title-maybe entry) org-mem--title<>id)
+                   (remhash (org-mem-entry--internal-id entry) org-mem--internal-entry-id<>links)
+                   (run-hook-with-args 'org-mem-forget-entry-functions entry))
+                 (remhash file org-mem--truename<>entries)
+                 (remhash file org-mem--truename<>metadata)
+                 (run-hook-with-args 'org-mem-forget-file-functions file)
+                 (puthash file file-datum org-mem--truename<>metadata)
+                 (run-hook-with-args 'org-mem-record-file-functions file-datum))
                (dolist (entry entries)
                  (org-mem--record-entry entry)
                  (run-hook-with-args 'org-mem-record-entry-functions entry))
@@ -100,23 +108,6 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
     (when problems
       (setq org-mem--problems (append problems org-mem--problems))
       (message "Scan had problems, see M-x org-mem-list-problems"))))
-
-(defun org-mem-updater--forget-file-contents (files)
-  "Delete from tables, most info relating to FILES and their contents.
-You should also run `org-mem--invalidate-file-names'
-and `org-mem--rebuild-specially-indexed-tables'."
-  (setq files (ensure-list files))
-  (when files
-    (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
-      (dolist (file files)
-        (dolist (entry (gethash file org-mem--truename<>entries))
-          (remhash (org-mem-entry-id entry) org-mem--id<>entry)
-          (remhash (org-mem-entry-title-maybe entry) org-mem--title<>id)
-          (remhash (org-mem-entry--internal-id entry) org-mem--internal-entry-id<>links)
-          (run-hook-with-args 'org-mem-forget-entry-functions entry))
-        (remhash file org-mem--truename<>entries)
-        (remhash file org-mem--truename<>metadata)
-        (run-hook-with-args 'org-mem-forget-file-functions file)))))
 
 
 ;;; Instant placeholders
