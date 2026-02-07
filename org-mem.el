@@ -1688,7 +1688,7 @@ As an obsolete calling convention, MESSAGE can also be a symbol
 corresponding to your package name."
   (when (symbolp message)
     (setq message (format "%S waiting for org-mem..." message)))
-  (el-job-ng-await 'org-mem-targeted n-secs message)
+  (el-job-ng-await 'org-mem-updater n-secs message)
   (el-job-ng-await 'org-mem n-secs message))
 
 ;; REVIEW: Mixed feelings about including this tool, but it's the obvious tool
