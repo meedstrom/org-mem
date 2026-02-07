@@ -71,23 +71,6 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
        'org-mem-updater 3600
        (format "Running org-mem-updater-update... (files: %S)" all)))))
 
-(defvar org-mem-updater--massing-timer nil)
-(defun org-mem-updater--update-soon (&optional file &rest _)
-  "Schedule to run `org-mem-updater-update' very soon.
-If already scheduled, reschedule to very soon.
-
-Designed for `after-save-hook' and as advice for `delete-file' and
-`rename-file'.  Such functions might be called many times in a loop,
-and this design is meant to avoid invoking `org-mem-updater-update' many
-times."
-  (setq file (or file buffer-file-name))
-  (when (and file (cl-some (##string-suffix-p % file) org-mem-suffixes))
-    (if (memq org-mem-updater--massing-timer timer-list)
-        (timer-set-time org-mem-updater--massing-timer
-                        (time-add (current-time) 0.5))
-      (setq org-mem-updater--massing-timer
-            (run-with-timer 0.5 nil #'org-mem-updater-update)))))
-
 (defun org-mem-updater--finalize-targeted-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem-updater-update'."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
@@ -325,6 +308,27 @@ Override this if you prefer different timer delays, or no timer."
       (setq org-mem-updater--timer
             (run-with-idle-timer new-delay t #'org-mem--scan-full)))))
 
+(defun org-mem-updater--update-file-soon (&optional file &rest _)
+  "Schedule to run `org-mem-updater-update' very soon.
+
+Designed for `after-save-hook' and as advice for `delete-file' and
+`rename-file'.  Such functions might be called many times in a loop,
+and this design is meant to avoid invoking `org-mem-updater-update'
+for every FILE, but wait and do a massed invocation afterwards."
+  (setq file (or file buffer-file-name))
+  (when (and file (cl-some (##string-suffix-p % file) org-mem-suffixes))
+    (org-mem-updater--update-soon)))
+
+(defvar org-mem-updater--massing-timer nil)
+(defun org-mem-updater--update-soon ()
+  "Schedule to run `org-mem-updater-update' very soon.
+If already scheduled, postpone to very soon."
+  (if (memq org-mem-updater--massing-timer timer-list)
+      (timer-set-time org-mem-updater--massing-timer
+                      (time-add (current-time) 0.5))
+    (setq org-mem-updater--massing-timer
+          (run-with-timer 0.5 nil #'org-mem-updater-update))))
+
 ;;;###autoload
 (define-minor-mode org-mem-updater-mode
   "Keep Org-mem cache up to date."
@@ -334,15 +338,15 @@ Override this if you prefer different timer delays, or no timer."
   (if org-mem-updater-mode
       (progn
         (add-hook 'org-mem-post-full-scan-functions #'org-mem-updater--adjust-timer 90)
-        (add-hook 'after-save-hook                  #'org-mem-updater--update-soon)
-        (advice-add 'rename-file :after             #'org-mem-updater--update-soon)
-        (advice-add 'delete-file :after             #'org-mem-updater--update-soon)
+        (add-hook 'after-save-hook                  #'org-mem-updater--update-file-soon)
+        (advice-add 'rename-file :after             #'org-mem-updater--update-file-soon)
+        (advice-add 'delete-file :after             #'org-mem-updater--update-file-soon)
         (org-mem-updater--adjust-timer)
         (org-mem--scan-full))
     (remove-hook 'org-mem-post-full-scan-functions #'org-mem-updater--adjust-timer)
-    (remove-hook 'after-save-hook                  #'org-mem-updater--update-soon)
-    (advice-remove 'rename-file                    #'org-mem-updater--update-soon)
-    (advice-remove 'delete-file                    #'org-mem-updater--update-soon)
+    (remove-hook 'after-save-hook                  #'org-mem-updater--update-file-soon)
+    (advice-remove 'rename-file                    #'org-mem-updater--update-file-soon)
+    (advice-remove 'delete-file                    #'org-mem-updater--update-file-soon)
     (cancel-timer org-mem-updater--timer)))
 
 (defvar org-mem-updater--id-or-ref-target<>old-links :obsolete)
