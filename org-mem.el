@@ -348,7 +348,7 @@ perfectly with `org-id-locations'."
     (mapcar #'directory-abbrev-apply (org-mem-all-file-truenames))))
 
 (defun org-mem-all-files ()
-  "All Org files."
+  "Abbreviated truenames of all Org files."
   (with-memoization (org-mem--table 0 'org-mem-all-files)
     (mapcar #'org-mem--fast-abbrev (org-mem-all-file-truenames))))
 

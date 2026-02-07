@@ -69,7 +69,7 @@ Elisp API
 * Example Warn about dangling clocks at init::
 * Entries and links::
 * Force an update::
-* Full list of functions @emph{[2026-02-02 Mon]}::
+* Full list of functions @emph{[2026-02-07 Sat]}::
 
 Tips
 
@@ -226,7 +226,7 @@ Use @samp{M-x org-mem-list-db-contents}.
 * Example Warn about dangling clocks at init::
 * Entries and links::
 * Force an update::
-* Full list of functions @emph{[2026-02-02 Mon]}::
+* Full list of functions @emph{[2026-02-07 Sat]}::
 @end menu
 
 @node Example Let org-agenda cast its net wide
@@ -319,7 +319,7 @@ or
 (org-mem-await "Manually updating..." 60)
 @end lisp
 
-The former cancels on @code{C-g}@comma{} the latter continues the update in the background even if @code{C-g}.  Should usually not be an important distinction@comma{} so pick the former because it's shorter.
+Pick the former@comma{} it's usually not important.  The former cancels on @code{C-g}@comma{} the latter continues the update in the background even after @code{C-g}.
 
 To do a full reset:
 
@@ -328,8 +328,8 @@ To do a full reset:
 (org-mem-await "Manually resetting..." 60)
 @end lisp
 
-@node Full list of functions @emph{[2026-02-02 Mon]}
-@section Full list of functions @emph{[2026-02-02 Mon]}
+@node Full list of functions @emph{[2026-02-07 Sat]}
+@section Full list of functions @emph{[2026-02-07 Sat]}
 
 Getters taking no arguments
 
@@ -588,11 +588,36 @@ Getters that return links
 @samp{org-mem-roam-reflinks-to-id}
 @end itemize
 
+Getters that return file names
+
+@itemize
+@item
+@samp{org-mem-all-file-truenames}
+@item
+@samp{org-mem-all-files-expanded}
+@item
+@samp{org-mem-all-files-with-active-timestamps}
+@item
+@samp{org-mem-all-files}
+@item
+@samp{org-mem-entry-file-truename}
+@item
+@samp{org-mem-entry-file}
+@item
+@samp{org-mem-file-known-p}
+@item
+@samp{org-mem-link-file-truename}
+@item
+@samp{org-mem-link-file}
+@item
+@samp{org-mem-file-by-id}
+@end itemize
+
 Misc
 
 @itemize
 @item
-@samp{org-mem-file-by-id}
+@samp{org-mem-all-ids}
 @item
 @samp{org-mem-id-by-title}
 @end itemize
@@ -602,6 +627,8 @@ Some API for actually activating & using org-mem as a library:
 @itemize
 @item
 @samp{org-mem-reset}
+@item
+@samp{org-mem-updater-update}
 @item
 @samp{org-mem-await}
 @end itemize

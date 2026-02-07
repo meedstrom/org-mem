@@ -207,7 +207,7 @@ or
 (org-mem-await "Manually updating..." 60)
 #+END_SRC
 
-The former cancels on ~C-g~, the latter continues the update in the background even if ~C-g~.  Should usually not be an important distinction, so pick the former because it's shorter.
+Pick the former, it's usually not important.  The former cancels on ~C-g~, the latter continues the update in the background even after ~C-g~.
 
 To do a full reset:
 
@@ -217,7 +217,7 @@ To do a full reset:
 #+END_SRC
 
 
-*** Full list of functions [2026-02-02]
+*** Full list of functions [2026-02-07]
 
 Getters taking no arguments
 
@@ -351,14 +351,28 @@ Getters that return links
 - =org-mem-roam-reflinks-to-entry=
 - =org-mem-roam-reflinks-to-id=
 
+Getters that return file names
+
+- =org-mem-all-file-truenames=
+- =org-mem-all-files-expanded=
+- =org-mem-all-files-with-active-timestamps=
+- =org-mem-all-files=
+- =org-mem-entry-file-truename=
+- =org-mem-entry-file=
+- =org-mem-file-known-p=
+- =org-mem-link-file-truename=
+- =org-mem-link-file=
+- =org-mem-file-by-id=
+
 Misc
 
-- =org-mem-file-by-id=
+- =org-mem-all-ids=
 - =org-mem-id-by-title=
 
 Some API for actually activating & using org-mem as a library:
 
 - =org-mem-reset=
+- =org-mem-updater-update=
 - =org-mem-await=
 
 ** Tips
