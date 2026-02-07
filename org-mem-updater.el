@@ -75,6 +75,7 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
 (defun org-mem-updater--finalize-targeted-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem-updater-update'."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
+  (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
   (let (bad-paths problems)
     (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
       (cl-loop for (bad-path problem file-datum entries links) in parse-results do
