@@ -39,8 +39,11 @@
 
 ;;; Targeted-scan
 
-(defun org-mem-updater-update ()
-  "Update cache for each file that has changed, appeared or disappeared."
+(defun org-mem-updater-update (&optional synchronous)
+  "Update cache for each file that has changed, appeared or disappeared.
+
+If SYNCHRONOUS, block Emacs until done.
+If SYNCHRONOUS and interrupted by a quit, cancel the update."
   (let* ((db-files (copy-hash-table org-mem--truename<>metadata))
          (modified-files
           (cl-loop for truename in (org-mem--list-files-from-fs)
@@ -52,14 +55,20 @@
                             (not (time-equal-p db-mtime real-mtime)))
                    collect truename))
          (removed-files
-          (hash-table-keys db-files)))
+          (hash-table-keys db-files))
+         (all (append removed-files modified-files)))
     (el-job-ng-run
+     :id (if synchronous 'org-mem-updater)
      :inject-vars (append (org-mem--mk-work-vars)
                           (el-job-ng-vars org-mem-inject-vars))
      :require (cons 'org-mem-parser org-mem-load-features)
-     :inputs (append removed-files modified-files)
+     :inputs all
      :funcall-per-input #'org-mem-parser--parse-file
-     :callback #'org-mem-updater--finalize-targeted-scan)))
+     :callback #'org-mem-updater--finalize-targeted-scan)
+    (when synchronous
+      (el-job-ng-await-or-die
+       'org-mem-updater 3600
+       (format "Running org-mem-updater-update... (files: %S)" all)))))
 
 (defvar org-mem-updater--massing-timer nil)
 (defun org-mem-updater--update-soon (&optional file &rest _)
