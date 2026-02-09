@@ -189,9 +189,9 @@ These features must be discoverable on `load-path'."
 (defcustom org-mem-ignore-regions-regexps
   '(("^[ \t]*:ROAM_REFS:" . "$")
     ("^[ \t]*:BACKLINKS:" . "$")
-    ("^[ \t]*:BACKLINKS:[ \t]*$" . "^[ \t]*:END:[ \t]*$")         ; Cf. `org-clock-drawer-end-re'
-    ("^[ \t]*\\(\\(?:CLOSED\\|DEADLINE\\|SCHEDULED\\):\\)" . "$") ; Cf. `org-planning-line-re'
-    ("^[ \t]*#\\+begin_src" . "^[ \t]*#\\+end_src")               ; Cf. `org-babel-src-block-regexp'
+    ("^[ \t]*:BACKLINKS:[ \t]*$" . "^[ \t]*:END:[ \t]*$")   ; Cf. `org-clock-drawer-end-re'
+    ("^[ \t]*\\(?:CLOSED\\|DEADLINE\\|SCHEDULED\\):" . "$") ; Cf. `org-planning-line-re'
+    ("^[ \t]*#\\+begin_src" . "^[ \t]*#\\+end_src")         ; Cf. `org-babel-src-block-regexp'
     ("^[ \t]*#\\+begin_example" . "^[ \t]*#\\+end_example")
     ("^[ \t]*#\\+begin_comment" . "^[ \t]*#\\+end_comment")
     ("^[ \t]*#\\+transclude:" . "$"))
