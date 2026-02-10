@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.28.2
+;; Package-Version: 0.29.0
 ;; Package-Requires: ((emacs "29.1") (el-job "2.7.1") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -41,7 +41,7 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
-(defconst org-mem-internal-version 28 "Not a version number, but bumped sometimes.")
+(defconst org-mem-internal-version 29 "Not a version number, but bumped sometimes.")
 
 (require 'cl-lib)
 (require 'subr-x)
@@ -1217,6 +1217,10 @@ For arguments TAKEOVER and MSG, see `org-mem--scan-full'."
   (interactive "i\ni\np")
   (push (list (format-time-string "%FT%T.%3N") takeover msg called-interactively)
         org-mem--resets-debug-log)
+  ;; Temporary because we break downstream in 123d77a
+  (when (and (featurep 'org-node)
+             (not (boundp 'org-node-internal-version)))
+    (display-warning 'org-mem "You probably want to update org-node, not just org-mem"))
   (when called-interactively
     (setq org-mem--next-message t)
     (setq takeover t))
