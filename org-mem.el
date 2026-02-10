@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.28.0
+;; Package-Version: 0.28.1
 ;; Package-Requires: ((emacs "29.1") (el-job "2.7.1") (llama "0.5.0"))
 
 ;;; Commentary:
