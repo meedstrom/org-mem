@@ -86,24 +86,19 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
                    (remhash (org-mem-entry-id entry) org-mem--id<>entry)
                    (remhash (org-mem-entry-title-maybe entry) org-mem--title<>id)
                    (remhash (org-mem-entry--internal-id entry) org-mem--internal-entry-id<>links)
-                   (run-hook-with-args 'org-mem-forget-entry-functions entry))
+                   (run-hook-with-args 'org-mem--forget-entry-functions entry))
                  (remhash file org-mem--truename<>entries)
                  (remhash file org-mem--truename<>metadata)
-                 (run-hook-with-args 'org-mem-forget-file-functions file)
+                 (run-hook-with-args 'org-mem--forget-file-functions file) ; Can deprecate
                  (puthash file file-datum org-mem--truename<>metadata)
-                 (run-hook-with-args 'org-mem-record-file-functions file-datum))
+                 (run-hook-with-args 'org-mem--record-file-functions file-datum))
                (dolist (entry entries)
                  (org-mem--record-entry entry)
-                 (run-hook-with-args 'org-mem-record-entry-functions entry))
+                 (run-hook-with-args 'org-mem--record-entry-functions entry))
                (dolist (link links)
                  (push link (gethash (org-mem-link--internal-entry-id link)
                                      org-mem--internal-entry-id<>links))
-                 (run-hook-with-args 'org-mem-record-link-functions link))))
-    ;; REVIEW: Here we `clrhash' again, in case user functions on the hooks
-    ;; (particularly the *-forget-*-functions) caused some memoization.
-    ;; Even this is not enough to guarantee sanity, if that happened.
-    ;; Perhaps that's a good reason to deprecate those hooks.
-    (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
+                 (run-hook-with-args 'org-mem--record-link-functions link))))
     ;; REVIEW: Here we assume it is fine to invalidate now rather than before
     ;; or during the above loop.  I'm not 100% sure it is.
     ;; The reason to do it now: it's more efficient when called once on a list.
@@ -174,7 +169,7 @@ No support for citations."
         (let ((link (org-mem-updater-mk-link-atpt)))
           (push link (gethash (org-mem-link--internal-entry-id link)
                               org-mem--internal-entry-id<>links))
-          (run-hook-with-args 'org-mem-record-link-functions link))))))
+          (run-hook-with-args 'org-mem--record-link-functions link))))))
 
 (defun org-mem-updater-ensure-id-node-at-point-known ()
   "Record ID-node at point.

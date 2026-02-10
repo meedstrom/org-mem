@@ -41,7 +41,7 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
-(defconst org-mem-internal-version 27 "Not a version number, but bumped sometimes.")
+(defconst org-mem-internal-version 28 "Not a version number, but bumped sometimes.")
 
 (require 'cl-lib)
 (require 'subr-x)
@@ -200,22 +200,7 @@ These regions will not be scanned for links nor active timestamps."
   :package-version '(org-mem . "0.23.0"))
 
 (defvar org-mem-scratch nil
-  "Work buffer held current while executing some hooks.
-These are hooks called many times:
-- `org-mem-record-file-functions'
-- `org-mem-record-entry-functions'
-- `org-mem-record-link-functions'
-- `org-mem-forget-file-functions'
-- `org-mem-forget-entry-functions'
-
-This lets a function on these hooks sidestep the performance overhead of
-`with-temp-buffer' or `with-work-buffer', in favor of using the
-already current buffer.  Just erase it first:
-    \(cl-assert (eq (current-buffer) org-mem-scratch))
-    \(erase-buffer)
-
-Buffer is in `fundamental-mode'.  For an Org buffer see function
-`org-mem-org-mode-scratch'.")
+  "Work buffer held current while executing some hooks.")
 
 
 ;;; Basics
@@ -569,7 +554,7 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
 
 (defun org-mem-links-in-entry (entry)
   "All links found inside ENTRY, ignoring descendant entries.
-Do not trust the result if used during `org-mem-forget-entry-functions'
+Do not trust the result if used during `org-mem--forget-entry-functions'
 or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
   (and entry (gethash (org-mem-entry--internal-id entry)
                       org-mem--internal-entry-id<>links)))
@@ -963,7 +948,7 @@ file has been scanned, but in practice they may often be identical."
 (defun org-mem-roam-reflink-p (link)
   "Non-nil if target of LINK is known to exist in some ROAM_REFS.
 Relies on up-to-date table `org-mem--roam-ref<>id', so do not trust it
-during the hook `org-mem-forget-entry-functions' or similar."
+during the hook `org-mem--forget-entry-functions' or similar."
   (and (org-mem-link-p link)
        (gethash (org-mem-link-target link) org-mem--roam-ref<>id)))
 
@@ -1085,10 +1070,10 @@ What is valid?  See \"org-mem-test.el\"."
                    ;; .. but the actual ref is just the //path
                    path))))))
 
-(add-hook 'org-mem-record-entry-functions
+(add-hook 'org-mem--record-entry-functions
           #'org-mem--record-roam-aliases-and-refs -10)
 
-(add-hook 'org-mem-forget-entry-functions
+(add-hook 'org-mem--forget-entry-functions
           #'org-mem--forget-roam-aliases-and-refs -10)
 
 
@@ -1188,13 +1173,13 @@ Like `org-mem-entry-title', this always returns a string."
 (defvar org-mem-post-full-scan-functions nil
   "Hook passed the list of parse-results, after a full reset.")
 
-(defvar org-mem-record-file-functions nil
+(defvar org-mem--record-file-functions nil
   "Hook passed (FILE ATTRS LINES PTMAX) after adding that info to tables.")
 
-(defvar org-mem-record-entry-functions nil
+(defvar org-mem--record-entry-functions nil
   "Hook passed one `org-mem-entry' object after adding it to tables.")
 
-(defvar org-mem-record-link-functions nil
+(defvar org-mem--record-link-functions nil
   "Hook passed one `org-mem-link' object after adding it to tables.")
 
 (defvar org-mem-pre-targeted-scan-functions nil
@@ -1207,10 +1192,10 @@ hence the name.  Contrast `org-mem-pre-full-scan-functions'.")
 This occurs after scanning a targeted single file or set of files,
 hence the name.  Contrast `org-mem-post-full-scan-functions'.")
 
-(defvar org-mem-forget-file-functions nil
+(defvar org-mem--forget-file-functions nil
   "Hook passed a file name after removing its info from tables.")
 
-(defvar org-mem-forget-entry-functions nil
+(defvar org-mem--forget-entry-functions nil
   "Hook passed one forgotten `org-mem-entry' object.")
 
 (defvar org-mem--problems nil)
@@ -1303,14 +1288,14 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
                (when bad-path (push bad-path bad-paths))
                (when problem (push problem problems))
                (puthash (car file-data) file-data org-mem--truename<>metadata)
-               (run-hook-with-args 'org-mem-record-file-functions file-data)
+               (run-hook-with-args 'org-mem--record-file-functions file-data)
                (dolist (entry entries)
                  (org-mem--record-entry entry)
-                 (run-hook-with-args 'org-mem-record-entry-functions entry))
+                 (run-hook-with-args 'org-mem--record-entry-functions entry))
                (dolist (link links)
                  (push link (gethash (org-mem-link--internal-entry-id link)
                                      org-mem--internal-entry-id<>links))
-                 (run-hook-with-args 'org-mem-record-link-functions link))))
+                 (run-hook-with-args 'org-mem--record-link-functions link))))
     (org-mem--invalidate-file-names bad-paths)
     (org-mem--rebuild-specially-indexed-tables)
 
@@ -1838,7 +1823,32 @@ may be removed from the package."
 (defconst org-mem-watch-dirs-exclude :renamed-0.13.0)
 (org-mem--def-whiny-alias 'org-mem-entry-olpath-with-file-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.22.0 (2025-10-01)" "2026-04-30")
 (org-mem--def-whiny-alias 'org-mem-olpath-with-file-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.22.0 (2025-10-01)" "2026-04-30")
-(defconst org-mem-forget-link-functions :obsolete-0.24.0)
+(defconst org-mem-forget-link-functions  :obsolete-0.24.0)
+
+(defconst org-mem-forget-entry-functions :obsolete-0.29.0
+  "Deprecated because dangerous.
+Still exists under name `org-mem--forget-entry-functions',
+but please use `org-mem-post-targeted-scan-functions'.")
+
+(defconst org-mem-forget-file-functions  :obsolete-0.29.0
+  "Deprecated because dangerous.
+Still exists under name `org-mem--forget-file-functions',
+but please use `org-mem-post-targeted-scan-functions'.")
+
+(defconst org-mem-record-link-functions  :obsolete-0.29.0
+  "Deprecated because dangerous.
+Still exists under name `org-mem--record-link-functions',
+but please use `org-mem-post-full-scan-functions'.")
+
+(defconst org-mem-record-entry-functions :obsolete-0.29.0
+  "Deprecated because dangerous.
+Still exists under name `org-mem--record-entry-functions',
+but please use `org-mem-post-full-scan-functions'.")
+
+(defconst org-mem-record-file-functions  :obsolete-0.29.0
+  "Deprecated because dangerous.
+Still exists under name `org-mem--record-file-functions',
+but please use `org-mem-post-full-scan-functions'.")
 
 (provide 'org-mem)
 
