@@ -264,6 +264,7 @@ Getters operating on an entry object
 - =org-mem-entry-properties-local= --- Alias =org-mem-entry-properties=
 - =org-mem-entry-property-with-inheritance=
 - =org-mem-entry-property=
+- =org-mem-entry-pseudo-id=
 - =org-mem-entry-roam-aliases=
 - =org-mem-entry-roam-refs=
 - =org-mem-entry-scheduled-int=
@@ -309,6 +310,7 @@ Getters operating on a link object
 - =org-mem-id-link-p=
 - =org-mem-link-citation-p=
 - =org-mem-link-description=
+- =org-mem-link-entry-pseudo-id=
 - =org-mem-link-entry=
 - =org-mem-link-file-truename=
 - =org-mem-link-file=

@@ -155,7 +155,7 @@
     (should (file-equal-p (org-mem-file-truename l) (org-mem-file l)))
     (should (stringp (org-mem-link-target l)))
     (should (natnump (org-mem-link-pos l)))
-    (should (natnump (org-mem-link--internal-entry-id l)))
+    (should (natnump (org-mem-link-entry-pseudo-id l)))
     (should (booleanp (org-mem-link-citation-p l)))
     (when (org-mem-link-type l)        (should (stringp (org-mem-link-type l))))
     (when (org-mem-link-description l) (should (stringp (org-mem-link-description l))))

@@ -85,7 +85,7 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
                  (dolist (entry (gethash file org-mem--truename<>entries))
                    (remhash (org-mem-entry-id entry) org-mem--id<>entry)
                    (remhash (org-mem-entry-title-maybe entry) org-mem--title<>id)
-                   (remhash (org-mem-entry--internal-id entry) org-mem--internal-entry-id<>links)
+                   (remhash (org-mem-entry-pseudo-id entry) org-mem--pseudo-id<>links)
                    (run-hook-with-args 'org-mem--forget-entry-functions entry))
                  (remhash file org-mem--truename<>entries)
                  (remhash file org-mem--truename<>metadata)
@@ -96,8 +96,8 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
                  (org-mem--record-entry entry)
                  (run-hook-with-args 'org-mem--record-entry-functions entry))
                (dolist (link links)
-                 (push link (gethash (org-mem-link--internal-entry-id link)
-                                     org-mem--internal-entry-id<>links))
+                 (push link (gethash (org-mem-link-entry-pseudo-id link)
+                                     org-mem--pseudo-id<>links))
                  (run-hook-with-args 'org-mem--record-link-functions link))))
     ;; REVIEW: Here we assume it is fine to invalidate now rather than before
     ;; or during the above loop.  I'm not 100% sure it is.
@@ -167,8 +167,8 @@ No support for citations."
                             org-mem-exclude))
         (org-mem-updater-ensure-buffer-file-known)
         (let ((link (org-mem-updater-mk-link-atpt)))
-          (push link (gethash (org-mem-link--internal-entry-id link)
-                              org-mem--internal-entry-id<>links))
+          (push link (gethash (org-mem-link-entry-pseudo-id link)
+                              org-mem--pseudo-id<>links))
           (run-hook-with-args 'org-mem--record-link-functions link))))))
 
 (defun org-mem-updater-ensure-id-node-at-point-known ()
@@ -202,7 +202,11 @@ No support for citations."
       (let ((type (org-element-property :type el))
             (desc-beg (org-element-property :contents-begin el))
             (desc-end (org-element-property :contents-end el))
-            (truename (file-truename buffer-file-name)))
+            (truename (file-truename buffer-file-name))
+            (entry-text (buffer-substring (if (org-before-first-heading-p)
+                                              (point-min)
+                                            (org-entry-beginning-position))
+                                          (org-entry-end-position))))
         (record 'org-mem-link
                 truename
                 (point)
@@ -211,11 +215,10 @@ No support for citations."
                 (and desc-beg (buffer-substring-no-properties desc-beg desc-end))
                 nil
                 (org-entry-get-with-inheritance "ID")
-                nil ;; HACK: supplement field is nil
-                (+ (org-mem-parser--hash truename)
-                   (if (org-before-first-heading-p)
-                       0
-                     (org-entry-beginning-position)))))
+                nil ;; HACK: the supplement field is nil
+                (org-mem-parser--mk-id truename
+                                       (file-attributes truename)
+                                       entry-text)))
     (error "No link at point %d in %s" (point) (current-buffer))))
 
 (defun org-mem-updater-mk-entry-atpt ()
@@ -233,7 +236,11 @@ Some fields are incomplete or left at nil."
          (scheduled (cdr (assoc "SCHEDULED" properties)))
          (ftitle (org-get-title))
          (title (or heading ftitle))
-         (truename (file-truename buffer-file-name)))
+         (truename (file-truename buffer-file-name))
+         (entry-text (buffer-substring (if (org-before-first-heading-p)
+                                           (point-min)
+                                         (org-entry-beginning-position))
+                                       (org-entry-end-position))))
     (when title
       (setq title (org-link-display-format (substring-no-properties title))))
     (record 'org-mem-entry
@@ -269,7 +276,9 @@ Some fields are incomplete or left at nil."
             (org-mem-updater--tags-at-point-inherited-only)
             (org-get-tags nil t)
             (when heading (org-get-todo-state))
-            (+ (org-mem-parser--hash truename) (if heading pos 0)))))
+            (org-mem-parser--mk-id truename
+                                   (file-attributes truename)
+                                   entry-text))))
 
 (defun org-mem-updater--tags-at-point-inherited-only ()
   "Like `org-get-tags', but get only the inherited tags."

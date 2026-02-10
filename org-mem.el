@@ -241,10 +241,10 @@ NOTE! A future version may omit the sigil @ in citekeys.")
   "Previous state of `org-mem--target<>links'.
 For downstream use.")
 
-(defvar org-mem--internal-entry-id<>links (make-hash-table :test 'eq)
-  "1:N table mapping internal entry ID to list of `org-mem-link' records.
+(defvar org-mem--pseudo-id<>links (make-hash-table :test 'equal)
+  "1:N table mapping entry pseudo-ID to list of `org-mem-link' records.
 The list represents all links found in that entry,
-but not in its children.")
+but not in the children of that entry.")
 
 (defvar org-mem--key<>subtable (make-hash-table :test 'eq)
   "Big bag of memoized values, smelling faintly of cabbage.")
@@ -290,17 +290,15 @@ Note: All tables cleared often, meant for memoizations."
   (citation-p         nil :read-only t :type boolean)
   (nearby-id          nil :read-only t :type string-or-nil)
   (supplement         nil :read-only t :type string-or-nil)
-  (-internal-entry-id -1  :read-only t :type integer))
+  (entry-pseudo-id   -1  :read-only t :type integer))
 
 (cl-defstruct org-mem-entry
-  ;; Ordered for easy visual overview of a printed list of objects.
   (file-truename         ""  :read-only t :type string)
   (lnum                  -1  :read-only t :type integer)
   (pos                   -1  :read-only t :type integer)
   (title-maybe           nil :read-only t :type string-or-nil)
   (level                 -1  :read-only t :type integer)
   (id                    nil :read-only t :type string-or-nil)
-  ;; Ordered alphabetically.
   (active-timestamps-int nil :read-only t :type list)
   (clocks-int            nil :read-only t :type list)
   (closed-int            nil :read-only t :type integer-or-nil)
@@ -314,7 +312,7 @@ Note: All tables cleared often, meant for memoizations."
   (tags-inherited        nil :read-only t :type list)
   (tags-local            nil :read-only t :type list)
   (todo-state            nil :read-only t :type string-or-nil)
-  (-internal-id          -1  :read-only t :type integer))
+  (pseudo-id             -1  :read-only t :type integer :documentation "See `org-mem-parser--mk-id'."))
 
 
 ;;; To find objects to operate on
@@ -556,8 +554,8 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
   "All links found inside ENTRY, ignoring descendant entries.
 Do not trust the result if used during `org-mem--forget-entry-functions'
 or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
-  (and entry (gethash (org-mem-entry--internal-id entry)
-                      org-mem--internal-entry-id<>links)))
+  (and entry (gethash (org-mem-entry-pseudo-id entry)
+                      org-mem--pseudo-id<>links)))
 
 
 ;;; Entry info
@@ -1284,7 +1282,7 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
   (clrhash org-mem--id<>entry)
   (clrhash org-mem--truename<>metadata)
   (clrhash org-mem--truename<>entries)
-  (clrhash org-mem--internal-entry-id<>links)
+  (clrhash org-mem--pseudo-id<>links)
   (setq org-mem--title-collisions nil)
   (let (bad-paths problems)
 
@@ -1299,8 +1297,8 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
                  (org-mem--record-entry entry)
                  (run-hook-with-args 'org-mem--record-entry-functions entry))
                (dolist (link links)
-                 (push link (gethash (org-mem-link--internal-entry-id link)
-                                     org-mem--internal-entry-id<>links))
+                 (push link (gethash (org-mem-link-entry-pseudo-id link)
+                                     org-mem--pseudo-id<>links))
                  (run-hook-with-args 'org-mem--record-link-functions link))))
     (org-mem--invalidate-file-names bad-paths)
     (org-mem--rebuild-specially-indexed-tables)
@@ -1378,7 +1376,7 @@ remove, it's easiest to wipe and re-build."
   (setq org-mem--target<>old-links (copy-hash-table org-mem--target<>links))
   (clrhash org-mem--target<>links)
   (cl-loop
-   for links being each hash-value of org-mem--internal-entry-id<>links
+   for links being each hash-value of org-mem--pseudo-id<>links
    do (dolist (link links)
         (push link (gethash (org-mem-link-target link) org-mem--target<>links)))))
 
@@ -1802,8 +1800,8 @@ org-id-locations:
       ;; Bonus, probably unnecessary
       (dolist (file files)
         (dolist (entry (gethash file org-mem--truename<>entries))
-          (remhash (org-mem-entry--internal-id entry)
-                   org-mem--internal-entry-id<>links))
+          (remhash (org-mem-entry-pseudo-id entry)
+                   org-mem--pseudo-id<>links))
         (remhash file org-mem--truename<>entries)
         (remhash file org-mem--truename<>metadata))
       (setq org-id-files (cl-nset-difference org-id-files files :test #'equal))

@@ -50,15 +50,19 @@ the custom TODO words thus defined."
                (split-string)
                (regexp-opt)))
 
-(defconst org-mem-parser--max-safe-hex-digits
-  (- (length (format "%x" most-positive-fixnum)) 1))
+(defun org-mem-parser--mk-id (truename file-attribs entry-string)
+  "Return a bignum that represents an entry.
 
-(defun org-mem-parser--hash (string)
-  "Summarize STRING as an `eq'-safe hopefully unique fixnum.
-Unlike `sxhash', result is deterministic given the same Emacs executable."
-  (string-to-number (substring (secure-hash 'md5 string)
-                               (- org-mem-parser--max-safe-hex-digits))
-                    16))
+This can be used as a semi-stable identifier for Org entries that lack a
+stable ID or other property.
+It changes every time the entry changes in any way, other than
+position or line number.
+
+It is stable enough for use-cases such as caching backlink previews,
+since the majority of entries are typically left unchanged over weeks."
+  (+ (sxhash truename)
+     (file-attribute-inode-number file-attribs)
+     (string-to-number (md5 entry-string) 16)))
 
 (defun org-mem-parser--org-link-display-format (s)
   "Copy of `org-link-display-format'.
@@ -128,7 +132,7 @@ When one region overlaps with the next, merge the two."
         (push (pop regions) safe)))
     (nreverse safe)))
 
-(defun org-mem-parser--scan-visible-text (id-here file internal-entry-id)
+(defun org-mem-parser--scan-visible-text (id-here file entry-pseudo-id)
   "Call `org-mem-parser--scan-text-until', which see for arguments.
 Use the whole visible buffer, but skip regions indicated by
 `org-mem-ignore-regions-regexps'.  Leave point at the end of buffer."
@@ -146,18 +150,18 @@ Use the whole visible buffer, but skip regions indicated by
     (cl-loop
      for (beg . end) in (org-mem-parser--merge-overlapping-regions regions)
      do
-     (org-mem-parser--scan-text-until beg id-here file internal-entry-id)
+     (org-mem-parser--scan-text-until beg id-here file entry-pseudo-id)
      (goto-char end)))
   (unless (eobp)
-    (org-mem-parser--scan-text-until nil id-here file internal-entry-id)))
+    (org-mem-parser--scan-text-until nil id-here file entry-pseudo-id)))
 
-(defun org-mem-parser--scan-text-until (end id-here file internal-entry-id)
+(defun org-mem-parser--scan-text-until (end id-here file entry-pseudo-id)
   "From here to buffer position END, collect links and active timestamps.
 
 Argument ID-HERE is the ID of the subtree where this function is being
 executed (or that of an ancestor heading, if the current subtree has
 none), to be included in each link's metadata.  FILE and
-INTERNAL-ENTRY-ID likewise.
+PSEUDO-ID likewise.
 
 It is important that END does not extend past any sub-heading, as
 the subheading potentially has an ID of its own."
@@ -206,7 +210,7 @@ the subheading potentially has an ID of its own."
                       nil
                       id-here
                       SUPPLEMENT
-                      internal-entry-id)
+                      entry-pseudo-id)
               org-mem-parser--found-links)
         ;; TODO: Fish any org-ref v3 &citekeys out of LINK-PATH and make a new link
         ;;       object for each.  Then stop including &citekeys in below step.
@@ -242,7 +246,7 @@ the subheading potentially has an ID of its own."
                           t
                           id-here
                           nil
-                          internal-entry-id)
+                          entry-pseudo-id)
                   org-mem-parser--found-links)))))
 
     ;; Start over and look for active timestamps
@@ -338,10 +342,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         bad-path
         found-entries
         file-data
+        file-attr
         problem
         coding-system
+        seen-hashes
         ;; Upcased names change value a lot, take care to keep correct.
-        ID ID-HERE INTERNAL-ENTRY-ID
+        ID ID-HERE HASH PSEUDO-ID
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
         TITLE HEADING-POS LNUM CRUMBS CLOCK-LINES
         TODO-STATE STATS-COOKIES INITIAL-STATS-COOKIES
@@ -366,7 +372,11 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           (let ((inhibit-read-only t))
             (erase-buffer)
             (insert-file-contents file)
-            (setq coding-system last-coding-system-used))
+            (setq coding-system last-coding-system-used)
+            ;; Better get the attributes now at the same time we read the file,
+            ;; in the off-chance it gets altered in the time between parsing
+            ;; it and getting its attributes.
+            (setq file-attr (file-attributes file 'integer)))
 
           ;; Apply relevant dir-locals and file-locals.
           ;; NOTE: Some variables you'd think would work in .dir-locals.el,
@@ -395,7 +405,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
           ;; Scan content before first heading, if any
 
-          (setq INTERNAL-ENTRY-ID (org-mem-parser--hash file))
           (while (looking-at-p (rx (*? space) (or "# " "\n")))
             (forward-line))
           (unless (looking-at-p "\\*")
@@ -462,10 +471,17 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                    (and USE-TAG-INHERITANCE
                         (seq-difference TAGS NONHERITABLE-TAGS))))
               (push (list 0 1 1 TITLE ID heritable-tags PROPS) CRUMBS))
-            (org-mem-parser--scan-visible-text ID file INTERNAL-ENTRY-ID)
+
+            (setq PSEUDO-ID (org-mem-parser--mk-id file file-attr (buffer-string)))
+            (push PSEUDO-ID seen-hashes)
+            (org-mem-parser--scan-visible-text ID file PSEUDO-ID)
+
             (goto-char (point-max))
             ;; We should now be at the first heading.
             (widen))
+          (unless PSEUDO-ID
+            (setq PSEUDO-ID (org-mem-parser--mk-id file file-attr ""))
+            (push PSEUDO-ID seen-hashes))
           (push (record 'org-mem-entry
                         file
                         1
@@ -486,7 +502,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         nil
                         TAGS
                         nil
-                        INTERNAL-ENTRY-ID)
+                        PSEUDO-ID)
                 found-entries)
 
           ;; Prep
@@ -603,7 +619,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                            (error "Code 9: Couldn't find :END: of drawer"))))
                     nil))
             (setq ID (cdr (assoc "ID" PROPS)))
-            (setq INTERNAL-ENTRY-ID (+ (org-mem-parser--hash file) HEADING-POS))
             (setq LEFT (point))
             ;; Rough start of body text (just a perf hack, fails gracefully)
             (setq RIGHT (re-search-forward "^[ \t]*[a-bd-z]" nil t))
@@ -635,6 +650,18 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         (list clock-start))
                       CLOCK-LINES)))
 
+            ;; Since we're in a narrowed buffer, hashing the `buffer-string'
+            ;; summarizes all possible info about the entry other than its
+            ;; position (and its containing file).  That is perfect as a
+            ;; pseudo-ID that stays the same for a given entry even if the
+            ;; containing file is later edited somewhere above that entry
+            ;; (which would change all positions).
+            (setq HASH (org-mem-parser--mk-id file file-attr (buffer-string)))
+            ;; Handle the rare case of two identical entries.
+            (while (memq HASH seen-hashes) (cl-incf HASH))
+            (push HASH seen-hashes)
+            (setq PSEUDO-ID HASH)
+
             ;; `CRUMBS' is kind of a state machine; a list that can look like
             ;;    ((3 23 500 "Heading" "id1234" ("noexport" "work" "urgent"))
             ;;     (2 10 122 "Another heading" "id6532" ("work"))
@@ -656,7 +683,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                     CRUMBS))
 
             (setq ID-HERE (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb)))
-            (org-mem-parser--scan-visible-text ID-HERE file INTERNAL-ENTRY-ID)
+            (org-mem-parser--scan-visible-text ID-HERE file PSEUDO-ID)
 
             (push (record 'org-mem-entry
                           file
@@ -687,7 +714,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                      append (cl-sixth crumb))))
                           TAGS
                           TODO-STATE
-                          INTERNAL-ENTRY-ID)
+                          PSEUDO-ID)
                   found-entries)
             (goto-char (point-max))
             ;; NOTE: Famously slow `line-number-at-pos' fast in narrow region.
@@ -697,7 +724,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
           ;; Done analyzing this file.
           (cl-assert (eobp))
           (setq file-data (list file
-                                (file-attributes file)
+                                file-attr
                                 LNUM
                                 (point)
                                 coding-system)))
@@ -708,7 +735,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
        (widen)
        (setq problem (list (format-time-string "%H:%M") file (point) err (line-number-at-pos)))
        (setq file-data (list file
-                             (file-attributes file)
+                             file-attr
                              (line-number-at-pos (point-max))
                              (point-max)
                              coding-system)))
