@@ -1142,6 +1142,12 @@ What is valid?  See \"org-mem-test.el\"."
   (:method ((xx org-mem-entry)) (org-mem-entry-file-truename xx))
   (:method ((xx org-mem-link)) (org-mem-link-file-truename xx)))
 
+(cl-defgeneric org-mem-pseudo-id (entry/link)
+  "Pseudo-ID of ENTRY/LINK.
+See `org-mem-parser--mk-id'."
+  (:method ((xx org-mem-entry)) (org-mem-entry-pseudo-id xx))
+  (:method ((xx org-mem-link)) (org-mem-link-entry-pseudo-id xx)))
+
 (cl-defgeneric org-mem-id (entry/file)
   "ID property of ENTRY/FILE - if file name, the file-level ID."
   (:method ((xx org-mem-entry)) (org-mem-entry-id xx))
