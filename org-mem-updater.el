@@ -99,8 +99,14 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
                  (push link (gethash (org-mem-link--internal-entry-id link)
                                      org-mem--internal-entry-id<>links))
                  (run-hook-with-args 'org-mem-record-link-functions link))))
-    ;; REVIEW: Assuming it is fine to invalidate now and no need to
-    ;;         move this line to before the above loop
+    ;; REVIEW: Here we `clrhash' again, in case user functions on the hooks
+    ;; (particularly the *-forget-*-functions) caused some memoization.
+    ;; Even this is not enough to guarantee sanity, if that happened.
+    ;; Perhaps that's a good reason to deprecate those hooks.
+    (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
+    ;; REVIEW: Here we assume it is fine to invalidate now rather than before
+    ;; or during the above loop.  I'm not 100% sure it is.
+    ;; The reason to do it now: it's more efficient when called once on a list.
     (org-mem--invalidate-file-names bad-paths)
     (org-mem--rebuild-specially-indexed-tables)
 

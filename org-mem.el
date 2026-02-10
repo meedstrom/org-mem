@@ -629,10 +629,11 @@ use `org-mem-entry-olpath-with-file-title-or-basename' instead."
           (pop olp))
         olp))))
 
-;; Better than above; unary function.
 (defun org-mem-entry-olpath-with-file-title-or-basename (entry)
   "Outline path to ENTRY, including file #+title.
-Use file basename if there is no #+title."
+Use file basename if there is no #+title.
+
+Basename means `file-name-nondirectory', not `file-name-base'."
   (with-memoization (org-mem--table 30 entry)
     (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
           file-name-handler-alist)
@@ -646,11 +647,11 @@ Use file basename if there is no #+title."
 ;; TODO: Deprecate the optional arg
 (defun org-mem-entry-olpath-with-self-with-file-title (entry &optional filename-fallback)
   "Outline path, including file #+title, and ENTRY\\='s own heading.
-With FILENAME-FALLBACK, use file basename if there is no #+title.
+Argument FILENAME-FALLBACK is deprecated,
+use `org-mem-entry-olpath-with-self-with-file-title-or-basename' instead.
 
-If ENTRY is itself a file-level entry, this still results in a list of
-zero or one strings, not two."
-  (with-memoization (org-mem--table 24 (list entry filename-fallback))
+If ENTRY is itself a file-level entry, the return value is still a list
+of zero or one strings, not two."
     (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
           file-name-handler-alist)
       ;; The car of `olp' is the potentially nil file title.
@@ -663,7 +664,12 @@ zero or one strings, not two."
 
 (defun org-mem-entry-olpath-with-self-with-file-title-or-basename (entry)
   "Outline path, including file #+title, and ENTRY\\='s own heading.
-Use file basename if there is no #+title."
+Use file basename if there is no #+title.
+
+Basename means `file-name-nondirectory', not `file-name-base'.
+
+If ENTRY is itself a file-level entry, the return value is still a list
+of one string, not two."
   (with-memoization (org-mem--table 29 entry)
     (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
           file-name-handler-alist)
@@ -677,7 +683,12 @@ Use file basename if there is no #+title."
 (defun org-mem-entry-title (entry)
   "Like `org-mem-entry-title-maybe' but always return a string.
 In the case that ENTRY is a file-level entry with no title, return the
-file basename \(file name sans directory component\)."
+file basename \(file name sans directory component\).
+
+I.e. `file-name-nondirectory', not `file-name-base'.  In org-mem jargon,
+\"basename\" refers to what you get from the POSIX command \"basename\"
+with one argument, which should be familiar if you are not too mired in
+Emacs Lisp."
   (or (org-mem-entry-title-maybe entry)
       (progn (cl-assert (not (org-mem-entry-subtree-p entry)))
              (let (file-name-handler-alist)
