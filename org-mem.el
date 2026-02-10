@@ -61,7 +61,6 @@
 (declare-function org-id-locations-save "org-id")
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
-(define-obsolete-variable-alias 'org-mem-watch-dirs-exclude 'org-mem-exclude "0.13.0 (May 2025)")
 (unless (fboundp 'el-job-ng-vars)
   (error "Update to el-job 2.7.1+ to use this version of org-mem"))
 
@@ -1827,13 +1826,10 @@ may be removed from the package."
                 ,when ,removed-by ,new))
        (apply ,new args))))
 
-(defvar org-mem--file<>metadata :renamed)
-(defvar org-mem--file<>entries  :renamed)
-
+(defconst org-mem-watch-dirs-exclude :renamed-0.13.0)
 (org-mem--def-whiny-alias 'org-mem-entry-olpath-with-file-title-with-self #'org-mem-entry-olpath-with-self-with-file-title  "0.22.0 (2025-10-01)" "2026-04-30")
 (org-mem--def-whiny-alias 'org-mem-olpath-with-file-title-with-self       #'org-mem-olpath-with-self-with-file-title        "0.22.0 (2025-10-01)" "2026-04-30")
-
-(defvar org-mem-forget-link-functions :obsolete) ;; 2025-10-15 but unused for long already
+(defconst org-mem-forget-link-functions :obsolete-0.24.0)
 
 (provide 'org-mem)
 
