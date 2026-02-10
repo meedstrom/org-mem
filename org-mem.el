@@ -614,20 +614,19 @@ Excludes text of child entries."
              (mapcar #'cl-fourth (cdr (reverse (org-mem-entry-crumbs entry))))
            (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry)))))))
 
-;; TODO: Deprecate the optional arg
 (defun org-mem-entry-olpath-with-file-title (entry &optional filename-fallback)
   "Outline path to ENTRY, including file #+title.
-Argument FILENAME-FALLBACK is deprecated,
+Optional argument FILENAME-FALLBACK is deprecated,
 use `org-mem-entry-olpath-with-file-title-or-basename' instead."
-  (with-memoization (org-mem--table 27 (list entry filename-fallback))
-    (if filename-fallback
-        (org-mem-entry-olpath-with-file-title-or-basename entry)
-      (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
-            file-name-handler-alist)
-        ;; The car of `olp' is the potentially nil file title.
-        (when (null (car olp))
-          (pop olp))
-        olp))))
+  (when filename-fallback
+    (error "Argument FILENAME-FALLBACK is deprecated"))
+  (with-memoization (org-mem--table 27 entry)
+    (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
+          file-name-handler-alist)
+      ;; The car of `olp' is the potentially nil file title.
+      (when (null (car olp))
+        (pop olp))
+      olp)))
 
 (defun org-mem-entry-olpath-with-file-title-or-basename (entry)
   "Outline path to ENTRY, including file #+title.
@@ -644,23 +643,22 @@ Basename means `file-name-nondirectory', not `file-name-base'."
               olp))
       olp)))
 
-;; TODO: Deprecate the optional arg
 (defun org-mem-entry-olpath-with-self-with-file-title (entry &optional filename-fallback)
   "Outline path, including file #+title, and ENTRY\\='s own heading.
-Argument FILENAME-FALLBACK is deprecated,
+Optional argument FILENAME-FALLBACK is deprecated,
 use `org-mem-entry-olpath-with-self-with-file-title-or-basename' instead.
 
 If ENTRY is itself a file-level entry, the return value is still a list
 of zero or one strings, not two."
+  (when filename-fallback
+    (error "Argument FILENAME-FALLBACK is deprecated"))
+  (with-memoization (org-mem--table 24 entry)
     (let ((olp (mapcar #'cl-fourth (reverse (org-mem-entry-crumbs entry))))
           file-name-handler-alist)
       ;; The car of `olp' is the potentially nil file title.
       (when (null (car olp))
-        (pop olp)
-        (when filename-fallback
-          (push (file-name-nondirectory (org-mem-entry-file-truename entry))
-                olp)))
-      olp))
+        (pop olp))
+      olp)))
 
 (defun org-mem-entry-olpath-with-self-with-file-title-or-basename (entry)
   "Outline path, including file #+title, and ENTRY\\='s own heading.
