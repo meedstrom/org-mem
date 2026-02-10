@@ -218,7 +218,7 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
     That is hopefully intuitive.  Opinions on API design are very welcome!
 
 *** Full list of functions
-Updated [2026-02-07].
+Updated [2026-02-10].
 
 Getters taking no arguments
 
