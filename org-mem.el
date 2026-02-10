@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.28.1
+;; Package-Version: 0.28.2
 ;; Package-Requires: ((emacs "29.1") (el-job "2.7.1") (llama "0.5.0"))
 
 ;;; Commentary:
@@ -660,7 +660,7 @@ of zero or one strings, not two."
         (when filename-fallback
           (push (file-name-nondirectory (org-mem-entry-file-truename entry))
                 olp)))
-      olp)))
+      olp))
 
 (defun org-mem-entry-olpath-with-self-with-file-title-or-basename (entry)
   "Outline path, including file #+title, and ENTRY\\='s own heading.
