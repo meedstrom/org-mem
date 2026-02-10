@@ -216,8 +216,7 @@ No support for citations."
                 nil
                 (org-entry-get-with-inheritance "ID")
                 nil ;; HACK: the supplement field is nil
-                (org-mem-parser--mk-id truename
-                                       (file-attributes truename)
+                (org-mem-parser--mk-id (file-attributes truename)
                                        entry-text)))
     (error "No link at point %d in %s" (point) (current-buffer))))
 
@@ -276,8 +275,7 @@ Some fields are incomplete or left at nil."
             (org-mem-updater--tags-at-point-inherited-only)
             (org-get-tags nil t)
             (when heading (org-get-todo-state))
-            (org-mem-parser--mk-id truename
-                                   (file-attributes truename)
+            (org-mem-parser--mk-id (file-attributes truename)
                                    entry-text))))
 
 (defun org-mem-updater--tags-at-point-inherited-only ()

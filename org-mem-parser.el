@@ -50,18 +50,22 @@ the custom TODO words thus defined."
                (split-string)
                (regexp-opt)))
 
-(defun org-mem-parser--mk-id (truename file-attribs entry-string)
+(defun org-mem-parser--mk-id (file-attribs entry-string)
   "Return a bignum that represents an entry.
+ENTRY-STRING is the text of the entry from
+`org-entry-beginning-position' to `org-entry-end-position'.
+FILE-ATTRIBS is the `file-attributes' of the file.
 
 This can be used as a semi-stable identifier for Org entries that lack a
-stable ID or other property.
+stable property such as an ID.
 It changes every time the entry changes in any way, other than
 position or line number.
+Results are identical if there are two identical entries in the same
+file, however org-mem-parser uses a work-around for that.
 
 It is stable enough for use-cases such as caching backlink previews,
 since the majority of entries are typically left unchanged over weeks."
-  (+ (sxhash truename)
-     (file-attribute-inode-number file-attribs)
+  (+ (sxhash (file-attribute-file-identifier file-attribs))
      (string-to-number (md5 entry-string) 16)))
 
 (defun org-mem-parser--org-link-display-format (s)
@@ -472,7 +476,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         (seq-difference TAGS NONHERITABLE-TAGS))))
               (push (list 0 1 1 TITLE ID heritable-tags PROPS) CRUMBS))
 
-            (setq PSEUDO-ID (org-mem-parser--mk-id file file-attr (buffer-string)))
+            (setq PSEUDO-ID (org-mem-parser--mk-id file-attr (buffer-string)))
             (push PSEUDO-ID seen-hashes)
             (org-mem-parser--scan-visible-text ID file PSEUDO-ID)
 
@@ -480,7 +484,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; We should now be at the first heading.
             (widen))
           (unless PSEUDO-ID
-            (setq PSEUDO-ID (org-mem-parser--mk-id file file-attr ""))
+            (setq PSEUDO-ID (org-mem-parser--mk-id file-attr ""))
             (push PSEUDO-ID seen-hashes))
           (push (record 'org-mem-entry
                         file
@@ -656,9 +660,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; pseudo-ID that stays the same for a given entry even if the
             ;; containing file is later edited somewhere above that entry
             ;; (which would change all positions).
-            (setq HASH (org-mem-parser--mk-id file file-attr (buffer-string)))
+            (setq HASH (org-mem-parser--mk-id file-attr (buffer-string)))
             ;; Handle the rare case of two identical entries.
-            (while (memq HASH seen-hashes) (cl-incf HASH))
+            (while (member HASH seen-hashes) (cl-incf HASH))
             (push HASH seen-hashes)
             (setq PSEUDO-ID HASH)
 
