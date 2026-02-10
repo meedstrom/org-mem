@@ -62,7 +62,7 @@
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
 (unless (fboundp 'el-job-ng-vars)
-  (error "Update to el-job 2.7.1+ to use this version of org-mem"))
+  (display-warning 'org-mem "Update to el-job 2.7.1+ to use this version of org-mem"))
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
