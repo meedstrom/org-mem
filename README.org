@@ -309,6 +309,7 @@ Getters operating on a link object
 - =org-mem-id-link-p=
 - =org-mem-link-citation-p=
 - =org-mem-link-description=
+- =org-mem-link-entry=
 - =org-mem-link-file-truename=
 - =org-mem-link-file=
 - =org-mem-link-nearby-id=
@@ -333,6 +334,7 @@ Getters that return entries
 - =org-mem-entry-that-contains-link=
 - =org-mem-id-node-by-title=
 - =org-mem-id-nodes-in-files=
+- =org-mem-link-entry=
 
 Getters that return links
 

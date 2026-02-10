@@ -767,6 +767,12 @@ See also `org-mem-all-entries-with-dangling-clock'."
 See more info at `org-mem-entry-file'."
   (org-mem--fast-abbrev (org-mem-link-file-truename link)))
 
+(defun org-mem-link-entry (link)
+  "The entry that contains LINK.
+In org-roam parlance, this would be the \"source node\"."
+  (org-mem-entry-at-pos-in-file (org-mem-link-pos link)
+                                (org-mem-link-file link)))
+
 (defun org-mem-id-link-p (link)
   "Return t if LINK is an `org-mem-link' object of type \"id\"."
   (and (org-mem-link-p link)
