@@ -470,12 +470,6 @@ represents the content before the first heading."
     (let ((entry (and id (gethash id org-mem--id<>entry))))
       (and entry (org-mem-entry-file entry)))))
 
-(defun org-mem-entry-that-contains-link (link)
-  "The entry where LINK was found."
-  (with-memoization (org-mem--table 54 link)
-    (org-mem-entry-at-pos-in-file (org-mem-link-file link)
-                                  (org-mem-link-pos link))))
-
 (defun org-mem-id-nodes-in-files (files)
   "All ID-nodes in FILES."
   (with-memoization (org-mem--table 15 files)
@@ -1886,6 +1880,8 @@ but please use `org-mem-post-full-scan-functions'.")
   "Deprecated because dangerous.
 Still exists under name `org-mem--record-file-functions',
 but please use `org-mem-post-full-scan-functions'.")
+
+(define-obsolete-function-alias 'org-mem-entry-that-contains-link #'org-mem-link-entry "0.29.0 (2026-02-11)")
 
 (provide 'org-mem)
 
