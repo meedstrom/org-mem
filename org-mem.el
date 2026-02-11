@@ -247,7 +247,7 @@ The list represents all links found in that entry,
 but not in the children of that entry.")
 
 (defvar org-mem--key<>subtable (make-hash-table :test 'eq)
-  "Big bag of memoized values, smelling faintly of cabbage.")
+  "Big bag of memoized values, smelling of freshly cut cabbage.")
 
 (define-inline org-mem--table (key subkey)
   "In a table identified by KEY, access value at SUBKEY.
@@ -481,10 +481,10 @@ represents the content before the first heading."
 (defun org-mem-id-nodes-in-files (files)
   "All ID-nodes in FILES."
   (with-memoization (org-mem--table 15 files)
-    (setq files (delete-dups
-                 (seq-keep #'org-mem--truename-maybe (ensure-list files))))
-    (seq-filter (##member (org-mem-entry-file-truename %) files)
-                (org-mem-all-id-nodes))))
+    (let ((files (delete-dups
+                  (seq-keep #'org-mem--truename-maybe (ensure-list files)))))
+      (seq-filter (##member (org-mem-entry-file-truename %) files)
+                  (org-mem-all-id-nodes)))))
 
 (defun org-mem-links-with-type-and-path (type path)
   "Links with components TYPE and PATH, see `org-link-plain-re'."
