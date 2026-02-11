@@ -394,6 +394,14 @@ Citations are `org-mem-link' objects that satisfy
   (with-memoization (org-mem--table 31 id)
     (and id (gethash id org-mem--id<>entry))))
 
+(defun org-mem-entry-by-pseudo-id (pseudo-id)
+  "The entry that has internal PSEUDO-ID.
+See `org-mem-parser--mk-id'."
+  (with-memoization (org-mem--table 54 pseudo-id)
+    (cl-loop for entry in (org-mem-all-entries)
+             when (equal pseudo-id (org-mem-entry-pseudo-id entry))
+             return entry)))
+
 (defun org-mem-entry-at-lnum-in-file (lnum file)
   "The entry that is current at line-number LNUM in FILE."
   (with-memoization (org-mem--table 11 (list lnum file))

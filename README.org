@@ -332,6 +332,7 @@ Getters that return entries
 - =org-mem-entry-at-lnum-in-file= --- Near-alias =org-mem-entry-at-file-lnum=
 - =org-mem-entry-at-pos-in-file= --- Near-alias =org-mem-entry-at-file-pos=
 - =org-mem-entry-by-id=
+- =org-mem-entry-by-pseudo-id=
 - =org-mem-entry-by-roam-ref=
 - =org-mem-entry-that-contains-link=
 - =org-mem-id-node-by-title=
