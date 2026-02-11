@@ -342,7 +342,8 @@ When in doubt, you should prefer `org-mem-all-files', because
 
 Org-mem uses truenames internally, but if some public function does
 not work with alternative names, that should be considered a bug."
-  (hash-table-keys org-mem--truename<>metadata))
+  (with-memoization (org-mem--table 0 'org-mem--truename<>metadata)
+    (hash-table-keys org-mem--truename<>metadata)))
 
 (defun org-mem-all-entries ()
   "All entries."
@@ -390,7 +391,8 @@ Citations are `org-mem-link' objects that satisfy
 
 (defun org-mem-entry-by-id (id)
   "The entry with :ID: property equal to \(presumed unique) ID."
-  (and id (gethash id org-mem--id<>entry)))
+  (with-memoization (org-mem--table 31 id)
+    (and id (gethash id org-mem--id<>entry))))
 
 (defun org-mem-entry-at-lnum-in-file (lnum file)
   "The entry that is current at line-number LNUM in FILE."
@@ -449,27 +451,30 @@ Citations are `org-mem-link' objects that satisfy
   "List of entries in same order as they appear in FILE, if FILE known.
 The list always contains at least one entry, which
 represents the content before the first heading."
-  (cl-assert (stringp file))
-  (gethash (org-mem--truename-maybe file) org-mem--truename<>entries))
+  (with-memoization (org-mem--table 32 file)
+    (cl-assert (stringp file))
+    (gethash (org-mem--truename-maybe file) org-mem--truename<>entries)))
 
 (defalias 'org-mem-file-entries #'org-mem-entries-in-file)
 
 (defun org-mem-entries-in-files (files)
   "Combined list of entries from all of FILES."
-  (with-memoization (org-mem--table 13 files)
+  (with-memoization (org-mem--table 33 files)
     (cl-loop for file in (delete-dups (mapcar #'org-mem--truename-maybe files))
              when (stringp file)
              append (gethash file org-mem--truename<>entries))))
 
 (defun org-mem-file-by-id (id)
   "The file that contains an :ID: property matching ID."
-  (let ((entry (and id (gethash id org-mem--id<>entry))))
-    (and entry (org-mem-entry-file entry))))
+  (with-memoization (org-mem--table 35 file)
+    (let ((entry (and id (gethash id org-mem--id<>entry))))
+      (and entry (org-mem-entry-file entry)))))
 
 (defun org-mem-entry-that-contains-link (link)
   "The entry where LINK was found."
-  (org-mem-entry-at-pos-in-file (org-mem-link-file link)
-                                (org-mem-link-pos link)))
+  (with-memoization (org-mem--table 54 link)
+    (org-mem-entry-at-pos-in-file (org-mem-link-file link)
+                                  (org-mem-link-pos link))))
 
 (defun org-mem-id-nodes-in-files (files)
   "All ID-nodes in FILES."
@@ -488,13 +493,15 @@ represents the content before the first heading."
 
 (defun org-mem-id-links-to-entry (entry)
   "All ID-links that point to ENTRY."
-  (let ((id (org-mem-entry-id entry)))
-    (and id (org-mem-id-links-to-id id))))
+  (with-memoization (org-mem--table 34 entry)
+    (let ((id (org-mem-entry-id entry)))
+      (and id (org-mem-id-links-to-id id)))))
 
 (defun org-mem-links-to-target (target)
   "All link objects with link target equal to TARGET."
-  (cl-assert (stringp target))
-  (gethash target org-mem--target<>links))
+  (with-memoization (org-mem--table 36 target)
+    (cl-assert (stringp target))
+    (gethash target org-mem--target<>links)))
 
 (defun org-mem-id-links-to-id (id)
   "All ID-links targeting ID."
@@ -507,7 +514,8 @@ represents the content before the first heading."
 
 (defun org-mem-id-node-by-title (title)
   "The ID-node titled TITLE."
-  (and title (gethash (org-mem-id-by-title title) org-mem--id<>entry)))
+  (with-memoization (org-mem--table 37 title)
+    (and title (gethash (org-mem-id-by-title title) org-mem--id<>entry))))
 
 (defun org-mem-id-by-title (title)
   "The ID that currently corresponds to TITLE.
@@ -516,7 +524,8 @@ TITLE is either a heading, a file title, or an alias.
 Assumes unique titles.  If two IDs exist with same title, it is
 undefined which ID is returned.  User can prevent this from becoming a
 problem with the help of option `org-mem-do-warn-title-collisions'."
-  (and title (gethash title org-mem--title<>id)))
+  (with-memoization (org-mem--table 38 title)
+    (and title (gethash title org-mem--title<>id))))
 
 (defun org-mem-links-from-id (id)
   "Links from context where local or inherited ID property is ID."
@@ -554,8 +563,9 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
   "All links found inside ENTRY, ignoring descendant entries.
 Do not trust the result if used during `org-mem--forget-entry-functions'
 or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
-  (and entry (gethash (org-mem-entry-pseudo-id entry)
-                      org-mem--pseudo-id<>links)))
+  (with-memoization (org-mem--table 39 entry)
+    (and entry (gethash (org-mem-entry-pseudo-id entry)
+                        org-mem--pseudo-id<>links))))
 
 
 ;;; Entry info
@@ -565,7 +575,8 @@ or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
 Better than `org-mem-entry-file-truename' when users may see the name.
 When in doubt, prefer this, but it should not matter what form of file
 name you input to the org-mem API."
-  (org-mem--fast-abbrev (org-mem-entry-file-truename entry)))
+  (with-memoization (org-mem--table 40 entry)
+    (org-mem--fast-abbrev (org-mem-entry-file-truename entry))))
 
 (defun org-mem-entry-subtree-p (entry)
   "Non-nil if ENTRY is a subtree, nil if a \"file-level node\"."
@@ -670,10 +681,11 @@ I.e. `file-name-nondirectory', not `file-name-base'.  In org-mem jargon,
 \"basename\" refers to what you get from the POSIX command \"basename\"
 with one argument, which should be familiar if you are not too mired in
 Emacs Lisp."
-  (or (org-mem-entry-title-maybe entry)
-      (progn (cl-assert (not (org-mem-entry-subtree-p entry)))
-             (let (file-name-handler-alist)
-               (file-name-nondirectory (org-mem-entry-file-truename entry))))))
+  (with-memoization (org-mem--table 41 entry)
+    (or (org-mem-entry-title-maybe entry)
+        (progn (cl-assert (not (org-mem-entry-subtree-p entry)))
+               (let (file-name-handler-alist)
+                 (file-name-nondirectory (org-mem-entry-file-truename entry)))))))
 
 (defalias 'org-mem-entry-properties #'org-mem-entry-properties-local
   "Alist of ENTRY properties, no inheritance.
@@ -690,21 +702,24 @@ only the properties explicitly written in the file.")
 
 (defun org-mem-entry-property (prop entry)
   "Value of property PROP in ENTRY."
-  (cdr (assoc (upcase prop) (org-mem-entry-properties entry))))
+  (with-memoization (org-mem--table 42 (list prop entry))
+    (cdr (assoc (upcase prop) (org-mem-entry-properties entry)))))
 
 (defun org-mem-entry-property-with-inheritance (prop entry)
   "Value of property PROP in ENTRY."
   ;; NOTE: A value can be nil (i.e. not string "nil" but symbol nil), but
   ;;       should still override any inherited value, so remember to use
   ;;       `assoc' correctly with that in mind.
-  (cdr (or (assoc (upcase prop) (org-mem-entry-properties entry))
-           (assoc (upcase prop) (org-mem-entry-properties-inherited entry)))))
+  (with-memoization (org-mem--table 43 (list prop entry))
+    (cdr (or (assoc (upcase prop) (org-mem-entry-properties entry))
+             (assoc (upcase prop) (org-mem-entry-properties-inherited entry))))))
 
 (defun org-mem-entry-tags (entry)
   "ENTRY tags, with inheritance if allowed at ENTRY.
 Combines `org-mem-entry-tags-local' and `org-mem-entry-tags-inherited'."
-  (delete-dups (append (org-mem-entry-tags-inherited entry)
-                       (org-mem-entry-tags-local entry))))
+  (with-memoization (org-mem--table 44 entry)
+    (delete-dups (append (org-mem-entry-tags-inherited entry)
+                         (org-mem-entry-tags-local entry)))))
 
 (define-inline org-mem--iso8601 (int-time)
   "Translate INT-TIME into a string \"yyyy-mm-ddThh:mm\"."
@@ -712,30 +727,34 @@ Combines `org-mem-entry-tags-local' and `org-mem-entry-tags-inherited'."
 
 (defun org-mem-entry-closed (entry)
   "CLOSED-timestamp of ENTRY, suitable for `iso8601-parse'."
-  (let ((ts (org-mem-entry-closed-int entry)))
-    (and ts (org-mem--iso8601 ts))))
+  (with-memoization (org-mem--table 45 entry)
+    (let ((ts (org-mem-entry-closed-int entry)))
+      (and ts (org-mem--iso8601 ts)))))
 
 (defun org-mem-entry-deadline (entry)
   "DEADLINE-timestamp of ENTRY, suitable for `iso8601-parse'.
 WARNING: If the timestamp is expressed as a diary-sexp,
 such as <%%\(memq (calendar-day-of-week date) \\='(1 2 3 4 5)))>,
 this returns nil!"
-  (let ((ts (org-mem-entry-deadline-int entry)))
-    (and ts (org-mem--iso8601 ts))))
+  (with-memoization (org-mem--table 46 entry)
+    (let ((ts (org-mem-entry-deadline-int entry)))
+      (and ts (org-mem--iso8601 ts)))))
 
 (defun org-mem-entry-scheduled (entry)
   "SCHEDULED-timestamp of ENTRY, suitable for `iso8601-parse'.
 WARNING: If the timestamp is expressed as a diary-sexp,
 such as <%%\(memq (calendar-day-of-week date) \\='(1 2 3 4 5)))>,
 this returns nil!"
-  (let ((ts (org-mem-entry-scheduled-int entry)))
-    (and ts (org-mem--iso8601 ts))))
+  (with-memoization (org-mem--table 47 entry)
+    (let ((ts (org-mem-entry-scheduled-int entry)))
+      (and ts (org-mem--iso8601 ts)))))
 
 (defun org-mem-entry-active-timestamps (entry)
   "Active timestamps in ENTRY, suitable for `iso8601-parse'.
 Excludes such timestamps in DEADLINE or SCHEDULED, since there is
 `org-mem-entry-deadline' &c for that."
-  (mapcar #'org-mem--iso8601 (org-mem-entry-active-timestamps-int entry)))
+  (with-memoization (org-mem--table 48 entry)
+    (mapcar #'org-mem--iso8601 (org-mem-entry-active-timestamps-int entry))))
 
 (defun org-mem-entry-clocks (entry)
   "Alist \((START END MINUTES) ...) representing clock lines in ENTRY.
@@ -744,18 +763,20 @@ MINUTES is an integer amount of minutes.
 To get all three as Lisp time values, use `org-mem-entry-clocks-int'.
 
 Any dangling clock line is represented as just \(START)."
-  (cl-loop for (start end secs) in (org-mem-entry-clocks-int entry)
-           if end collect (list (org-mem--iso8601 start)
-                                (org-mem--iso8601 end)
-                                (/ secs 60))
-           else collect (list (org-mem--iso8601 start))))
+  (with-memoization (org-mem--table 49 entry)
+    (cl-loop for (start end secs) in (org-mem-entry-clocks-int entry)
+             if end collect (list (org-mem--iso8601 start)
+                                  (org-mem--iso8601 end)
+                                  (/ secs 60))
+             else collect (list (org-mem--iso8601 start)))))
 
 (defun org-mem-entry-dangling-clocks (entry)
   "List \(START1 START2 ...) representing clocks in ENTRY with no end.
 See also `org-mem-all-entries-with-dangling-clock'."
-  (cl-loop for clock in (org-mem-entry-clocks-int entry)
-           when (length= clock 1)
-           collect (org-mem--iso8601 (car clock))))
+  (with-memoization (org-mem--table 50 entry)
+    (cl-loop for clock in (org-mem-entry-clocks-int entry)
+             when (length= clock 1)
+             collect (org-mem--iso8601 (car clock)))))
 
 
 ;;; Link info
@@ -763,17 +784,20 @@ See also `org-mem-all-entries-with-dangling-clock'."
 (defun org-mem-link-file (link)
   "Abbreviated truename of file where LINK is.
 See more info at `org-mem-entry-file'."
-  (org-mem--fast-abbrev (org-mem-link-file-truename link)))
+  (with-memoization (org-mem--table 51 link)
+    (org-mem--fast-abbrev (org-mem-link-file-truename link))))
 
 (defun org-mem-link-entry (link)
   "The entry that contains LINK."
-  (org-mem-entry-at-pos-in-file (org-mem-link-pos link)
-                                (org-mem-link-file link)))
+  (with-memoization (org-mem--table 52 link)
+    (org-mem-entry-at-pos-in-file (org-mem-link-pos link)
+                                  (org-mem-link-file link))))
 
 (defun org-mem-id-link-p (link)
   "Return t if LINK is an `org-mem-link' object of type \"id\"."
-  (and (org-mem-link-p link)
-       (equal (org-mem-link-type link) "id")))
+  (with-memoization (org-mem--table 53 link)
+    (and (org-mem-link-p link)
+         (equal (org-mem-link-type link) "id"))))
 
 
 ;;; File info
