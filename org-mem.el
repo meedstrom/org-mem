@@ -20,7 +20,7 @@
 ;; Created:  2025-03-15
 ;; Keywords: text
 ;; Package-Version: 0.31.2
-;; Package-Requires: ((emacs "29.1") (el-job "2.7.3") (llama "0.5.0"))
+;; Package-Requires: ((emacs "29.1") (el-job "2.7.3") (llama "1.0") (truename-cache "0.1.2"))
 
 ;;; Commentary:
 
@@ -41,12 +41,13 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
-(defconst org-mem-internal-version 37 "Not a version number, but bumped sometimes.")
+(defconst org-mem-internal-version 38 "Not a version number, but bumped sometimes.")
 
 (require 'cl-lib)
 (require 'subr-x)
 (require 'llama)
 (require 'el-job)
+(require 'truename-cache)
 (require 'org-mem-parser)
 
 (defvar org-id-locations)
@@ -88,6 +89,25 @@ If so, the text would only be available from the first time that
   "Whether to print a message when two ID-nodes have the same title."
   :type 'boolean
   :package-version '(org-mem . "0.2.0"))
+
+(defcustom org-mem-do-look-everywhere nil
+  "Whether to infer directories from as many sources as possible.
+
+This means that any Org file found amongst...
+
+- `recentf-list'
+- `org-agenda-text-search-extra-files'
+- `org-id-locations'
+- `org-id-extra-files'
+- `org-agenda-files'
+- currently open Org buffers
+
+... will have its directory added to the set of directories that org-mem
+will scan.  They won\\='t be scanned recursively.
+
+If Org has not yet loaded, only `recentf-list' is used."
+  :type 'boolean
+  :package-version '(org-mem . "0.32.0"))
 
 (defcustom org-mem-do-sync-with-org-id nil
   "Whether to exchange data with `org-id-locations'.
@@ -264,25 +284,13 @@ Note: All tables cleared often, meant for memoizations."
 (defun org-mem--get-file-metadata (file/entry/link)
   "Return list of assorted data if FILE/ENTRY/LINK known, else error."
   (let ((wild-file (if (stringp file/entry/link)
-                       (org-mem--truename-maybe file/entry/link)
+                       (truename-cache-get-existed-p file/entry/link)
                      (if (org-mem-entry-p file/entry/link)
                          (org-mem-entry-file-truename file/entry/link)
                        (if (org-mem-link-p file/entry/link)
                            (org-mem-link-file-truename file/entry/link)
                          (error "org-mem: FILE/ENTRY/LINK is nil"))))))
     (gethash wild-file org-mem--truename<>metadata)))
-
-(defun org-mem--fast-abbrev (absolute-file-name)
-  "Abbreviate ABSOLUTE-FILE-NAME, faster than `abbreviate-file-name'."
-  (let ((case-fold-search nil))
-    (setq absolute-file-name (directory-abbrev-apply absolute-file-name))
-    (if (string-match (with-memoization (org-mem--table 0 'org-mem--fast-abbrev)
-                        (with-temp-buffer ;; No buffer-env
-                          (directory-abbrev-make-regexp
-                           (expand-file-name "~"))))
-                      absolute-file-name)
-        (concat "~" (substring absolute-file-name (match-beginning 1)))
-      absolute-file-name)))
 
 (cl-defstruct org-mem-link
   (file-truename      ""  :read-only t :type string)
@@ -359,12 +367,12 @@ perfectly with `org-id-locations'."
 (defun org-mem-all-files-expanded ()
   "All Org files, with tilde expansion applied."
   (with-memoization (org-mem--table 0 'org-mem-all-files-expanded)
-    (mapcar #'directory-abbrev-apply (org-mem-all-file-truenames))))
+    (mapcar #'truename-cache-get-dir-abbrev (org-mem-all-file-truenames))))
 
 (defun org-mem-all-files ()
   "Abbreviated truenames of all Org files."
   (with-memoization (org-mem--table 0 'org-mem-all-files)
-    (mapcar #'org-mem--fast-abbrev (org-mem-all-file-truenames))))
+    (mapcar #'truename-cache-get-full-abbrev (org-mem-all-file-truenames))))
 
 (defun org-mem-all-file-truenames ()
   "Truename of all Org files.
@@ -492,14 +500,14 @@ The list always contains at least one entry, which
 represents the content before the first heading."
   (with-memoization (org-mem--table 32 file)
     (cl-assert (stringp file))
-    (gethash (org-mem--truename-maybe file) org-mem--truename<>entries)))
+    (gethash (org-mem-file-known-p file) org-mem--truename<>entries)))
 
 (defalias 'org-mem-file-entries #'org-mem-entries-in-file)
 
 (defun org-mem-entries-in-files (files)
   "Combined list of entries from all of FILES."
   (with-memoization (org-mem--table 33 files)
-    (cl-loop for file in (delete-dups (mapcar #'org-mem--truename-maybe files))
+    (cl-loop for file in (delete-dups (mapcar #'org-mem-file-known-p files))
              when (stringp file)
              append (gethash file org-mem--truename<>entries))))
 
@@ -513,7 +521,7 @@ represents the content before the first heading."
   "All ID-nodes in FILES."
   (with-memoization (org-mem--table 15 files)
     (let ((files (delete-dups
-                  (seq-keep #'org-mem--truename-maybe (ensure-list files)))))
+                  (seq-keep #'org-mem-file-known-p (ensure-list files)))))
       (seq-filter (##member (org-mem-entry-file-truename %) files)
                   (org-mem-all-id-nodes)))))
 
@@ -607,7 +615,7 @@ Better than `org-mem-entry-file-truename' when users may see the name.
 When in doubt, prefer this, but it should not matter what form of file
 name you input to the org-mem API."
   (with-memoization (org-mem--table 40 entry)
-    (org-mem--fast-abbrev (org-mem-entry-file-truename entry))))
+    (truename-cache-get-full-abbrev (org-mem-entry-file-truename entry))))
 
 (defun org-mem-entry-subtree-p (entry)
   "Non-nil if ENTRY is a subtree, nil if a \"file-level node\"."
@@ -825,7 +833,7 @@ See also `org-mem-all-entries-with-dangling-clock'."
   "Abbreviated truename of file where LINK is.
 See more info at `org-mem-entry-file'."
   (with-memoization (org-mem--table 51 link)
-    (org-mem--fast-abbrev (org-mem-link-file-truename link))))
+    (truename-cache-get-full-abbrev (org-mem-link-file-truename link))))
 
 (defun org-mem-link-entry (link)
   "The entry that contains LINK."
@@ -965,18 +973,19 @@ Can be nil."
                           (if (stringp file/entry) file/entry
                             (org-mem-entry-file-truename file/entry))))))
 
-;; REVIEW: Find a situation where it matters to use this instead of
-;;         just `org-mem--truename-maybe'.
 (defun org-mem-file-known-p (file)
   "Return non-nil when FILE is known to org-mem.
-Specifically, return the name by which it is known.  This is technically
-more restrictive than `org-mem--truename-maybe' by only returning if the
-file has been scanned, but in practice they may often be identical."
+Specifically, return the name by which it is known.
+This is more restrictive than `truename-cache-get-existed-p'
+by only returning non-nil if the file has been scanned by org-mem."
   (cl-assert (stringp file))
-  (or (and (gethash file org-mem--truename<>entries) file)
-      (and (setq file (org-mem--truename-maybe file))
-           (gethash file org-mem--truename<>entries)
-           file)))
+  (or (and (gethash file org-mem--truename<>entries)
+           file)
+      (and (setq file (truename-cache-get-existed-p file))
+           (if (gethash file org-mem--truename<>entries)
+               file
+             (truename-cache-invalidate file)
+             nil))))
 
 
 ;;; Optional: Roam aliases and refs
@@ -1288,6 +1297,7 @@ For arguments TAKEOVER and MSG, see `org-mem--scan-full'."
              (not (boundp 'org-node-internal-version)))
     (display-warning 'org-mem "You probably want to update org-node, not just org-mem"))
   (when called-interactively
+    (truename-cache-reset)
     (setq org-mem--next-message t)
     (setq takeover t))
   (org-mem--scan-full takeover msg)
@@ -1301,13 +1311,14 @@ With TAKEOVER t, stop any already ongoing scan to start a new one.
 
 Argument MSG is an optional message to print.  If provided, it also
 overrides a default message printed when `org-mem-do-cache-text' is t."
+  (org-mem--check-user-settings)
   (when (or takeover (not (el-job-ng-busy-p 'org-mem)))
     (setq org-mem--time-at-begin-full-scan (current-time))
     (when msg
       (setq org-mem--reset-msg msg)
       (message "%s" msg)
       (redisplay t))
-    (let ((files (org-mem--list-files-from-fs)))
+    (let ((files (mapcar #'car (org-mem--truenames-and-attrs))))
       (when files
         (el-job-ng-run :id 'org-mem
                        :inject-vars (append (org-mem--mk-work-vars)
@@ -1522,67 +1533,18 @@ Or no-op, if `org-mem-do-sync-with-org-id' is nil."
 
 ;;; File discovery subroutines
 
-;; Org-mem uses file truenames to be able to merge and de-duplicate file lists
-;; from different sources, as well as recognize a user-given file name even if
-;; it was not given in truename form.
-
-;; However, `file-truename' is a very expensive Elisp function - 2 full seconds
-;; to call it 2,000 times on my machine, which is unacceptable.
-;; Thus, some smart workarounds are called for.
-
-(defvar org-mem--wild-filename<>truename (make-hash-table :test 'equal)
-  "1:1 table mapping a wild file name to its truename.
-See helper `org-mem--truename-maybe'.")
-
-(defun org-mem--truename-maybe (wild-file &optional _)
-  "For a WILD-FILE that exists locally, return its truename, else nil.
-Caches any non-nil result, so can return a name that is no longer true.
-However, even if that becomes the case, it should usually correspond to
-known org-mem objects \(because they would be stale as well\).
-
-This function provides a reliable way to find org-mem objects by file
-name.  The buffer-local variable `buffer-file-truename' actually gives
-you an abbreviated truename, and \"unabbreviating\" it thru
-`expand-file-name' is not reliable on account of e.g. buffer-env
-changing the meaning of \"~\" or \"~USER\", or runtime changes to
-`directory-abbrev-alist'."
-  (or (gethash wild-file org-mem--wild-filename<>truename)
-      (and (stringp wild-file)
-           (not (file-remote-p wild-file))
-           (let (file-name-handler-alist)
-             (unless (file-name-absolute-p wild-file)
-               ;; NOTE: For a lot of users, the above condition always comes
-               ;; true, but it depends on e.g. which completion system you use
-               ;; with a command like `rename-file'.
-               ;; https://github.com/meedstrom/org-mem/issues/30
-               (setq wild-file (expand-file-name wild-file)))
-             (if (file-exists-p wild-file)
-                 (let* ((truename (file-truename wild-file))
-                        (abbr-true (org-mem--fast-abbrev truename)))
-                   (puthash abbr-true truename org-mem--wild-filename<>truename)
-                   (puthash wild-file truename org-mem--wild-filename<>truename))
-               (remhash wild-file org-mem--wild-filename<>truename))))))
-
 (defun org-mem--invalidate-file-names (bad)
   "Scrub bad file names BAD in the tables that can pollute a reset.
-Notably, invalidate part of the cache used by `org-mem--truename-maybe'.
+Notably, invalidate part of the cache used by `org-mem-file-known-p'.
 If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
-  (when bad
-    ;; Example situation: File WILD is a symlink that changed destination.
-    ;; So cached TRUE led to a nonexistent file in the last scan.
-    ;; Now invalidate it so we cache a correct TRUE next time.
-    (maphash (lambda (wild true)
-               (when (member true bad)
-                 (push wild bad)))
-             org-mem--wild-filename<>truename)
-    (dolist (bad bad)
-      (remhash bad org-mem--wild-filename<>truename))
-    (when (and org-mem-do-sync-with-org-id
+  (let ((invalidated (truename-cache-invalidate bad)))
+    (when (and invalidated
+               org-mem-do-sync-with-org-id
                (org-mem--try-ensure-org-id-table-p))
       (setq org-id-locations
             (org-id-alist-to-hash
              (cl-loop for cell in (org-id-hash-to-alist org-id-locations)
-                      unless (member (car cell) bad)
+                      unless (member (car cell) invalidated)
                       collect cell))))))
 
 (defun org-mem--try-ensure-org-id-table-p ()
@@ -1597,151 +1559,74 @@ If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
            (progn (message "org-mem: Strange org-id bug, maybe restart Emacs")
                   nil))))
 
-
-;;; File discovery
+(defun org-mem--truenames-and-attrs ()
+  "Return an unsorted alist \((FILE1 . ATTR1) (FILE2 . ATTR2) ...\).
+Each FILE is a truename and each ATTR an output of `file-attributes'.
+
+These values are newly retrieved from the filesystem, so they might not
+be associated with objects in existing org-mem tables.
+For that, you may be looking for `org-mem-all-files'.
+
+Affected by user options:
+- `org-mem-watch-dirs'
+- `org-mem-do-sync-with-org-id'
+- `org-mem-do-look-everywhere'"
+  (cl-loop
+   with exclude-re = (regexp-opt (cons "/_" (cons "/." org-mem-exclude)))
+   with suffix-re = (rx (regexp (regexp-opt org-mem-suffixes)) eos)
+   for cell
+   in (truename-cache-collect-files-and-attributes
+       :local-name-handlers nil
+       :remote-name-handlers '(tramp-archive-file-name-handler
+                               tramp-completion-file-name-handler
+                               tramp-file-name-handler
+                               tramp-autoload-file-name-handler)
+       :keep-remotes nil
+       :full-dir-deny (list exclude-re)
+       :dirs-recursive org-mem-watch-dirs
+       :infer-dirs-from
+       (list
+        (and org-mem-do-look-everywhere
+             (seq-filter (##string-match-p suffix-re %)
+                         (bound-and-true-p recentf-list)))
+        (and org-mem-do-look-everywhere
+             (featurep 'org)
+             (append (org-files-list)
+                     ;; Should've been a separate option
+                     (if (stringp (car org-agenda-text-search-extra-files))
+                         org-agenda-text-search-extra-files
+                       (cdr org-agenda-text-search-extra-files))))
+        (and (or org-mem-do-sync-with-org-id
+                 org-mem-do-look-everywhere)
+             (featurep 'org-id)
+             (append (seq-filter #'stringp
+                                 ;; Should've been a separate option
+                                 (if (symbolp org-id-extra-files)
+                                     (symbol-value org-id-extra-files)
+                                   org-id-extra-files))
+                     (and (org-mem--try-ensure-org-id-table-p)
+                          (hash-table-values org-id-locations))))))
+   when (and (string-match-p suffix-re (car cell))
+             (not (string-match-p exclude-re (car cell))))
+   collect cell))
 
 (defun org-mem--check-user-settings ()
   "Signal if user options are set to illegal or inefficient values."
-  (unless (or org-mem-watch-dirs org-mem-do-sync-with-org-id)
-    (user-error "At least one setting must be non-nil: `org-mem-watch-dirs' or `org-mem-do-sync-with-org-id'"))
-  (dolist (dir org-mem-watch-dirs)
-    (when (file-remote-p dir)
-      (user-error "Option `org-mem-watch-dirs' has remote directories"))
-    (let (file-name-handler-alist)
-      (when (not (file-name-absolute-p dir))
-        (user-error "Option `org-mem-watch-dirs' has relative directory names"))
-      (dolist (other-dir (mapcar #'file-name-as-directory
-                                 (remove dir org-mem-watch-dirs)))
-        (when (and (string-prefix-p dir other-dir)
-                   ;; NOTE: Remove these clauses if we stop filtering
-                   ;; dot/underscore in `org-mem--dir-files-recursive'.
-                   (not (eq ?. (aref other-dir (length (file-name-as-directory dir)))))
-                   (not (eq ?_ (aref other-dir (length (file-name-as-directory dir))))))
-          (message "Option `org-mem-watch-dirs' has redundant subdirectories"))))))
-
-(defvar org-mem--dir<>bare-files (make-hash-table :test 'equal))
-(defvar org-mem--dedup-tbl (make-hash-table :test 'equal))
-(defun org-mem--list-files-from-fs ()
-  "Look for Org files in `org-mem-watch-dirs'.
-
-If user option `org-mem-do-sync-with-org-id' is t,
-include files from `org-id-locations' in the result.
-
-Return the file truenames only.
-This means you cannot cross-correlate the results with file names in
-`org-id-locations', even if that was a discovery source.
-
-Excludes symlinks, remote files, files that do not exist, and duplicate
-names.  Uses caching where reasonable, on the assumption that
-`org-mem-parser--parse-file' will cause `org-mem--invalidate-file-names'
-to run on cached names that turned out to be invalid."
-  (clrhash org-mem--dedup-tbl)
-  (with-temp-buffer ;; No buffer-env
-    (org-mem--check-user-settings)
-    (let (file-name-handler-alist)
-      ;; NOTE: It is possible to have a true dir name /home/org/,
-      ;; then a symlink subdir /home/org/current/ -> /home/org/2025/.
-      ;; Fortunately, `org-mem--dir-files-recursive' would not explore
-      ;; /home/org/current/.
-      ;; That leaves only leaf nodes (files) as possible symlinks.
-      (dolist (dir (delete-dups
-                    (mapcar #'file-truename
-                            (seq-filter #'file-exists-p org-mem-watch-dirs))))
-        (dolist (wild (org-mem--dir-files-recursive dir
-                                                    org-mem-suffixes
-                                                    org-mem-exclude))
-          (let ((cached (gethash wild org-mem--wild-filename<>truename)))
-            (if cached (puthash cached t org-mem--dedup-tbl)
-              (let* ((true (if (file-symlink-p wild) (file-truename wild) wild))
-                     (abtrue (org-mem--fast-abbrev true)))
-                (puthash true t org-mem--dedup-tbl)
-                (puthash wild true org-mem--wild-filename<>truename)
-                (puthash abtrue true org-mem--wild-filename<>truename)))))))
-    ;; Maybe check org-id-locations.
-    (when org-mem-do-sync-with-org-id
-      (when (featurep 'org)
-        (require 'org-id)
-        (unless org-id-track-globally
-          (error "If `org-mem-do-sync-with-org-id' is t, `org-id-track-globally' must also be t"))
-        (when (and org-id-locations-file (null org-id-locations))
-          (org-id-locations-load))
-        (when (org-mem--try-ensure-org-id-table-p)
-          (clrhash org-mem--dir<>bare-files)
-          (dolist (file (delete-dups
-                         (nconc (seq-filter #'stringp
-                                            (if (symbolp org-id-extra-files)
-                                                (symbol-value org-id-extra-files)
-                                              org-id-extra-files))
-                                (hash-table-values org-id-locations))))
-            (when (cl-loop for exclude in org-mem-exclude
-                           never (string-search exclude file))
-              (let ((cached (gethash file org-mem--wild-filename<>truename)))
-                (if cached (puthash cached t org-mem--dedup-tbl)
-                  (unless (file-remote-p file)
-                    (let (file-name-handler-alist)
-                      (when (file-exists-p file)
-                        (push (file-name-nondirectory file)
-                              (gethash (file-name-directory file)
-                                       org-mem--dir<>bare-files)))))))))
-          ;; PERF: Use interim table `org-mem--dir<>bare-files' so we
-          ;;       can limit calling `file-truename' to once per directory.
-          (maphash
-           (lambda (dir bare-files)
-             (let* ((file-name-handler-alist nil)
-                    (true-dir (file-truename dir)))
-               (dolist (bare-file bare-files)
-                 (let* ((wild (concat dir bare-file))
-                        (true (concat true-dir bare-file))
-                        (_ (when (file-symlink-p true)
-                             (setq true (file-truename true))))
-                        (abtrue (org-mem--fast-abbrev true)))
-                   (puthash true t org-mem--dedup-tbl)
-                   (puthash wild true org-mem--wild-filename<>truename)
-                   (puthash abtrue true org-mem--wild-filename<>truename)))))
-           org-mem--dir<>bare-files)))))
-  (hash-table-keys org-mem--dedup-tbl))
-
-;; REVIEW: We can get rid of this.  In past benchmarks, it only seemed 3-5x
-;; faster than `directory-files-recursively' (for our use case, with EXCLUDES etc).
-;; In real numbers on my machine, that's adding 0.05s to one `org-mem-reset'
-;; which takes about 1.90s total.
-;; It was cooler back in org-node before 2.2.0 when the total was only ~0.90s
-;; due to collecting less data.
-;; Starting to see why a lot of software gets slower as it gets more
-;; sophisticated!  Not only due to the sophistication, but other optimizations
-;; look relatively less worth the LoC burden.
-(defun org-mem--dir-files-recursive (dir suffixes excludes)
-  "Faster, purpose-made variant of `directory-files-recursively'.
-Return a list of all files under directory DIR, its
-sub-directories, sub-sub-directories and so on, with provisos:
-
-- Don\\='t enter directories that are symlinks.
-- Don\\='t enter directories whose name start with dot or underscore.
-- Don\\='t enter directories where some substring of the full name
-  matches one of strings EXCLUDES literally.
-- Don\\='t collect any file where some substring of the non-directory
-  name matches one of strings EXCLUDES literally.
-- Collect only files that end in one of SUFFIXES literally.
-- Don\\='t sort final results in any particular order.
-
-Does not modify the match data."
-  (let (result)
-    (dolist (file (file-name-all-completions "" dir))
-      (if (directory-name-p file)
-          (unless (or (string-prefix-p "." file)
-                      (string-prefix-p "_" file))
-            (setq file (file-name-concat dir file))
-            (unless (or (cl-loop for substr in excludes
-                                 thereis (string-search substr file))
-                        (file-symlink-p (directory-file-name file)))
-              (setq result (nconc result (org-mem--dir-files-recursive
-        		                  file suffixes excludes)))))
-        (when (cl-loop for suffix in suffixes
-                       thereis (string-suffix-p suffix file))
-          (unless (cl-loop for substr in excludes
-                           thereis (string-search substr file))
-            (push (file-name-concat dir file) result)))))
-    result))
+  (unless (or org-mem-watch-dirs
+              org-mem-do-sync-with-org-id
+              org-mem-do-look-everywhere)
+    (user-error "At least one of these settings must be non-nil:
+`org-mem-watch-dirs'
+`org-mem-do-sync-with-org-id'
+`org-mem-do-look-everywhere'"))
+  (unless (compiled-function-p (symbol-function #'org-mem--truenames-and-attrs))
+    (display-warning 'org-mem "Org-mem will be very slow unless compiled"))
+  (unless (compiled-function-p (symbol-function #'truename-cache-collect-files-and-attributes))
+    (display-warning 'org-mem "Org-mem will be very slow unless truename-cache is compiled"))
+  (when (and org-mem-do-sync-with-org-id (featurep 'org-id) (not org-id-track-globally))
+    (user-error "If org-mem-do-sync-with-org-id is t, org-id-track-globally must be t as well"))
+  (when (seq-find #'file-remote-p org-mem-watch-dirs)
+    (user-error "Must not contain remote directories: org-mem-watch-dirs")))
 
 
 ;;; Assorted tools for downstream packages
@@ -1795,7 +1680,7 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
     (buffer-string)))
 
 (defun org-mem-tip-if-empty ()
-  (when (hash-table-empty-p org-mem--wild-filename<>truename)
+  (when (hash-table-empty-p org-mem--truename<>metadata)
     (let ((msg (if org-mem-do-sync-with-org-id
                    (if (not (featurep 'org-id))
                        (if org-mem-watch-dirs
@@ -1861,7 +1746,7 @@ org-id-locations:
   (require 'org-id)
   (let ((files (org-mem--dir-files-recursive dir org-mem-suffixes nil)))
     (when files
-      (setq files (append files (seq-keep #'org-mem--truename-maybe files)))
+      (setq files (append files (seq-keep #'truename-cache-get-existed-p files)))
       (message "Forgetting all IDs in directory %s..." dir)
       (redisplay t)
       (maphash (lambda (id file)
@@ -1927,6 +1812,10 @@ Still exists under name `org-mem--record-file-functions',
 but please use `org-mem-post-full-scan-functions'.")
 
 (define-obsolete-function-alias 'org-mem-entry-that-contains-link #'org-mem-link-entry "0.29.0 (2026-02-11)")
+
+(defun org-mem--list-files-from-fs ()
+  (declare (obsolete nil "2026-02-16"))
+  (mapcar #'car (org-mem--truenames-and-attrs)))
 
 (provide 'org-mem)
 
