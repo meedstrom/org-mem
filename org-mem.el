@@ -821,7 +821,7 @@ See more info at `org-mem-entry-file'."
 
 (defun org-mem-file-attributes (file/entry/link)
   "The cached `file-attributes' list for file at FILE/ENTRY/LINK.
-The uid and gid are strings, see ID-FORMAT in `file-attributes'."
+The uid and gid are integers, see ID-FORMAT in `file-attributes'."
   (nth 1 (org-mem--get-file-metadata file/entry/link)))
 
 (defun org-mem-file-line-count (file/entry/link)
