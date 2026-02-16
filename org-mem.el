@@ -1277,7 +1277,7 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
         (el-job-ng-run :id 'org-mem
                        :inject-vars (append (org-mem--mk-work-vars)
                                             (el-job-ng-vars org-mem-inject-vars))
-                       :require (append '(org-mem-parser) org-mem-load-features)
+                       :require (cons 'org-mem-parser org-mem-load-features)
                        :eval org-mem-eval-forms
                        :inputs files
                        :funcall-per-input #'org-mem-parser--parse-file
@@ -1299,7 +1299,8 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
                        (erase-buffer)
                        (insert-file-contents file)
                        (puthash file (buffer-string) org-mem--truename<>content))))))
-            (eval `(let ,(cl-loop for (var . val) in org-mem-inject-vars
+            (eval `(let ,(cl-loop for (var . val)
+                                  in (el-job-ng-vars org-mem-inject-vars)
                                   if (listp val)
                                   collect `(,var ',val)
                                   else collect `(,var ,val))
