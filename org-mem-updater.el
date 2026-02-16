@@ -195,26 +195,11 @@ If already scheduled, postpone to very soon."
 (defvar org-trust-scanner-tags)
 (defvar org-use-tag-inheritance)
 
-(defun org-mem-updater-ensure-buffer-file-known ()
-  "Record basic file metadata if not already known.
-Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
-  (require 'org)
-  (when (and buffer-file-name
-             (derived-mode-p 'org-mode)
-             (file-exists-p buffer-file-name))
-    (let ((file (file-truename buffer-file-name)))
-      (unless (gethash file org-mem--truename<>metadata)
-        (puthash file
-                 (list file
-                       (file-attributes file)
-                       (line-number-at-pos (point-max) t)
-                       (point-max))
-                 org-mem--truename<>metadata)))))
-
 (defun org-mem-updater-ensure-link-at-point-known (&rest _)
   "Record the link at point.
 Use this if you cannot wait for `org-mem-updater-mode' to pick it up.
 No support for citations."
+  (declare (obsolete nil "0.30.0 (2026-02-18)"))
   (require 'org)
   (require 'org-element-ast)
   (when (and buffer-file-name
@@ -235,6 +220,7 @@ No support for citations."
 (defun org-mem-updater-ensure-id-node-at-point-known ()
   "Record ID-node at point.
 Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
+  (declare (obsolete nil "0.30.0 (2026-02-18)"))
   (require 'org)
   (require 'ol)
   (when (and buffer-file-name
@@ -251,11 +237,29 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
             (org-mem-updater-ensure-buffer-file-known)
             (org-mem--record-entry (org-mem-updater-mk-entry-atpt))))))))
 
+(defun org-mem-updater-ensure-buffer-file-known ()
+  "Record basic file metadata if not already known.
+Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
+  (declare (obsolete nil "0.30.0 (2026-02-18)"))
+  (require 'org)
+  (when (and buffer-file-name
+             (derived-mode-p 'org-mode)
+             (file-exists-p buffer-file-name))
+    (let ((file (file-truename buffer-file-name)))
+      (unless (gethash file org-mem--truename<>metadata)
+        (puthash file
+                 (list file
+                       (file-attributes file)
+                       (line-number-at-pos (point-max) t)
+                       (point-max))
+                 org-mem--truename<>metadata)))))
+
 (defun org-mem-updater-mk-link-atpt ()
   "Return an `org-mem-link' object appropriate for link at point.
 It is not associated with any entries or files, however.
 Return nil if no link at point.
 No support for citations."
+  (declare (obsolete nil "0.30.0 (2026-02-18)"))
   (require 'org)
   (require 'org-element-ast)
   (if-let* ((el (org-element-context))
@@ -285,6 +289,7 @@ No support for citations."
   "Return an `org-mem-entry' object appropriate for entry at point.
 It is not associated with any links or files, however.
 Some fields are incomplete or left at nil."
+  (declare (obsolete nil "0.30.0 (2026-02-18)"))
   (require 'org)
   (require 'ol)
   (let* ((heading (org-get-heading t t t t))
@@ -341,6 +346,7 @@ Some fields are incomplete or left at nil."
 
 (defun org-mem-updater--tags-at-point-inherited-only ()
   "Like `org-get-tags', but get only the inherited tags."
+  (declare (obsolete nil "0.30.0 (2026-02-18)"))
   (require 'org)
   (let ((all-tags (if org-use-tag-inheritance
                       (org-get-tags)
