@@ -76,10 +76,11 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
   "Handle PARSE-RESULTS from `org-mem-updater-update'."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
   (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
-  (let (bad-paths problems)
+  (let (problems)
+    (org-mem--invalidate-file-names
+     (cl-loop for (bad-path) in parse-results when bad-path collect bad-path))
     (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
-      (cl-loop for (bad-path problem file-datum entries links) in parse-results do
-               (when bad-path (push bad-path bad-paths))
+      (cl-loop for (_ problem file-datum entries links) in parse-results do
                (when problem (push problem problems))
                (let ((file (car file-datum)))
                  (when file
@@ -100,10 +101,6 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
                  (push link (gethash (org-mem-link-entry-pseudo-id link)
                                      org-mem--pseudo-id<>links))
                  (run-hook-with-args 'org-mem--record-link-functions link))))
-    ;; REVIEW: Here we assume it is fine to invalidate now rather than before
-    ;; or during the above loop.  I'm not 100% sure it is.
-    ;; The reason to do it now: it's more efficient when called once on a list.
-    (org-mem--invalidate-file-names bad-paths)
     (org-mem--rebuild-specially-indexed-tables)
 
     (run-hook-with-args 'org-mem-post-targeted-scan-functions parse-results)

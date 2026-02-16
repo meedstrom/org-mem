@@ -1320,12 +1320,12 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
   (clrhash org-mem--truename<>entries)
   (clrhash org-mem--pseudo-id<>links)
   (setq org-mem--title-collisions nil)
-  (let (bad-paths problems)
-
+  (let ((bad-paths (cl-loop for (bad) in parse-results when bad collect bad))
+        problems)
+    (org-mem--invalidate-file-names bad-paths)
     ;; Build tables.
     (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
-      (cl-loop for (bad-path problem file-data entries links) in parse-results do
-               (when bad-path (push bad-path bad-paths))
+      (cl-loop for (_ problem file-data entries links) in parse-results do
                (when problem (push problem problems))
                (puthash (car file-data) file-data org-mem--truename<>metadata)
                (run-hook-with-args 'org-mem--record-file-functions file-data)
@@ -1336,7 +1336,6 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
                  (push link (gethash (org-mem-link-entry-pseudo-id link)
                                      org-mem--pseudo-id<>links))
                  (run-hook-with-args 'org-mem--record-link-functions link))))
-    (org-mem--invalidate-file-names bad-paths)
     (org-mem--rebuild-specially-indexed-tables)
 
     ;; Message on interactive reset.
