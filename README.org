@@ -404,9 +404,7 @@ This needs extra config to tell org-mem's subprocesses how to open them. The fol
 
 Files over TRAMP are excluded from org-mem's database, so as far as org-mem is concerned, it is as if they do not exist.
 
-(However, org-mem is also careful not to scrub them from your =org-id-locations=, even if =org-mem-do-sync-with-org-id= is t, so your ID-links should still work.)
-
-This limitation comes from the fact that org-mem parses your files in many parallel subprocesses that do not inherit your TRAMP setup.  It is fixable in theory.
+This limitation comes from the fact that org-mem parses your files in many parallel subprocesses that do not inherit your TRAMP connections.  It is fixable in theory.
 
 *** Limitation: Encrypted entries
 
