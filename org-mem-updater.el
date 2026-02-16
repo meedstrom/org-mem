@@ -112,6 +112,66 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
       (message "Scan had problems, see M-x org-mem-list-problems"))))
 
 
+;;; Mode
+
+(defvar org-mem-updater--reset-timer (timer-create)
+  "Timer for intermittently running `org-mem--scan-full'.")
+
+(defun org-mem-updater-adjust-reset-timer (&rest _)
+  "Adjust `org-mem-updater--reset-timer' based on duration of last full scan.
+If timer not running, start it.
+Override this if you prefer different timer delays, or no timer."
+  (let ((new-delay (* 10 (1+ org-mem--time-elapsed))))
+    (when (or (not (member org-mem-updater--reset-timer timer-idle-list))
+              ;; Don't enter an infinite loop -- idle timers can be a footgun.
+              (not (> (float-time (or (current-idle-time) 0))
+                      new-delay)))
+      (cancel-timer org-mem-updater--reset-timer)
+      (setq org-mem-updater--reset-timer
+            (run-with-idle-timer new-delay t #'org-mem--scan-full)))))
+
+(defun org-mem-updater--update-file-soon (&optional file &rest _)
+  "Schedule to run `org-mem-updater-update' very soon.
+
+Designed for `after-save-hook' and as advice for `delete-file' and
+`rename-file'.  Such functions might be called many times in a loop,
+and this design is meant to avoid invoking `org-mem-updater-update'
+for every FILE, but wait and do a massed invocation afterwards."
+  (setq file (or file buffer-file-name))
+  (when (and file (cl-some (##string-suffix-p % file) org-mem-suffixes))
+    (org-mem-updater--update-soon)))
+
+(defvar org-mem-updater--debounce-timer nil)
+(defun org-mem-updater--update-soon ()
+  "Schedule to run `org-mem-updater-update' very soon.
+If already scheduled, postpone to very soon."
+  (if (memq org-mem-updater--debounce-timer timer-list)
+      (timer-set-time org-mem-updater--debounce-timer
+                      (time-add (current-time) 0.5))
+    (setq org-mem-updater--debounce-timer
+          (run-with-timer 0.5 nil #'org-mem-updater-update))))
+
+;;;###autoload
+(define-minor-mode org-mem-updater-mode
+  "Keep Org-mem cache up to date."
+  :global t
+  :group 'org-mem
+  (require 'org-mem-updater)
+  (if org-mem-updater-mode
+      (progn
+        (add-hook 'org-mem-post-full-scan-functions #'org-mem-updater-adjust-reset-timer 90)
+        (add-hook 'after-save-hook                  #'org-mem-updater--update-file-soon)
+        (advice-add 'rename-file :after             #'org-mem-updater--update-file-soon)
+        (advice-add 'delete-file :after             #'org-mem-updater--update-file-soon)
+        (org-mem-updater-adjust-reset-timer)
+        (org-mem--scan-full))
+    (remove-hook 'org-mem-post-full-scan-functions #'org-mem-updater-adjust-reset-timer)
+    (remove-hook 'after-save-hook                  #'org-mem-updater--update-file-soon)
+    (advice-remove 'rename-file                    #'org-mem-updater--update-file-soon)
+    (advice-remove 'delete-file                    #'org-mem-updater--update-file-soon)
+    (cancel-timer org-mem-updater--reset-timer)))
+
+
 ;;; Instant placeholders
 
 (declare-function org-current-level "org")
@@ -290,66 +350,6 @@ Some fields are incomplete or left at nil."
     (cl-loop for tag in all-tags
              when (get-text-property 0 'inherited tag)
              collect (substring-no-properties tag))))
-
-
-;;; Mode
-
-(defvar org-mem-updater--reset-timer (timer-create)
-  "Timer for intermittently running `org-mem--scan-full'.")
-
-(defun org-mem-updater-adjust-reset-timer (&rest _)
-  "Adjust `org-mem-updater--reset-timer' based on duration of last full scan.
-If timer not running, start it.
-Override this if you prefer different timer delays, or no timer."
-  (let ((new-delay (* 10 (1+ org-mem--time-elapsed))))
-    (when (or (not (member org-mem-updater--reset-timer timer-idle-list))
-              ;; Don't enter an infinite loop -- idle timers can be a footgun.
-              (not (> (float-time (or (current-idle-time) 0))
-                      new-delay)))
-      (cancel-timer org-mem-updater--reset-timer)
-      (setq org-mem-updater--reset-timer
-            (run-with-idle-timer new-delay t #'org-mem--scan-full)))))
-
-(defun org-mem-updater--update-file-soon (&optional file &rest _)
-  "Schedule to run `org-mem-updater-update' very soon.
-
-Designed for `after-save-hook' and as advice for `delete-file' and
-`rename-file'.  Such functions might be called many times in a loop,
-and this design is meant to avoid invoking `org-mem-updater-update'
-for every FILE, but wait and do a massed invocation afterwards."
-  (setq file (or file buffer-file-name))
-  (when (and file (cl-some (##string-suffix-p % file) org-mem-suffixes))
-    (org-mem-updater--update-soon)))
-
-(defvar org-mem-updater--debounce-timer nil)
-(defun org-mem-updater--update-soon ()
-  "Schedule to run `org-mem-updater-update' very soon.
-If already scheduled, postpone to very soon."
-  (if (memq org-mem-updater--debounce-timer timer-list)
-      (timer-set-time org-mem-updater--debounce-timer
-                      (time-add (current-time) 0.5))
-    (setq org-mem-updater--debounce-timer
-          (run-with-timer 0.5 nil #'org-mem-updater-update))))
-
-;;;###autoload
-(define-minor-mode org-mem-updater-mode
-  "Keep Org-mem cache up to date."
-  :global t
-  :group 'org-mem
-  (require 'org-mem-updater)
-  (if org-mem-updater-mode
-      (progn
-        (add-hook 'org-mem-post-full-scan-functions #'org-mem-updater-adjust-reset-timer 90)
-        (add-hook 'after-save-hook                  #'org-mem-updater--update-file-soon)
-        (advice-add 'rename-file :after             #'org-mem-updater--update-file-soon)
-        (advice-add 'delete-file :after             #'org-mem-updater--update-file-soon)
-        (org-mem-updater-adjust-reset-timer)
-        (org-mem--scan-full))
-    (remove-hook 'org-mem-post-full-scan-functions #'org-mem-updater-adjust-reset-timer)
-    (remove-hook 'after-save-hook                  #'org-mem-updater--update-file-soon)
-    (advice-remove 'rename-file                    #'org-mem-updater--update-file-soon)
-    (advice-remove 'delete-file                    #'org-mem-updater--update-file-soon)
-    (cancel-timer org-mem-updater--reset-timer)))
 
 (defvar org-mem-updater--id-or-ref-target<>old-links :obsolete)
 (defvar org-mem-updater--new-id-or-ref-targets :obsolete)
