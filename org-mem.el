@@ -1781,11 +1781,13 @@ This is a transition helper.  Org-mem 0.27.0 changed the style of
 PARSE-RESULTS passed to `org-mem-pre-full-scan-functions' & co.
 
 For reference, the new style is a list as long as the number of files,
-each element being a list of 5 lists:
+each element being a list of 5 elements:
 
    \((BAD-PATH PROBLEM FILE-DATUM ENTRIES LINKS) ...)
 
-Old style was single list of 5 lists:
+This data represents one file.
+
+Old style was single list of 5 lists, representing all files combined:
 
    \(BAD-PATHS FILE-DATA ENTRIES LINKS PROBLEMS)"
   (cl-loop

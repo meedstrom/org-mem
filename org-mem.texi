@@ -332,7 +332,7 @@ That is hopefully intuitive.  Opinions on API design are very welcome!
 @node Full list of functions
 @section Full list of functions
 
-Updated @emph{[2026-02-07 Sat]}.
+Updated @emph{[2026-02-10 Tue]}.
 
 Getters taking no arguments
 
@@ -420,6 +420,8 @@ Getters operating on an entry object
 @samp{org-mem-entry-property-with-inheritance}
 @item
 @samp{org-mem-entry-property}
+@item
+@samp{org-mem-entry-pseudo-id}
 @item
 @samp{org-mem-entry-roam-aliases}
 @item
@@ -509,6 +511,10 @@ Getters operating on a link object
 @item
 @samp{org-mem-link-description}
 @item
+@samp{org-mem-link-entry-pseudo-id}
+@item
+@samp{org-mem-link-entry}
+@item
 @samp{org-mem-link-file-truename}
 @item
 @samp{org-mem-link-file}
@@ -548,6 +554,8 @@ Getters that return entries
 @item
 @samp{org-mem-entry-by-id}
 @item
+@samp{org-mem-entry-by-pseudo-id}
+@item
 @samp{org-mem-entry-by-roam-ref}
 @item
 @samp{org-mem-entry-that-contains-link}
@@ -555,6 +563,8 @@ Getters that return entries
 @samp{org-mem-id-node-by-title}
 @item
 @samp{org-mem-id-nodes-in-files}
+@item
+@samp{org-mem-link-entry}
 @end itemize
 
 Getters that return links
