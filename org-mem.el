@@ -199,9 +199,6 @@ These regions will not be scanned for links nor active timestamps."
   :type '(alist :key-type regexp :value-type regexp)
   :package-version '(org-mem . "0.23.0"))
 
-(defvar org-mem-scratch nil
-  "Work buffer held current while executing some hooks.")
-
 
 ;;; Basics
 
@@ -1057,10 +1054,7 @@ These link-targets are determined by `org-mem--split-roam-refs-field'."
   "Extract valid components of a ROAM-REFS field.
 What is valid?  See \"org-mem-test.el\"."
   (when roam-refs
-    (with-current-buffer (if (eq (current-buffer) org-mem-scratch)
-                             org-mem-scratch
-                           (setq org-mem-scratch
-                                 (get-buffer-create " *org-mem-scratch*" t)))
+    (with-current-buffer (get-buffer-create " *org-mem-scratch*" t)
       (erase-buffer)
       (insert roam-refs)
       (goto-char 1)
@@ -1324,7 +1318,7 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
         problems)
     (org-mem--invalidate-file-names bad-paths)
     ;; Build tables.
-    (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
+    (with-current-buffer (get-buffer-create " *org-mem-scratch*" t)
       (cl-loop for (_ problem file-data entries links) in parse-results do
                (when problem (push problem problems))
                (puthash (car file-data) file-data org-mem--truename<>metadata)

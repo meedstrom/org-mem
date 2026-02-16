@@ -79,7 +79,7 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
   (let (problems)
     (org-mem--invalidate-file-names
      (cl-loop for (bad-path) in parse-results when bad-path collect bad-path))
-    (with-current-buffer (setq org-mem-scratch (get-buffer-create " *org-mem-scratch*" t))
+    (with-current-buffer (get-buffer-create " *org-mem-scratch*" t)
       (cl-loop for (_ problem file-datum entries links) in parse-results do
                (when problem (push problem problems))
                (let ((file (car file-datum)))
