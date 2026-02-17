@@ -395,7 +395,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                       (nth 1 dir-or-cache)
                                     (dir-locals-read-from-dir
                                      (file-name-directory file)))))
-                 (all-locals (append (hack-local-variables--find-variables)
+                 ;; FIXME: `hack-local-variables--find-variables' causes
+                 ;; "end-of-file" errors if you have a src block containing
+                 ;; a block of Local Variables.
+                 ;; We do `ignore-errors' here just in case, but that'll also
+                 ;; skip any actual Local Variables at the end of file.
+                 (all-locals (append (ignore-errors (hack-local-variables--find-variables))
                                      (hack-local-variables-prop-line)
                                      (cdr (assq 'org-mode dir-class-vars))
                                      (cdr (assq 'text-mode dir-class-vars))
