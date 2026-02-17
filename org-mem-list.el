@@ -79,7 +79,7 @@
   (if org-mem--problems
       (org-mem-list--pop-to-tabulated-buffer
        :buffer "*org-mem scan problems*"
-       :format [("Time" 6 t) ("Scan choked near position" 27 t) ("Issue" 0 t)]
+       :format [("Time" 6 t) ("Scan choked near position" 27 t) ("Pos" 6 t) ("Issue" 0 t)]
        :reverter #'org-mem-list-problems
        :entries
        (cl-loop
@@ -92,6 +92,9 @@
                                          pos)
                                  #'org-mem-list--goto-file-pos
                                  (cons file pos))
+                      ;; In case link got truncated so pos isn't visible.
+                      ;; The tabulated-list library definitely has limitations.
+                      (number-to-string pos)
                       (format "%S" signal)))))
     (message "Congratulations, no problems scanning %d entries in %d files!"
              (length (org-mem-all-entries))
