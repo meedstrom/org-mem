@@ -38,7 +38,7 @@
              "\\(?:DONE\\|HOLD\\|IDEA\\|KILL\\|LOOP\\|NO\\|OKAY\\|PROJ\\|STRT\\|TODO\\|WAIT\\|YES\\|\\[\\(?:[ ?X-]]\\)\\)"))))
 
 (ert-deftest org-mem-translate-parse-results ()
-  (should                               ; 3 files parsed
+  (should
    (equal
     (let ((ng-style-results
            '((nil        ("problem1" "" 0 (a . b)) ("fdata1" nil 0 0 t) ([entry1a] [entry1b]) ([link1a] [link1b]))

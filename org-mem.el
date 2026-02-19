@@ -157,10 +157,11 @@ found inside `org-mem-watch-dirs' with a very large amount of files
 
 Org-mem will pick up most links that are wrapped in double brackets,
 regardless of type.  To see what unusual types it may have found, try
-this expression:
+this expression \(with the \"inspector\" package\):
 
 \(inspector-inspect
- \(seq-remove (##member (org-mem-link-type %) org-mem-seek-link-types)
+ \(seq-remove (lambda (link)
+               \(member (org-mem-link-type link) org-mem-seek-link-types))
              \(org-mem-all-links)))"
   :type '(repeat string)
   :package-version '(org-mem . "0.7.0"))
