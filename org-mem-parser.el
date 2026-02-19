@@ -36,19 +36,27 @@
 (defvar $use-tag-inheritance)
 (defvar $ignore-regions-regexps)
 
-(defun org-mem-parser--make-todo-regexp (keywords-string)
-  "Build a regexp from KEYWORDS-STRING.
-KEYWORDS-STRING is expected to be the sort of thing you see after
+(defun org-mem-parser--make-todo-regexp (s)
+  "Build a regexp from keyword string S.
+S is expected to be the sort of thing you see after
 a #+todo: or #+seq_todo: or #+typ_todo: setting in an Org file.
 
 The resulting regexp should be able to match any of
 the custom TODO words thus defined."
-  (thread-last keywords-string
-               (replace-regexp-in-string "(.*?)" "")
-               (string-replace "|" "")
-               (string-trim)
-               (split-string)
-               (regexp-opt)))
+  (let* ((words)
+         (pos (string-search "[ ]" s)))
+    (when pos
+      ;; Special-case Doom's [ ] keyword.
+      ;; https://github.com/meedstrom/org-mem/issues/18
+      (setq s (concat (substring s 0 pos)
+                      (substring s (+ 3 pos)))))
+    (setq words (thread-last s
+                             (replace-regexp-in-string "(.*?)" "")
+                             (string-replace "|" "")
+                             (string-trim)
+                             (split-string)))
+    (when pos (push "[ ]" words))
+    (regexp-opt words)))
 
 (defun org-mem-parser--mk-id (file-attribs entry-string)
   "Return a bignum that represents an entry.

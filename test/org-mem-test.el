@@ -25,6 +25,18 @@
 (require 'org-mem-updater)
 (require 'org-mem-parser)
 
+(ert-deftest org-mem-parser--make-todo-regexp ()
+  (let ((org-todo-keywords
+         '((sequence "TODO(t)" "PROJ(p)" "LOOP(r)" "STRT(s)" "WAIT(w)" "HOLD(h)"
+                     "IDEA(i)" "|" "DONE(d)" "KILL(k)")
+           (sequence "[ ](T)" "[-](S)" "[?](W)" "|" "[X](D)")
+           (sequence "|" "OKAY(o)" "YES(y)" "NO(n)"))))
+    (should (equal
+             (org-mem-parser--make-todo-regexp
+              (string-join (apply #'append (mapcar #'cdr org-todo-keywords))
+                           " "))
+             "\\(?:DONE\\|HOLD\\|IDEA\\|KILL\\|LOOP\\|NO\\|OKAY\\|PROJ\\|STRT\\|TODO\\|WAIT\\|YES\\|\\[\\(?:[ ?X-]]\\)\\)"))))
+
 (ert-deftest org-mem-translate-parse-results ()
   (should                               ; 3 files parsed
    (equal
