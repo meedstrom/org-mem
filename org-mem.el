@@ -41,7 +41,7 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
-(defconst org-mem-internal-version 32 "Not a version number, but bumped sometimes.")
+(defconst org-mem-internal-version 33 "Not a version number, but bumped sometimes.")
 
 (require 'cl-lib)
 (require 'subr-x)

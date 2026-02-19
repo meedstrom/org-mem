@@ -58,19 +58,20 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
          (removed-files
           (hash-table-keys db-files))
          (all (append removed-files modified-files)))
-    ;; If async job already ongoing, this will cancel that and run a new one
-    (el-job-ng-run
-     :id 'org-mem-updater
-     :inject-vars (append (org-mem--mk-work-vars)
-                          (el-job-ng-vars org-mem-inject-vars))
-     :require (cons 'org-mem-parser org-mem-load-features)
-     :inputs all
-     :funcall-per-input #'org-mem-parser--parse-file
-     :callback #'org-mem-updater--finalize-targeted-scan)
-    (when synchronous
-      (el-job-ng-await-or-die
-       'org-mem-updater 3600
-       (format "Running org-mem-updater-update... (files: %S)" all)))))
+    (when all
+      ;; If async job already ongoing, this will cancel that and run a new one
+      (el-job-ng-run
+       :id 'org-mem-updater
+       :inject-vars (append (org-mem--mk-work-vars)
+                            (el-job-ng-vars org-mem-inject-vars))
+       :require (cons 'org-mem-parser org-mem-load-features)
+       :inputs all
+       :funcall-per-input #'org-mem-parser--parse-file
+       :callback #'org-mem-updater--finalize-targeted-scan)
+      (when synchronous
+        (el-job-ng-await-or-die
+         'org-mem-updater 3600
+         (format "Running org-mem-updater-update... (files: %S)" all))))))
 
 (defun org-mem-updater--finalize-targeted-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem-updater-update'."
