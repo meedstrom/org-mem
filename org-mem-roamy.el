@@ -359,7 +359,7 @@ With SPECIFIC-FILES, only return data that involves those files."
   (setq org-mem-roamy--untitled-id-nodes nil)
   (setq specific-files
         (nconc specific-files
-               (seq-keep #'org-mem--truename-maybe specific-files)))
+               (seq-keep #'truename-cache-get-existed-p specific-files)))
   (let (file-rows
         node-rows
         alias-rows

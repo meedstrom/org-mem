@@ -47,9 +47,8 @@ If SYNCHRONOUS, block Emacs until done.
 If SYNCHRONOUS and interrupted by a quit, cancel the update."
   (let* ((db-files (copy-hash-table org-mem--truename<>metadata))
          (modified-files
-          (cl-loop for truename in (org-mem--list-files-from-fs)
-                   as attr = (file-attributes truename)
-                   as real-mtime = (and attr (file-attribute-modification-time attr))
+          (cl-loop for (truename . attr) in (org-mem--truenames-and-attrs)
+                   as real-mtime = (file-attribute-modification-time attr)
                    as db-mtime = (prog1 (org-mem-file-mtime truename)
                                    (remhash truename db-files))
                    when (or (not db-mtime)
