@@ -241,6 +241,7 @@ Getters operating on an entry object
 
 - =org-mem-entry-active-timestamps-int=
 - =org-mem-entry-active-timestamps=
+- =org-mem-entry-children=
 - =org-mem-entry-clocks-int=
 - =org-mem-entry-clocks=
 - =org-mem-entry-closed-int=

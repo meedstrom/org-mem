@@ -626,7 +626,7 @@ Excludes text of child entries."
                       (and next (- (org-mem-entry-pos next) 1)))))))
 
 (defun org-mem-entry-children (entry)
-  "Return ordered flat list of all descendant entries to ENTRY."
+  "Ordered list of all descendant entries to ENTRY."
   (with-memoization (org-mem--table 55 entry)
     (cl-loop
      as next = (org-mem-next-entry entry) then (org-mem-next-entry next)

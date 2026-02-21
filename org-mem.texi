@@ -375,6 +375,8 @@ Getters operating on an entry object
 @item
 @samp{org-mem-entry-active-timestamps}
 @item
+@samp{org-mem-entry-children}
+@item
 @samp{org-mem-entry-clocks-int}
 @item
 @samp{org-mem-entry-clocks}
