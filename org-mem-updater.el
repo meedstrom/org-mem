@@ -40,14 +40,28 @@
 
 ;;; Targeted-scan
 
-(defun org-mem-updater-update (&optional synchronous)
+(defun org-mem-updater-update (&optional synchronous files)
   "Update cache for each file that has changed, appeared or disappeared.
 
 If SYNCHRONOUS, block Emacs until done.
-If SYNCHRONOUS and interrupted by a quit, cancel the update."
-  (let* ((db-files (copy-hash-table org-mem--truename<>metadata))
-         (modified-files
-          (cl-loop for truename in (org-mem--list-files-from-fs)
+If interrupted by a quit while blocking, cancel the update.
+
+If FILES, scan only FILES specifically.
+This is a hack you should almost never need, but can be used to sidestep
+rare performance issues with scanning the filesystem.
+
+If you must pass FILES, be sure to include the true name of every file
+touched by what you were doing, such as refiling an Org subtree from one
+file into another, or renaming one file name to another.
+Do not refer to `buffer-file-truename' for this, because it is a lie.
+Be sure also to include the old true name of any files that have been
+deleted or renamed, so that they may be removed from org-mem tables.
+If you mess up the tables, use `org-mem-reset'."
+  (unless files
+    (setq files
+          (let* ((db-files (copy-hash-table org-mem--truename<>metadata))
+                 (modified-files
+                  (cl-loop for truename in (org-mem--list-files-from-fs)
                    as attr = (file-attributes truename)
                    as real-mtime = (and attr (file-attribute-modification-time attr))
                    as db-mtime = (prog1 (org-mem-file-mtime truename)
@@ -55,23 +69,25 @@ If SYNCHRONOUS and interrupted by a quit, cancel the update."
                    when (or (not db-mtime)
                             (not (time-equal-p db-mtime real-mtime)))
                    collect truename))
-         (removed-files
-          (hash-table-keys db-files))
-         (all (append removed-files modified-files)))
-    (when all
-      ;; If async job already ongoing, this will cancel that and run a new one
-      (el-job-ng-run
-       :id 'org-mem-updater
-       :inject-vars (append (org-mem--mk-work-vars)
-                            (el-job-ng-vars org-mem-inject-vars))
-       :require (cons 'org-mem-parser org-mem-load-features)
-       :inputs all
-       :funcall-per-input #'org-mem-parser--parse-file
-       :callback #'org-mem-updater--finalize-targeted-scan)
-      (when synchronous
-        (el-job-ng-await-or-die
-         'org-mem-updater 3600
-         (format "Running org-mem-updater-update... (files: %S)" all))))))
+                 (removed-files
+                  (hash-table-keys db-files)))
+            (append removed-files modified-files))))
+  (when files
+    ;; If async job already ongoing, this will cancel that and run a new one.
+    ;; That's fine, because mtimes of those files being scanned won't have
+    ;; changed in our db, so we've automatically picked them up again.
+    (el-job-ng-run
+     :id 'org-mem-updater
+     :inject-vars (append (org-mem--mk-work-vars)
+                          (el-job-ng-vars org-mem-inject-vars))
+     :require (cons 'org-mem-parser org-mem-load-features)
+     :inputs files
+     :funcall-per-input #'org-mem-parser--parse-file
+     :callback #'org-mem-updater--finalize-targeted-scan)
+    (when synchronous
+      (el-job-ng-await-or-die
+       'org-mem-updater 3600
+       (format "Running org-mem-updater-update... (files: %S)" files)))))
 
 (defun org-mem-updater--finalize-targeted-scan (parse-results)
   "Handle PARSE-RESULTS from `org-mem-updater-update'."
