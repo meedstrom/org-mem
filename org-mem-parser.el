@@ -47,7 +47,7 @@ the custom TODO words thus defined."
          (pos (string-search "[ ]" s)))
     (when pos
       ;; Special-case Doom's [ ] keyword.
-      ;; https://github.com/meedstrom/org-mem/issues/18
+      ;; https://github.com/orgs/doomemacs/discussions/74
       (setq s (concat (substring s 0 pos)
                       (substring s (+ 3 pos)))))
     (setq words (thread-last s
