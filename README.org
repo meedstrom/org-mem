@@ -235,6 +235,7 @@ Getters taking no arguments
 - =org-mem-all-links=
 - =org-mem-all-roam-reflinks=
 - =org-mem-all-roam-refs=
+- =org-mem-entry-at-point=
 
 Getters operating on an entry object
 
@@ -334,7 +335,7 @@ Getters that return entries
 - =org-mem-entry-by-id=
 - =org-mem-entry-by-pseudo-id=
 - =org-mem-entry-by-roam-ref=
-- =org-mem-entry-that-contains-link=
+- =org-mem-entry-children=
 - =org-mem-id-node-by-title=
 - =org-mem-id-nodes-in-files=
 - =org-mem-link-entry=
@@ -377,6 +378,7 @@ Misc
 
 - =org-mem-all-ids=
 - =org-mem-all-roam-refs=
+- =org-mem-entry-at-point=
 - =org-mem-id-by-title=
 
 Some API for actually activating & using org-mem as a library:

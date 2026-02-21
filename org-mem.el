@@ -41,7 +41,7 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
-(defconst org-mem-internal-version 34 "Not a version number, but bumped sometimes.")
+(defconst org-mem-internal-version 35 "Not a version number, but bumped sometimes.")
 
 (require 'cl-lib)
 (require 'subr-x)
@@ -61,6 +61,10 @@
 (declare-function org-id-locations-save "org-id")
 (declare-function org-id-alist-to-hash "org-id")
 (declare-function org-id-hash-to-alist "org-id")
+(declare-function org-before-first-heading-p "org")
+(declare-function org-entry-beginning-position "org")
+(declare-function org-entry-end-position "org")
+(declare-function org-entry-get "org")
 (unless (fboundp 'el-job-ng-vars)
   (display-warning 'org-mem "Update to el-job 2.7.1+ to use this version of org-mem"))
 
@@ -314,6 +318,32 @@ Note: All tables cleared often, meant for memoizations."
 
 
 ;;; To find objects to operate on
+
+;; This is the kind of thing I try not to have in org-mem, because look at all
+;; the special-cases needed.  This one seems too useful to leave out, though.
+(defun org-mem-entry-at-point (&optional file)
+  "Return entry object near point in the current unmodified buffer.
+Only works if the buffer file is known to org-mem.
+
+Optional argument FILE is for use in non-file-visiting buffers, and then
+it should be name of the file that the buffer is intended to represent."
+  (require 'org)
+  (when (buffer-modified-p)
+    (message "org-mem-entry-at-point: Results not guaranteed in a modified buffer"))
+  (unless (derived-mode-p 'org-mode)
+    (error "org-mem-entry-at-point: Buffer must be in org-mode"))
+  (or (let ((id (org-entry-get nil "ID")))
+        (and id (org-mem-entry-by-id id)))
+      (prog1 nil
+        (unless (or file (setq file buffer-file-name))
+          (error "org-mem-entry-at-point: Use in a file-visiting buffer or pass FILE")))
+      (org-mem-entry-by-pseudo-id
+       (org-mem-parser--mk-id (file-attributes file)
+                              (buffer-substring (if (org-before-first-heading-p)
+                                                    (point-min)
+                                                  (org-entry-beginning-position))
+                                                (org-entry-end-position))))
+      (org-mem-entry-at-pos-in-file (point) file)))
 
 (defun org-mem-all-ids ()
   "All org-ids known to org-mem.
@@ -594,6 +624,15 @@ Excludes text of child entries."
            (substring content
                       (- (org-mem-entry-pos entry) 1)
                       (and next (- (org-mem-entry-pos next) 1)))))))
+
+(defun org-mem-entry-children (entry)
+  "Return ordered flat list of all descendant entries to ENTRY."
+  (with-memoization (org-mem--table 55 entry)
+    (cl-loop
+     as next = (org-mem-next-entry entry) then (org-mem-next-entry next)
+     while (and next (> (org-mem-entry-level next)
+                        (org-mem-entry-level entry)))
+     collect next)))
 
 (defun org-mem-entry-olpath (entry)
   "Outline path to ENTRY."

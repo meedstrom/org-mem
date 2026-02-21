@@ -363,6 +363,8 @@ Getters taking no arguments
 @samp{org-mem-all-roam-reflinks}
 @item
 @samp{org-mem-all-roam-refs}
+@item
+@samp{org-mem-entry-at-point}
 @end itemize
 
 Getters operating on an entry object
@@ -558,7 +560,7 @@ Getters that return entries
 @item
 @samp{org-mem-entry-by-roam-ref}
 @item
-@samp{org-mem-entry-that-contains-link}
+@samp{org-mem-entry-children}
 @item
 @samp{org-mem-id-node-by-title}
 @item
@@ -640,6 +642,8 @@ Misc
 @samp{org-mem-all-ids}
 @item
 @samp{org-mem-all-roam-refs}
+@item
+@samp{org-mem-entry-at-point}
 @item
 @samp{org-mem-id-by-title}
 @end itemize
