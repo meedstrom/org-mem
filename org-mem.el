@@ -20,7 +20,7 @@
 ;; Created:  2025-03-15
 ;; Keywords: text
 ;; Package-Version: 0.31.0
-;; Package-Requires: ((emacs "29.1") (el-job "2.7.1") (llama "0.5.0"))
+;; Package-Requires: ((emacs "29.1") (el-job "2.7.3") (llama "0.5.0"))
 
 ;;; Commentary:
 
@@ -41,7 +41,7 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
-(defconst org-mem-internal-version 35 "Not a version number, but bumped sometimes.")
+(defconst org-mem-internal-version 36 "Not a version number, but bumped sometimes.")
 
 (require 'cl-lib)
 (require 'subr-x)
@@ -65,8 +65,9 @@
 (declare-function org-entry-beginning-position "org")
 (declare-function org-entry-end-position "org")
 (declare-function org-entry-get "org")
-(unless (fboundp 'el-job-ng-vars)
-  (display-warning 'org-mem "Update to el-job 2.7.1+ to use this version of org-mem"))
+(unless (and (boundp 'el-job-internal-version)
+             (>= el-job-internal-version 107))
+  (display-warning 'org-mem "Update to el-job 2.7.3+ to use this version of org-mem"))
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
