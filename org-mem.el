@@ -324,7 +324,7 @@ Note: All tables cleared often, meant for memoizations."
 ;; the special-cases needed.  This one seems too useful to leave out, though.
 (defun org-mem-entry-at-point (&optional file)
   "Return entry object near point in the current unmodified buffer.
-Only works if the buffer file is known to org-mem.
+Only works if the buffer file has previously been scanned by org-mem.
 
 Optional argument FILE is for use in non-file-visiting buffers, and then
 it should be name of the file that the buffer is intended to represent."
@@ -335,9 +335,11 @@ it should be name of the file that the buffer is intended to represent."
     (error "org-mem-entry-at-point: Buffer must be in org-mode"))
   (or (let ((id (org-entry-get nil "ID")))
         (and id (org-mem-entry-by-id id)))
-      (prog1 nil
-        (unless (or file (setq file buffer-file-name))
-          (error "org-mem-entry-at-point: Use in a file-visiting buffer or pass FILE")))
+      (unless (or file (setq file buffer-file-name))
+        (error "org-mem-entry-at-point: Use in a file-visiting buffer or pass FILE"))
+      ;; REVIEW: Delete, unnecessary clause?  We should expect it to be
+      ;; equivalent to `org-mem-entry-at-pos-in-file' in a unmodified buffer.
+      ;; However, in a modified buffer this may work better.
       (org-mem-entry-by-pseudo-id
        (org-mem-parser--mk-id (file-attributes file)
                               (buffer-substring (if (org-before-first-heading-p)
