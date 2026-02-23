@@ -322,31 +322,31 @@ Note: All tables cleared often, meant for memoizations."
 
 ;; This is the kind of thing I try not to have in org-mem, because look at all
 ;; the special-cases needed.  This one seems too useful to leave out, though.
-(defun org-mem-entry-at-point (&optional file)
+(defun org-mem-entry-at-point (&optional actually-file)
   "Return entry object near point in the current unmodified buffer.
 Only works if the buffer file has previously been scanned by org-mem.
 
-Optional argument FILE is for use in non-file-visiting buffers, and then
-it should be name of the file that the buffer is intended to represent."
+Optional argument ACTUALLY-FILE is for use in non-file-visiting
+buffers that presumably hold a copy of some file\\='s content,
+and then it should be the name of that file."
   (require 'org)
   (when (buffer-modified-p)
     (message "org-mem-entry-at-point: Results not guaranteed in a modified buffer"))
   (unless (derived-mode-p 'org-mode)
     (error "org-mem-entry-at-point: Buffer must be in org-mode"))
-  (or (let ((id (org-entry-get nil "ID")))
-        (and id (org-mem-entry-by-id id)))
-      (unless (or file (setq file (buffer-file-name (buffer-base-buffer))))
-        (error "org-mem-entry-at-point: Use in a file-visiting buffer or pass FILE"))
-      ;; REVIEW: Delete, unnecessary clause?  We should expect it to be
-      ;; equivalent to `org-mem-entry-at-pos-in-file' in a unmodified buffer.
-      ;; However, in a modified buffer this may work better.
-      (org-mem-entry-by-pseudo-id
-       (org-mem-parser--mk-id (file-attributes file)
-                              (buffer-substring (if (org-before-first-heading-p)
-                                                    (point-min)
-                                                  (org-entry-beginning-position))
-                                                (org-entry-end-position))))
-      (org-mem-entry-at-pos-in-file (point) file)))
+  (let ((file (or actually-file (buffer-file-name (buffer-base-buffer))))
+        (id (org-entry-get nil "ID")))
+    (or (and id (org-mem-entry-by-id id))
+        (unless file
+          (error "org-mem-entry-at-point: Use in a file-visiting buffer or pass ACTUALLY-FILE"))
+        ;; May be better than `org-mem-entry-at-pos-in-file' if buffer modified.
+        (org-mem-entry-by-pseudo-id
+         (org-mem-parser--mk-id (file-attributes file)
+                                (buffer-substring (if (org-before-first-heading-p)
+                                                      (point-min)
+                                                    (org-entry-beginning-position))
+                                                  (org-entry-end-position))))
+        (org-mem-entry-at-pos-in-file (point) file))))
 
 (defun org-mem-all-ids ()
   "All org-ids known to org-mem.
