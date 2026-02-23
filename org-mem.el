@@ -335,7 +335,7 @@ it should be name of the file that the buffer is intended to represent."
     (error "org-mem-entry-at-point: Buffer must be in org-mode"))
   (or (let ((id (org-entry-get nil "ID")))
         (and id (org-mem-entry-by-id id)))
-      (unless (or file (setq file buffer-file-name))
+      (unless (or file (setq file (buffer-file-name (buffer-base-buffer))))
         (error "org-mem-entry-at-point: Use in a file-visiting buffer or pass FILE"))
       ;; REVIEW: Delete, unnecessary clause?  We should expect it to be
       ;; equivalent to `org-mem-entry-at-pos-in-file' in a unmodified buffer.
