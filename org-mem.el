@@ -1533,11 +1533,11 @@ Or no-op, if `org-mem-do-sync-with-org-id' is nil."
 
 ;;; File discovery subroutines
 
-(defun org-mem--invalidate-file-names (bad)
-  "Scrub bad file names BAD in the tables that can pollute a reset.
+(defun org-mem--invalidate-file-names (bad-names)
+  "Scrub bad file names BAD-NAMES in the truename cache.
 Notably, invalidate part of the cache used by `org-mem-file-known-p'.
 If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
-  (let ((invalidated (truename-cache-invalidate bad)))
+  (let ((invalidated (seq-mapcat #'truename-cache-invalidate bad-names)))
     (when (and invalidated
                org-mem-do-sync-with-org-id
                (org-mem--try-ensure-org-id-table-p))
