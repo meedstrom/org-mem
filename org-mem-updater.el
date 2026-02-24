@@ -137,7 +137,8 @@ Override this if you prefer different timer delays, or no timer."
       (setq org-mem-updater--reset-timer
             (run-with-idle-timer new-delay t #'org-mem--scan-full)))))
 
-(defun org-mem-updater--update-file-soon (&optional file &rest _)
+(defvar org-mem-updater--debounce-timer nil)
+(defun org-mem-updater--update-soon (&optional file &rest _)
   "Schedule to run `org-mem-updater-update' very soon.
 
 Designed for `after-save-hook' and as advice for `delete-file' and
@@ -146,17 +147,11 @@ and this design is meant to avoid invoking `org-mem-updater-update'
 for every FILE, but wait and do a massed invocation afterwards."
   (setq file (or file buffer-file-name))
   (when (and file (cl-some (##string-suffix-p % file) org-mem-suffixes))
-    (org-mem-updater--update-soon)))
-
-(defvar org-mem-updater--debounce-timer nil)
-(defun org-mem-updater--update-soon ()
-  "Schedule to run `org-mem-updater-update' very soon.
-If already scheduled, postpone to very soon."
-  (if (memq org-mem-updater--debounce-timer timer-list)
+    (if (memq org-mem-updater--debounce-timer timer-list)
       (timer-set-time org-mem-updater--debounce-timer
                       (time-add (current-time) 0.5))
     (setq org-mem-updater--debounce-timer
-          (run-with-timer 0.5 nil #'org-mem-updater-update))))
+          (run-with-timer 0.5 nil #'org-mem-updater-update)))))
 
 ;;;###autoload
 (define-minor-mode org-mem-updater-mode
@@ -167,15 +162,15 @@ If already scheduled, postpone to very soon."
   (if org-mem-updater-mode
       (progn
         (add-hook 'org-mem-post-full-scan-functions #'org-mem-updater-adjust-reset-timer 90)
-        (add-hook 'after-save-hook                  #'org-mem-updater--update-file-soon)
-        (advice-add 'rename-file :after             #'org-mem-updater--update-file-soon)
-        (advice-add 'delete-file :after             #'org-mem-updater--update-file-soon)
+        (add-hook 'after-save-hook                  #'org-mem-updater--update-soon)
+        (advice-add 'rename-file :after             #'org-mem-updater--update-soon)
+        (advice-add 'delete-file :after             #'org-mem-updater--update-soon)
         (org-mem-updater-adjust-reset-timer)
         (org-mem--scan-full))
     (remove-hook 'org-mem-post-full-scan-functions #'org-mem-updater-adjust-reset-timer)
-    (remove-hook 'after-save-hook                  #'org-mem-updater--update-file-soon)
-    (advice-remove 'rename-file                    #'org-mem-updater--update-file-soon)
-    (advice-remove 'delete-file                    #'org-mem-updater--update-file-soon)
+    (remove-hook 'after-save-hook                  #'org-mem-updater--update-soon)
+    (advice-remove 'rename-file                    #'org-mem-updater--update-soon)
+    (advice-remove 'delete-file                    #'org-mem-updater--update-soon)
     (cancel-timer org-mem-updater--reset-timer)))
 
 
