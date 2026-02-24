@@ -593,9 +593,7 @@ problem with the help of option `org-mem-do-warn-title-collisions'."
     (seq-mapcat #'org-mem-links-in-entry (org-mem-entries-in-file file))))
 
 (defun org-mem-links-in-entry (entry)
-  "All links found inside ENTRY, ignoring descendant entries.
-Do not trust the result if used during `org-mem--forget-entry-functions'
-or similar hook.  Trustworthy on `org-mem-post-full-scan-functions'."
+  "All links found inside ENTRY, ignoring descendant entries."
   (with-memoization (org-mem--table 39 entry)
     (and entry (gethash (org-mem-entry-pseudo-id entry)
                         org-mem--pseudo-id<>links))))
@@ -673,7 +671,7 @@ Basename means `file-name-nondirectory', not `file-name-base'."
     (let ((olp (mapcar #'cl-fourth (reverse (cdr (org-mem-entry-crumbs entry)))))
           file-name-handler-alist)
       ;; The car of `olp' is the potentially nil file title.
-      (when (and olp (null (car olp)))
+      (when (null (car olp))
         (pop olp)
         (push (file-name-nondirectory (org-mem-entry-file-truename entry))
               olp))
