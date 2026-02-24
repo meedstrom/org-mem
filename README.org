@@ -222,13 +222,13 @@ Updated [2026-02-10].
 
 Getters taking no arguments
 
+- =org-mem-all-entries=
 - =org-mem-all-entries-with-active-timestamps=
 - =org-mem-all-entries-with-dangling-clock=
-- =org-mem-all-entries=
-- =org-mem-all-file-truenames=
+- =org-mem-all-files=
 - =org-mem-all-files-expanded=
 - =org-mem-all-files-with-active-timestamps=
-- =org-mem-all-files=
+- =org-mem-all-file-truenames=
 - =org-mem-all-id-links=
 - =org-mem-all-id-nodes=
 - =org-mem-all-ids=
@@ -239,46 +239,46 @@ Getters taking no arguments
 
 Getters operating on an entry object
 
-- =org-mem-entry-active-timestamps-int=
 - =org-mem-entry-active-timestamps=
+- =org-mem-entry-active-timestamps-int=
 - =org-mem-entry-children=
-- =org-mem-entry-clocks-int=
 - =org-mem-entry-clocks=
-- =org-mem-entry-closed-int=
+- =org-mem-entry-clocks-int=
 - =org-mem-entry-closed=
+- =org-mem-entry-closed-int=
 - =org-mem-entry-dangling-clocks=
-- =org-mem-entry-deadline-int=
 - =org-mem-entry-deadline=
-- =org-mem-entry-file-truename=
+- =org-mem-entry-deadline-int=
 - =org-mem-entry-file=
+- =org-mem-entry-file-truename=
 - =org-mem-entry-id=
 - =org-mem-entry-level=
 - =org-mem-entry-lnum=
-- =org-mem-entry-olpath-with-file-title-or-basename=
-- =org-mem-entry-olpath-with-file-title=
-- =org-mem-entry-olpath-with-self-with-file-title-or-basename=
-- =org-mem-entry-olpath-with-self-with-file-title=
-- =org-mem-entry-olpath-with-self=
 - =org-mem-entry-olpath=
+- =org-mem-entry-olpath-with-file-title=
+- =org-mem-entry-olpath-with-file-title-or-basename=
+- =org-mem-entry-olpath-with-self=
+- =org-mem-entry-olpath-with-self-with-file-title=
+- =org-mem-entry-olpath-with-self-with-file-title-or-basename=
 - =org-mem-entry-pos=
 - =org-mem-entry-priority=
 - =org-mem-entry-properties-inherited=
 - =org-mem-entry-properties-local= --- Alias =org-mem-entry-properties=
-- =org-mem-entry-property-with-inheritance=
 - =org-mem-entry-property=
+- =org-mem-entry-property-with-inheritance=
 - =org-mem-entry-pseudo-id=
 - =org-mem-entry-roam-aliases=
 - =org-mem-entry-roam-refs=
-- =org-mem-entry-scheduled-int=
 - =org-mem-entry-scheduled=
+- =org-mem-entry-scheduled-int=
 - =org-mem-entry-stats-cookies=
 - =org-mem-entry-subtree-p=
+- =org-mem-entry-tags=
 - =org-mem-entry-tags-inherited=
 - =org-mem-entry-tags-local=
-- =org-mem-entry-tags=
 - =org-mem-entry-text= --- Always nil unless =org-mem-do-cache-text= is t
-- =org-mem-entry-title-maybe=
 - =org-mem-entry-title=
+- =org-mem-entry-title-maybe=
 - =org-mem-entry-todo-state=
 - =org-mem-id-links-to-entry=
 - =org-mem-links-in-entry=
@@ -299,8 +299,8 @@ Getters operating on a file name
 - =org-mem-file-id-topmost=
 - =org-mem-file-known-p=
 - =org-mem-file-line-count=
-- =org-mem-file-mtime-floor=
 - =org-mem-file-mtime=
+- =org-mem-file-mtime-floor=
 - =org-mem-file-ptmax=
 - =org-mem-file-size=
 - =org-mem-file-title-or-basename=
@@ -312,10 +312,10 @@ Getters operating on a link object
 - =org-mem-id-link-p=
 - =org-mem-link-citation-p=
 - =org-mem-link-description=
-- =org-mem-link-entry-pseudo-id=
 - =org-mem-link-entry=
-- =org-mem-link-file-truename=
+- =org-mem-link-entry-pseudo-id=
 - =org-mem-link-file=
+- =org-mem-link-file-truename=
 - =org-mem-link-nearby-id=
 - =org-mem-link-pos=
 - =org-mem-link-supplement=
@@ -325,9 +325,9 @@ Getters operating on a link object
 
 Getters that return entries
 
+- =org-mem-all-entries=
 - =org-mem-all-entries-with-active-timestamps=
 - =org-mem-all-entries-with-dangling-clock=
-- =org-mem-all-entries=
 - =org-mem-all-id-nodes=
 - =org-mem-entries-in-file= --- Alias =org-mem-file-entries=
 - =org-mem-entries-in-files=
@@ -364,16 +364,16 @@ Getters that return links
 
 Getters that return file names
 
-- =org-mem-all-file-truenames=
+- =org-mem-all-files=
 - =org-mem-all-files-expanded=
 - =org-mem-all-files-with-active-timestamps=
-- =org-mem-all-files=
-- =org-mem-entry-file-truename=
+- =org-mem-all-file-truenames=
 - =org-mem-entry-file=
+- =org-mem-entry-file-truename=
 - =org-mem-file-by-id=
 - =org-mem-file-known-p=
-- =org-mem-link-file-truename=
 - =org-mem-link-file=
+- =org-mem-link-file-truename=
 
 Misc
 
