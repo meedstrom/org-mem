@@ -20,13 +20,6 @@
 ;; Optional mechanisms to update the tables in just-in-time fashion,
 ;; reducing our need to do `org-mem--full-scan' so often.
 
-;; Technically, repeating a full scan is never needed *IF* we use these hooks
-;; correctly.  However, that is hard and humans are fallible.
-
-;; If a full scan is sufficiently performant, you can just do it more often,
-;; instead of using these hooks at all.  It is also a simple way to detect
-;; filesystem changes made by other Emacsen or the command line.
-
 ;;; Code:
 
 (require 'cl-lib)
