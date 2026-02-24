@@ -1570,7 +1570,9 @@ For that, you may be looking for `org-mem-all-files'.
 Affected by user options:
 - `org-mem-watch-dirs'
 - `org-mem-do-sync-with-org-id'
-- `org-mem-do-look-everywhere'"
+- `org-mem-do-look-everywhere'
+- `org-mem-suffixes'
+- `org-mem-exclude'"
   (cl-loop
    with exclude-re = (regexp-opt (cons "/_" (cons "/." org-mem-exclude)))
    with suffix-re = (rx (regexp (regexp-opt org-mem-suffixes)) eos)
