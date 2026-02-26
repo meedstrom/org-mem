@@ -1240,12 +1240,14 @@ Like `org-mem-entry-title', this always returns a string."
   (:method ((xx org-mem-entry)) (org-mem-entry-title-maybe xx))
   (:method ((xx string)) (org-mem-file-title-strict xx)))
 
-(defun org-mem-entries-in (file/files)
-  "All entries in FILE/FILES."
-  (funcall (if (listp file/files)
-               #'org-mem-entries-in-files
-             #'org-mem-entries-in-file)
-           file/files))
+(defun org-mem-entries-in (file/files/entry)
+  "All entries in FILE/FILES/ENTRY."
+  (funcall (if (org-mem-entry-p file/files/entry)
+               #'org-mem-entry-children
+             (if (listp file/files/entry)
+                 #'org-mem-entries-in-files
+               #'org-mem-entries-in-file))
+           file/files/entry))
 
 
 ;;; Core logic
