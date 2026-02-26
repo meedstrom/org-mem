@@ -397,6 +397,8 @@ Getters operating on an entry object
 @item
 @samp{org-mem-entry-id}
 @item
+@samp{org-mem-entry-keywords}
+@item
 @samp{org-mem-entry-level}
 @item
 @samp{org-mem-entry-lnum}
@@ -485,6 +487,8 @@ Getters operating on a file name
 @samp{org-mem-file-id-strict}
 @item
 @samp{org-mem-file-id-topmost}
+@item
+@samp{org-mem-file-keywords}
 @item
 @samp{org-mem-file-known-p}
 @item

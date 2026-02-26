@@ -252,6 +252,7 @@ Getters operating on an entry object
 - =org-mem-entry-file=
 - =org-mem-entry-file-truename=
 - =org-mem-entry-id=
+- =org-mem-entry-keywords=
 - =org-mem-entry-level=
 - =org-mem-entry-lnum=
 - =org-mem-entry-olpath=
@@ -297,6 +298,7 @@ Getters operating on a file name
 - =org-mem-file-coding-system=
 - =org-mem-file-id-strict=
 - =org-mem-file-id-topmost=
+- =org-mem-file-keywords=
 - =org-mem-file-known-p=
 - =org-mem-file-line-count=
 - =org-mem-file-mtime=

@@ -122,6 +122,7 @@ brackets."
 
 ;;; Links, citations and active timestamps
 
+(defvar org-mem-parser--found-keywords nil)
 (defvar org-mem-parser--found-links nil)
 (defvar org-mem-parser--found-active-stamps nil)
 (defconst org-mem-parser--org-ts-regexp
@@ -265,7 +266,11 @@ the subheading potentially has an ID of its own."
     (goto-char beg)
     (while (re-search-forward org-mem-parser--org-ts-regexp end t)
       (push (org-mem-parser--time-string-to-int (match-string 0))
-            org-mem-parser--found-active-stamps)))
+            org-mem-parser--found-active-stamps))
+
+    ;; Start over and look for #+keywords
+    (goto-char beg)
+    (setq org-mem-parser--found-keywords (org-mem-parser--collect-keywords end)))
   (goto-char (or end (point-max))))
 
 
@@ -298,6 +303,28 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               alist))
       (forward-line 1))
     alist))
+
+
+;;; Keywords
+
+(defconst org-mem-parser--org-keyword-regexp "^[ 	]*#\\+\\(\\S-+?\\):[ 	]*\\(.*\\)$"
+  "Copy of `org-keyword-regexp'.")
+
+(defun org-mem-parser--merge-same-keywords (keywords)
+  "In alist KEYWORDS, de-dup the cars by string-concatting the cdrs."
+  (let (new-alist)
+    (cl-loop for (key . value) in keywords
+             do (if-let* ((cell (assoc key new-alist)))
+                    (setcdr cell (concat (cdr cell) " " value))
+                  (push (cons key value) new-alist)))
+    (nreverse new-alist)))
+
+(defun org-mem-parser--collect-keywords (end)
+  "Search for #+keywords until position END, and return an alist."
+  (org-mem-parser--merge-same-keywords
+   (cl-loop
+    while (re-search-forward org-mem-parser--org-keyword-regexp end t)
+    collect (cons (downcase (match-string 1)) (match-string 2)))))
 
 
 ;;; Main
@@ -462,6 +489,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (forward-line))
             (setq RIGHT (point)) ;; End of the "front matter".
 
+            ;; TODO: Instead of searching manually for #+title & #+filetags,
+            ;; use the info from `org-mem-parser--found-keywords' (which is
+            ;; populated by `org-mem-parser--scan-visible-text').
             (goto-char LEFT)
             (when (re-search-forward "^#\\+FILETAGS:" RIGHT t)
               (when (not (eolp))
@@ -522,13 +552,13 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         nil
                         TAGS
                         nil
-                        PSEUDO-ID)
+                        PSEUDO-ID
+                        org-mem-parser--found-keywords)
                 found-entries)
 
           ;; Prep
           (unless CRUMBS
             (push (list 0 1 1 nil nil nil nil) CRUMBS))
-          (setq org-mem-parser--found-active-stamps nil)
           (setq LNUM (line-number-at-pos))
 
           ;; Loop over the file's headings
@@ -543,6 +573,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                    (pos-bol)
                  (point-max))))
             (setq org-mem-parser--found-active-stamps nil)
+            (setq org-mem-parser--found-keywords nil)
             (setq STATS-COOKIES nil)
             (setq INITIAL-STATS-COOKIES nil)
             (setq CLOCK-LINES nil)
@@ -734,7 +765,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                      append (cl-sixth crumb))))
                           TAGS
                           TODO-STATE
-                          PSEUDO-ID)
+                          PSEUDO-ID
+                          org-mem-parser--found-keywords)
                   found-entries)
             (goto-char (point-max))
             ;; NOTE: Famously slow `line-number-at-pos' fast in narrow region.
