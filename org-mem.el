@@ -150,7 +150,6 @@ try command \\[org-mem-forget-id-locations-recursively]."
   :type '(repeat directory)
   :package-version '(org-mem . "0.5.0"))
 
-;; REVIEW: Use backslashes on Windows?
 (defcustom org-mem-exclude
   '("/logseq/bak/"
     "/logseq/version-files/"
@@ -1544,7 +1543,6 @@ Or no-op, if `org-mem-do-sync-with-org-id' is nil."
 
 (defun org-mem--invalidate-file-names (bad-names)
   "Scrub bad file names BAD-NAMES in the truename cache.
-Notably, invalidate part of the cache used by `org-mem-file-known-p'.
 If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
   (let ((invalidated (seq-mapcat #'truename-cache-invalidate bad-names)))
     (when (and invalidated
@@ -1661,8 +1659,6 @@ corresponding to your package name."
 ;; to use with `org-mem-entry-text' to generate backlink previews, for
 ;; example, and it is apparently rare to realize the perf impact of
 ;; opening many Org buffers.
-;; Maybe if Org doesn't fix or can't fix the startup perf, they can ship an
-;; "org-scratch" function like this?  It belongs upstream.
 (defun org-mem-org-mode-scratch (&optional bufname)
   "Get or create a hidden `org-mode' buffer.
 Ignore `org-mode-hook' and startup options.
@@ -1691,6 +1687,7 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
     (buffer-string)))
 
 (defun org-mem-tip-if-empty ()
+  "If tables empty, print a helpful message."
   (when (hash-table-empty-p org-mem--truename<>metadata)
     (let ((msg (if org-mem-do-sync-with-org-id
                    (if (not (featurep 'org-id))

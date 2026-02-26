@@ -46,10 +46,12 @@ rare performance issues with scanning the filesystem.
 If you must pass FILES, be sure to include the true name of every file
 touched by what you were doing, such as refiling an Org subtree from one
 file into another, or renaming one file name to another.
-Do not refer to `buffer-file-truename' for this, because it is a lie.
+Do not use `buffer-file-truename' for this, because it is a lie.
+Use \(expand-file-name buffer-file-truename).
+
 Be sure also to include the old true name of any files that have been
 deleted or renamed, so that they may be removed from org-mem tables.
-If you mess up the tables, use `org-mem-reset'."
+If you mess up the tables, use command `org-mem-reset'."
   (unless files
     (setq files
           (let* ((db-files (copy-hash-table org-mem--truename<>metadata))
@@ -66,9 +68,10 @@ If you mess up the tables, use `org-mem-reset'."
                   (hash-table-keys db-files)))
             (append removed-files modified-files))))
   (when files
-    ;; If async job already ongoing, this will cancel that and run a new one.
-    ;; That's fine, because mtimes of those files being scanned won't have
-    ;; changed in our db, so we've automatically picked them up again.
+    ;; If async job of ID `org-mem-updater' is already ongoing, this will
+    ;; cancel that and run a new one.  That's fine, because mtimes of those
+    ;; files being scanned won't have changed in our db (ongoing => results
+    ;; not yet written), so we've automatically picked them up again.
     (el-job-ng-run
      :id 'org-mem-updater
      :inject-vars (append (org-mem--mk-work-vars)

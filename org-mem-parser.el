@@ -22,6 +22,10 @@
 
 ;;; Code:
 
+;; TODO: Consider deleting the list of links as a separate list at all, and
+;; instead store list of links as one of the entry's fields.  That is
+;; consistent with how we store active timestamps and keywords too.
+
 (eval-when-compile
   (require 'cl-lib)
   (require 'subr-x))
