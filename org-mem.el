@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.31.2
+;; Package-Version: 0.32.0
 ;; Package-Requires: ((emacs "29.1") (el-job "2.7.3") (llama "1.0") (truename-cache "0.1.2"))
 
 ;;; Commentary:
@@ -41,7 +41,7 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
-(defconst org-mem-internal-version 38 "Not a version number, but bumped sometimes.")
+(defconst org-mem-internal-version 39 "Not a version number, but bumped sometimes.")
 
 (require 'cl-lib)
 (require 'subr-x)
@@ -1684,7 +1684,7 @@ BUFNAME defaults to \" *org-mem-scratch*\"."
 
 (defun org-mem-fontify-like-org (string)
   "Return STRING with text properties from fontifying it in `org-mode'."
-  (declare (obsolete nil "0.32.0 (2026-02-26)"))
+  (declare (obsolete nil "0.32.0 (2026-02-27)"))
   (with-current-buffer (org-mem-scratch)
     (erase-buffer)
     (insert string)
@@ -1731,7 +1731,6 @@ Old style was single list of 5 lists, representing all files combined:
    append entries into all-entries
    append links into all-links
    finally return (list badpaths fdata all-entries all-links problems)))
-
 
 
 ;;; End-user tool
@@ -1825,10 +1824,10 @@ Still exists under name `org-mem--record-file-functions',
 but please use `org-mem-post-full-scan-functions'.")
 
 (define-obsolete-function-alias 'org-mem-entry-that-contains-link #'org-mem-link-entry "0.29.0 (2026-02-11)")
-(define-obsolete-function-alias 'org-mem-org-mode-scratch #'org-mem-scratch "0.32.0 (2026-02-26)")
+(define-obsolete-function-alias 'org-mem-org-mode-scratch #'org-mem-scratch "0.32.0 (2026-02-27)")
 
 (defun org-mem--list-files-from-fs ()
-  (declare (obsolete nil "2026-02-16"))
+  (declare (obsolete nil "0.32.0 (2026-02-27)"))
   (mapcar #'car (org-mem--truenames-and-attrs)))
 
 (provide 'org-mem)
