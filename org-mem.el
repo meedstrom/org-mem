@@ -156,7 +156,11 @@ try command \\[org-mem-forget-id-locations-recursively]."
     "/node_modules/"
     ".sync-conflict-" ;; Match e.g. "~/org/foo.sync-conflict-234234.org"
     "/backup" ;; Match e.g. "~/backups-2024/"
-    "/.#")
+    "/.#"
+    ;; These two are also hardcoded so it's moot, but hopefully we can stop
+    ;; hardcoding in the future.
+    "/."
+    "/_")
   "Literal substrings of file paths that should not be scanned.
 Aside from this variable, some filters are hard-coded:
 
@@ -173,7 +177,7 @@ You can also speed up `org-mem-reset' a bit by excluding directories
 found inside `org-mem-watch-dirs' with a very large amount of files
 \(on the order of 100,000), such as the infamous \"node_modules\"."
   :type '(repeat string)
-  :package-version '(org-mem . "0.15.1"))
+  :package-version '(org-mem . "0.32.0"))
 
 (defcustom org-mem-seek-link-types
   '("http" "https" "id" "file")
