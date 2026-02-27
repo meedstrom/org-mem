@@ -1114,7 +1114,7 @@ These link-targets are determined by `org-mem--split-roam-refs-field'."
   "Extract valid components of a ROAM-REFS field.
 What is valid?  See \"org-mem-test.el\"."
   (when roam-refs
-    (with-current-buffer (get-buffer-create " *org-mem-scratch*" t)
+    (with-current-buffer (get-buffer-create " *org-mem-fundamental-scratch*" t)
       (erase-buffer)
       (insert roam-refs)
       (goto-char 1)
@@ -1382,7 +1382,7 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
         problems)
     (org-mem--invalidate-file-names bad-paths)
     ;; Build tables.
-    (with-current-buffer (get-buffer-create " *org-mem-scratch*" t)
+    (with-current-buffer (get-buffer-create " *org-mem-fundamental-scratch*" t)
       (cl-loop for (_ problem file-data entries links) in parse-results do
                (when problem (push problem problems))
                (puthash (car file-data) file-data org-mem--truename<>metadata)
@@ -1663,15 +1663,15 @@ corresponding to your package name."
 ;; to use with `org-mem-entry-text' to generate backlink previews, for
 ;; example, and it is apparently rare to realize the perf impact of
 ;; opening many Org buffers.
-(defun org-mem-org-mode-scratch (&optional bufname)
+(defun org-mem-scratch (&optional bufname)
   "Get or create a hidden `org-mode' buffer.
 Ignore `org-mode-hook' and startup options.
 
 Like a temp buffer, but does not clean up.
 You should probably use `erase-buffer' in case it already contains text.
-BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
+BUFNAME defaults to \" *org-mem-scratch*\"."
   (require 'org)
-  (setq bufname (or bufname " *org-mem-org-mode-scratch*"))
+  (setq bufname (or bufname " *org-mem-scratch*"))
   (or (get-buffer bufname)
       (let ((org-inhibit-startup t)
             (org-agenda-files nil)
@@ -1684,7 +1684,8 @@ BUFNAME defaults to \" *org-mem-org-mode-scratch*\"."
 
 (defun org-mem-fontify-like-org (string)
   "Return STRING with text properties from fontifying it in `org-mode'."
-  (with-current-buffer (org-mem-org-mode-scratch)
+  (declare (obsolete nil "0.32.0 (2026-02-26)"))
+  (with-current-buffer (org-mem-scratch)
     (erase-buffer)
     (insert string)
     (font-lock-ensure)
@@ -1824,6 +1825,7 @@ Still exists under name `org-mem--record-file-functions',
 but please use `org-mem-post-full-scan-functions'.")
 
 (define-obsolete-function-alias 'org-mem-entry-that-contains-link #'org-mem-link-entry "0.29.0 (2026-02-11)")
+(define-obsolete-function-alias 'org-mem-org-mode-scratch #'org-mem-scratch "0.32.0 (2026-02-26)")
 
 (defun org-mem--list-files-from-fs ()
   (declare (obsolete nil "2026-02-16"))
