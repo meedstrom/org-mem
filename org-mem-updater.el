@@ -148,8 +148,8 @@ Designed for `after-save-hook' and as advice for `delete-file' and
 `rename-file'.  Such functions might be called many times in a loop,
 and this design is meant to avoid invoking `org-mem-updater-update'
 for every FILE, but wait and do a massed invocation afterwards."
-  (setq file (or file buffer-file-name))
-  (when (and file (cl-some (##string-suffix-p % file) org-mem-suffixes))
+  (setq file (or file (buffer-file-name (buffer-base-buffer))))
+  (when (and (stringp file) (cl-some (##string-suffix-p % file) org-mem-suffixes))
     (if (memq org-mem-updater--debounce-timer timer-list)
       (timer-set-time org-mem-updater--debounce-timer
                       (time-add (current-time) 0.5))

@@ -1494,7 +1494,7 @@ Or no-op, if `org-mem-do-sync-with-org-id' is nil."
              (org-mem--try-ensure-org-id-table-p))
     (setq org-id-files (delete-dups (hash-table-values org-id-locations)))))
 
-(add-hook 'org-mem-post-full-scan-functions #'org-mem--reset-org-id-files)
+(add-hook 'org-mem-post-full-scan-functions #'org-mem--reset-org-id-files -10)
 
 (defun org-mem--mk-work-vars ()
   "Make alist of variables needed by `org-mem-parser--parse-file'."
