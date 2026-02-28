@@ -47,7 +47,7 @@ If you must pass FILES, be sure to include the true name of every file
 touched by what you were doing, such as refiling an Org subtree from one
 file into another, or renaming one file name to another.
 Do not use `buffer-file-truename' for this, because it is a lie.
-Use \(expand-file-name buffer-file-truename).
+Even \(expand-file-name buffer-file-truename) may not be the true name.
 
 Be sure also to include the old true name of any files that have been
 deleted or renamed, so that they may be removed from org-mem tables.
