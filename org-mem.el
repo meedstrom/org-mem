@@ -20,7 +20,7 @@
 ;; Created:  2025-03-15
 ;; Keywords: text
 ;; Package-Version: 0.32.0
-;; Package-Requires: ((emacs "29.1") (el-job "2.7.3") (llama "1.0") (truename-cache "0.1.2"))
+;; Package-Requires: ((emacs "29.1") (el-job "2.7.3") (llama "1.0") (truename-cache "0.3.2"))
 
 ;;; Commentary:
 
@@ -69,6 +69,9 @@
 (unless (and (boundp 'el-job-internal-version)
              (>= el-job-internal-version 107))
   (display-warning 'org-mem "Update to el-job 2.7.3+ to use this version of org-mem"))
+(unless (and (boundp 'truename-cache-internal-version)
+             (>= truename-cache-internal-version 12))
+  (display-warning 'org-mem "Update to truename-cache 0.3.2+ to use this version of org-mem"))
 
 (defgroup org-mem nil "Fast info from a large amount of Org file contents."
   :group 'org)
@@ -287,7 +290,7 @@ Note: All tables cleared often, meant for memoizations."
 (defun org-mem--get-file-metadata (file/entry/link)
   "Return list of assorted data if FILE/ENTRY/LINK known, else error."
   (let ((wild-file (if (stringp file/entry/link)
-                       (truename-cache-get-existed-p file/entry/link)
+                       (truename-cache-get-p file/entry/link)
                      (if (org-mem-entry-p file/entry/link)
                          (org-mem-entry-file-truename file/entry/link)
                        (if (org-mem-link-p file/entry/link)
@@ -980,12 +983,12 @@ Can be nil."
 (defun org-mem-file-known-p (file)
   "Return non-nil when FILE is known to org-mem.
 Specifically, return the name by which it is known.
-This is more restrictive than `truename-cache-get-existed-p'
+This is more restrictive than `truename-cache-get-p'
 by only returning non-nil if the file has been scanned by org-mem."
   (cl-assert (stringp file))
   (or (and (gethash file org-mem--truename<>entries)
            file)
-      (and (setq file (truename-cache-get-existed-p file))
+      (and (setq file (truename-cache-get-p file))
            (if (gethash file org-mem--truename<>entries)
                file
              (truename-cache-invalidate file)
@@ -1758,7 +1761,7 @@ org-id-locations:
   (require 'org-id)
   (let ((files (org-mem--dir-files-recursive dir org-mem-suffixes nil)))
     (when files
-      (setq files (append files (seq-keep #'truename-cache-get-existed-p files)))
+      (setq files (append files (seq-keep #'truename-cache-get-p files)))
       (message "Forgetting all IDs in directory %s..." dir)
       (redisplay t)
       (maphash (lambda (id file)
