@@ -50,18 +50,11 @@
 (require 'truename-cache)
 (require 'org-mem-parser)
 
-(defvar org-id-locations)
-(defvar org-id-track-globally)
-(defvar org-id-locations-file)
 (defvar org-id-extra-files)
 (defvar org-id-files)
 (defvar org-element-cache-persistent)
 (defvar org-inhibit-startup)
 (defvar org-agenda-files)
-(declare-function org-id-locations-load "org-id")
-(declare-function org-id-locations-save "org-id")
-(declare-function org-id-alist-to-hash "org-id")
-(declare-function org-id-hash-to-alist "org-id")
 (declare-function org-before-first-heading-p "org")
 (declare-function org-entry-beginning-position "org")
 (declare-function org-entry-end-position "org")
@@ -93,7 +86,7 @@ If so, the text would only be available from the first time that
   :type 'boolean
   :package-version '(org-mem . "0.2.0"))
 
-(defcustom org-mem-do-look-everywhere nil
+(defcustom org-mem-do-look-everywhere t
   "Whether to infer directories from as many sources as possible.
 
 This means that any Org file found amongst...
@@ -106,25 +99,12 @@ This means that any Org file found amongst...
 - currently open Org buffers
 
 ... will have its directory added to the set of directories that org-mem
-will scan.  They won\\='t be scanned recursively.
+will scan, provided it passes `org-mem-exclude'.
+It won\\='t be scanned recursively.
 
 If Org has not yet loaded, only `recentf-list' is used."
   :type 'boolean
   :package-version '(org-mem . "0.32.0"))
-
-(defcustom org-mem-do-sync-with-org-id nil
-  "Whether to exchange data with `org-id-locations'.
-
-Benefits:
-- Org-mem gets to know about files from anywhere, so long as they
-  contain some ID and can thus be found in `org-id-locations'.
-- Help ensure that ID-links to somewhere inside `org-mem-watch-dirs'
-  always work, so they never trigger a fallback attempt to run
-  `org-id-update-id-locations' when clicked, which can take a while.
-
-No effect until after Org has loaded."
-  :type 'boolean
-  :package-version '(org-mem . "0.6.0"))
 
 (defcustom org-mem-watch-dirs nil
   "List of directories in which to look for Org files.
@@ -135,12 +115,12 @@ Exceptions:
 
 - Subdirectories starting with underscore or dot, such as \".emacs.d\".
   To check such a directory, add its full path explicitly,
-  or else rely on `org-mem-do-sync-with-org-id' as additional source.
+  or else rely on `org-mem-do-look-everywhere' as additional source.
 - Subdirectories that are symlinks.
 - Anything matching `org-mem-exclude'.
 - Any file not ending in one of `org-mem-suffixes'.
 
-Can be left at nil, if `org-mem-do-sync-with-org-id' is t.
+Can be left at nil, if `org-mem-do-look-everywhere' is t.
 Benefits of configuring this anyway:
 
 - Awareness of files that contain no ID at all.
@@ -364,9 +344,7 @@ and then it should be the name of that file."
         (org-mem-entry-at-pos-in-file (point) file))))
 
 (defun org-mem-all-ids ()
-  "All org-ids known to org-mem.
-If `org-mem-do-sync-with-org-id' is nil, the output may NOT overlap
-perfectly with `org-id-locations'."
+  "All org-ids known to org-mem."
   (with-memoization (org-mem--table 0 'org-mem-all-ids)
     (hash-table-keys org-mem--id<>entry)))
 
@@ -1381,12 +1359,12 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
   (clrhash org-mem--truename<>entries)
   (clrhash org-mem--pseudo-id<>links)
   (setq org-mem--title-collisions nil)
-  (let ((bad-paths (cl-loop for (bad) in parse-results when bad collect bad))
-        problems)
-    (org-mem--invalidate-file-names bad-paths)
+  (let (problems)
     ;; Build tables.
     (with-current-buffer (get-buffer-create " *org-mem-fundamental-scratch*" t)
-      (cl-loop for (_ problem file-data entries links) in parse-results do
+      (cl-loop for (bad-path problem file-data entries links) in parse-results
+               do
+               (when bad-path (truename-cache-invalidate bad-path))
                (when problem (push problem problems))
                (when file-data
                  (puthash (car file-data) file-data org-mem--truename<>metadata)
@@ -1426,11 +1404,6 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
     ;; Other stuff.
     (while org-mem-initial-scan-hook
       (funcall (pop org-mem-initial-scan-hook)))
-    (when bad-paths
-      ;; Scan again, but guard against repeating forever.
-      (unless (seq-intersection bad-paths org-mem--caused-retry)
-        (setq org-mem--caused-retry (append bad-paths org-mem--caused-retry))
-        (org-mem--scan-full)))
     (when (and org-mem--title-collisions org-mem-do-warn-title-collisions)
       (message "Some IDs share title, see M-x org-mem-list-title-collisions"))
     (when problems
@@ -1451,7 +1424,6 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
     ;; `org-mem--finalize-full-scan' looping over entries in reverse order.
     (push entry (gethash truename org-mem--truename<>entries))
     (when id
-      (org-mem--maybe-snitch-to-org-id entry)
       (puthash id entry org-mem--id<>entry)
       (when title
         (let ((other-id (gethash title org-mem--title<>id)))
@@ -1476,29 +1448,6 @@ remove, it's easiest to wipe and re-build."
    for links being each hash-value of org-mem--pseudo-id<>links
    do (dolist (link links)
         (push link (gethash (org-mem-link-target link) org-mem--target<>links)))))
-
-(defun org-mem--maybe-snitch-to-org-id (entry)
-  "Add applicable ENTRY data to `org-id-locations'.
-No-op if Org has not loaded."
-  (when (and org-mem-do-sync-with-org-id
-             (org-mem-entry-id entry)
-             (featurep 'org-id)
-             (org-mem--try-ensure-org-id-table-p))
-    (puthash (org-mem-entry-id entry)
-             (org-mem-entry-file entry)
-             org-id-locations)))
-
-;; This is non-essential, as org-id works as intended anyway,
-;; but other libraries may assume that `org-id-files' is kept up to date.
-(defun org-mem--reset-org-id-files (_)
-  "Set `org-id-files' to reflect the set of files in `org-id-locations'.
-Or no-op, if `org-mem-do-sync-with-org-id' is nil."
-  (when (and org-mem-do-sync-with-org-id
-             (featurep 'org-id)
-             (org-mem--try-ensure-org-id-table-p))
-    (setq org-id-files (delete-dups (hash-table-values org-id-locations)))))
-
-(add-hook 'org-mem-post-full-scan-functions #'org-mem--reset-org-id-files -10)
 
 (defun org-mem--mk-work-vars ()
   "Make alist of variables needed by `org-mem-parser--parse-file'."
@@ -1549,31 +1498,6 @@ Or no-op, if `org-mem-do-sync-with-org-id' is nil."
 
 ;;; File discovery subroutines
 
-(defun org-mem--invalidate-file-names (bad-names)
-  "Scrub bad file names BAD-NAMES in the truename cache.
-If `org-mem-do-sync-with-org-id' t, also scrub `org-id-locations'."
-  (let ((invalidated (seq-mapcat #'truename-cache-invalidate bad-names)))
-    (when (and invalidated
-               org-mem-do-sync-with-org-id
-               (org-mem--try-ensure-org-id-table-p))
-      (setq org-id-locations
-            (org-id-alist-to-hash
-             (cl-loop for cell in (org-id-hash-to-alist org-id-locations)
-                      unless (member (car cell) invalidated)
-                      collect cell))))))
-
-(defun org-mem--try-ensure-org-id-table-p ()
-  "Coerce `org-id-locations' into hash table form, return nil on fail."
-  (require 'org-id)
-  (and org-id-track-globally
-       (or (hash-table-p org-id-locations)
-           (ignore-errors
-             (setq org-id-locations
-                   (org-id-alist-to-hash org-id-locations)))
-           ;; No error because some things can still work.
-           (progn (message "org-mem: Strange org-id bug, maybe restart Emacs")
-                  nil))))
-
 (defun org-mem--truenames-and-attrs ()
   "Return an unsorted alist \((FILE1 . ATTR1) (FILE2 . ATTR2) ...\).
 Each FILE is a truename and each ATTR an output of `file-attributes'.
@@ -1583,8 +1507,7 @@ be associated with objects in existing org-mem tables.
 For that, you may be looking for `org-mem-all-files'.
 
 Affected by user options:
-- `org-mem-watch-dirs'
-- `org-mem-do-sync-with-org-id'
+- `org-mem-watch-dirs''
 - `org-mem-do-look-everywhere'
 - `org-mem-suffixes'
 - `org-mem-exclude'"
@@ -1602,27 +1525,22 @@ Affected by user options:
        :full-dir-deny (list exclude-re)
        :dirs-recursive org-mem-watch-dirs
        :infer-dirs-from
-       (list
-        (and org-mem-do-look-everywhere
-             (seq-filter (##string-match-p suffix-re %)
-                         (bound-and-true-p recentf-list)))
-        (and org-mem-do-look-everywhere
-             (featurep 'org)
-             (append (org-files-list)
-                     ;; Should've been a separate option
-                     (if (stringp (car org-agenda-text-search-extra-files))
-                         org-agenda-text-search-extra-files
-                       (cdr org-agenda-text-search-extra-files))))
-        (and (or org-mem-do-sync-with-org-id
-                 org-mem-do-look-everywhere)
-             (featurep 'org-id)
-             (append (seq-filter #'stringp
-                                 ;; Should've been a separate option
-                                 (if (symbolp org-id-extra-files)
-                                     (symbol-value org-id-extra-files)
-                                   org-id-extra-files))
-                     (and (org-mem--try-ensure-org-id-table-p)
-                          (hash-table-values org-id-locations))))))
+       (when org-mem-do-look-everywhere
+         (list
+          (seq-filter (##string-match-p suffix-re %)
+                      (bound-and-true-p recentf-list))
+          (when (featurep 'org)
+            (append (if (stringp (car org-agenda-text-search-extra-files))
+                        org-agenda-text-search-extra-files
+                      (cdr org-agenda-text-search-extra-files))
+                    (org-files-list)))
+          (when (featurep 'org-id)
+            (append (seq-filter #'stringp
+                               ;; Should've been a separate option
+                               (if (symbolp org-id-extra-files)
+                                   (symbol-value org-id-extra-files)
+                                 org-id-extra-files))
+                   org-id-files)))))
    when (and (string-match-p suffix-re (car cell))
              (not (string-match-p exclude-re (car cell))))
    collect cell))
@@ -1630,18 +1548,14 @@ Affected by user options:
 (defun org-mem--check-user-settings ()
   "Signal if user options are set to illegal or inefficient values."
   (unless (or org-mem-watch-dirs
-              org-mem-do-sync-with-org-id
               org-mem-do-look-everywhere)
     (user-error "At least one of these settings must be non-nil:
 `org-mem-watch-dirs'
-`org-mem-do-sync-with-org-id'
 `org-mem-do-look-everywhere'"))
   (unless (compiled-function-p (symbol-function #'org-mem--truenames-and-attrs))
     (display-warning 'org-mem "Org-mem will be very slow unless compiled"))
   (unless (compiled-function-p (symbol-function #'truename-cache-collect-files-and-attributes))
     (display-warning 'org-mem "Org-mem will be very slow unless truename-cache is compiled"))
-  (when (and org-mem-do-sync-with-org-id (featurep 'org-id) (not org-id-track-globally))
-    (user-error "If org-mem-do-sync-with-org-id is t, org-id-track-globally must be t as well"))
   (when (seq-find #'file-remote-p org-mem-watch-dirs)
     (user-error "Must not contain remote directories: org-mem-watch-dirs")))
 
@@ -1698,7 +1612,7 @@ BUFNAME defaults to \" *org-mem-scratch*\"."
 (defun org-mem-tip-if-empty ()
   "If tables empty, print a helpful message."
   (when (hash-table-empty-p org-mem--truename<>metadata)
-    (let ((msg (if org-mem-do-sync-with-org-id
+    (let ((msg (if org-mem-do-look-everywhere
                    (if (not (featurep 'org-id))
                        (if org-mem-watch-dirs
                            "org-mem: No files found in `org-mem-watch-dirs', and no org-ids because Org not loaded"
@@ -1735,52 +1649,6 @@ Old style was single list of 5 lists, representing all files combined:
    append entries into all-entries
    append links into all-links
    finally return (list badpaths fdata all-entries all-links problems)))
-
-
-;;; End-user tool
-
-(defun org-mem-forget-id-locations-recursively (dir)
-  "Remove all references in `org-id-locations' to any files under DIR.
-
-Note that if DIR descends from a member of `org-mem-watch-dirs',
-this action may make no practical impact unless you also add DIR to
-`org-mem-exclude'.
-This is because with `org-mem-do-sync-with-org-id' t, they simply get
-added again on next scan.
-
-Tip: In case of unsolvable problems, eval this to thoroughly wipe
-org-id-locations:
-
-\(progn
-  (delete-file org-id-locations-file)
-  (setq org-id-locations nil)
-  (setq org-id--locations-checksum nil)
-  (setq org-agenda-text-search-extra-files nil)
-  (setq org-id-files nil)
-  (setq org-id-extra-files nil))"
-  (interactive "DForget all IDs recursively in directory: ")
-  (require 'org-id)
-  (let ((files (org-mem--dir-files-recursive dir org-mem-suffixes nil)))
-    (when files
-      (setq files (append files (seq-keep #'truename-cache-get-p files)))
-      (message "Forgetting all IDs in directory %s..." dir)
-      (redisplay t)
-      (maphash (lambda (id file)
-                 (when (member file files)
-                   (remhash id org-mem--id<>entry)
-                   (remhash id org-id-locations)))
-               org-id-locations)
-      ;; Bonus, probably unnecessary
-      (dolist (file files)
-        (dolist (entry (gethash file org-mem--truename<>entries))
-          (remhash (org-mem-entry-pseudo-id entry)
-                   org-mem--pseudo-id<>links))
-        (remhash file org-mem--truename<>entries)
-        (remhash file org-mem--truename<>metadata))
-      (setq org-id-files (cl-nset-difference org-id-files files :test #'equal))
-      (org-id-locations-save)
-      (message "Forgetting all IDs in directory %s...done" dir)
-      (org-mem--scan-full))))
 
 
 (defmacro org-mem--def-whiny-alias (old new when removed-by)

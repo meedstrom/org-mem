@@ -90,10 +90,10 @@ If you mess up the tables, use command `org-mem-reset'."
   (run-hook-with-args 'org-mem-pre-targeted-scan-functions parse-results)
   (mapc #'clrhash (hash-table-values org-mem--key<>subtable))
   (let (problems)
-    (org-mem--invalidate-file-names
-     (cl-loop for (bad-path) in parse-results when bad-path collect bad-path))
     (with-current-buffer (get-buffer-create " *org-mem-fundamental-scratch*" t)
-      (cl-loop for (_ problem file-datum entries links) in parse-results do
+      (cl-loop for (bad-path problem file-datum entries links) in parse-results
+               do
+               (when bad-path (truename-cache-invalidate bad-path))
                (when problem (push problem problems))
                (let ((file (car file-datum)))
                  (when file
