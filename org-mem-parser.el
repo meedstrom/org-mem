@@ -463,11 +463,6 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (save-excursion
               (when (re-search-forward org-mem-parser--outline-regexp nil t)
                 (narrow-to-region (point-min) (pos-bol))))
-            ;; A bug introduced in org-node 5035a33 (fixed ~5 days later)
-            ;; could insert BACKLINKS before PROPERTIES.  Add a warning so
-            ;; user can fix the affected notes.
-            (when (looking-at-p "^[ \t]*:BACKLINKS:[ \t]*$")
-              (error "Code 12: Found BACKLINKS drawer before PROPERTIES \(likely inserted by org-node 3.4.3, bug fixed in 3.4.4)"))
             ;; We can safely assume that if there's a properties drawer,
             ;; it's the first drawer AND it comes before any #+keyword, at
             ;; least going by the behavior of `org-id-get'.
