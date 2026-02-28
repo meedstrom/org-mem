@@ -45,6 +45,7 @@
 
 (require 'cl-lib)
 (require 'subr-x)
+(require 'map)
 (require 'llama)
 (require 'el-job)
 (require 'truename-cache)
@@ -742,18 +743,10 @@ Emacs Lisp."
                (let (file-name-handler-alist)
                  (file-name-nondirectory (org-mem-entry-file-truename entry)))))))
 
-(defalias 'org-mem-entry-properties #'org-mem-entry-properties-local
-  "Alist of ENTRY properties, no inheritance.
-
-Note the difference from `org-mem-entry-tags', which does include
-inherited tags!  This attempts to mirror what you would expect from Org,
-since `org-entry-properties' does not use inheritance while
-`org-get-tags' does.
-
-To get ancestor properties, use `org-mem-entry-properties-inherited'.
-
-Unlike `org-entry-properties', this omits special properties to return
-only the properties explicitly written in the file.")
+(defun org-mem-entry-properties (entry)
+  (map-merge 'alist
+             (org-mem-entry-properties-inherited entry)
+             (org-mem-entry-properties-local entry)))
 
 (defun org-mem-entry-property (prop entry)
   "Value of property PROP in ENTRY."
@@ -1514,6 +1507,10 @@ Or no-op, if `org-mem-do-sync-with-org-id' is nil."
      (cons '$use-tag-inheritance
            (if (boundp 'org-use-tag-inheritance)
                (default-value 'org-use-tag-inheritance)
+             t))
+     (cons '$use-property-inheritance
+           (if (boundp 'org-use-property-inheritance)
+               (default-value 'org-use-property-inheritance)
              t))
      (cons '$default-todo-re
            (let ((default (if (boundp 'org-todo-keywords)

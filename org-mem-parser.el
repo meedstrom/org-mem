@@ -38,6 +38,7 @@
 (defvar $nonheritable-tags)
 (defvar $inlinetask-min-level)
 (defvar $use-tag-inheritance)
+(defvar $use-property-inheritance)
 (defvar $ignore-regions-regexps)
 
 (defun org-mem-parser--make-todo-regexp (s)
@@ -310,6 +311,16 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       (forward-line 1))
     alist))
 
+(defun org-mem-parser--subset-properties (props heritable)
+  (when heritable
+    (if (eq t heritable)
+        props
+      (if (stringp heritable)
+          (seq-filter (lambda (cell) (string-match-p heritable (car cell)))
+                      props)
+        (seq-filter (lambda (cell) (member-ignore-case (car cell) heritable))
+                    props)))))
+
 
 ;;; Keywords
 
@@ -396,7 +407,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
         TITLE HEADING-POS LNUM CRUMBS CLOCK-LINES
         TODO-STATE STATS-COOKIES INITIAL-STATS-COOKIES
-        SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
+        SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS HERITABLE-PROPS
         LEFT RIGHT
         (TODO-RE $default-todo-re))
     (condition-case err
@@ -454,7 +465,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                                           $use-tag-inheritance)))
             (let ((x (assq 'org-tags-exclude-from-inheritance all-locals)))
               (setq NONHERITABLE-TAGS (if x (cdr x)
-                                        $nonheritable-tags))))
+                                        $nonheritable-tags)))
+            (let ((x (assq 'org-use-property-inheritance all-locals)))
+              (setq HERITABLE-PROPS (if x (cdr x)
+                                      $use-property-inheritance))))
 
           ;; Scan content before first heading, if any
 
@@ -518,10 +532,14 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                               (buffer-substring (point) (pos-eol)))))))
             (when (string-empty-p TITLE)
               (setq TITLE nil))
+
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE
-                        (seq-difference TAGS NONHERITABLE-TAGS))))
-              (push (list 0 1 1 TITLE ID heritable-tags PROPS) CRUMBS))
+                        (seq-difference TAGS NONHERITABLE-TAGS)))
+                  (heritable-props
+                   (org-mem-parser--subset-properties PROPS HERITABLE-PROPS)))
+              (push (list 0 1 1 TITLE ID heritable-tags heritable-props)
+                    CRUMBS))
 
             (setq PSEUDO-ID (org-mem-parser--mk-id file-attr (buffer-string)))
             (push PSEUDO-ID seen-hashes)
@@ -729,10 +747,10 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (cl-loop until (> LEVEL (caar CRUMBS)) do (pop CRUMBS))
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE
-                        (cl-loop for tag in TAGS
-                                 unless (member tag NONHERITABLE-TAGS)
-                                 collect tag))))
-              (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags PROPS)
+                        (seq-difference TAGS NONHERITABLE-TAGS)))
+                  (heritable-props
+                   (org-mem-parser--subset-properties PROPS HERITABLE-PROPS)))
+              (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags heritable-props)
                     CRUMBS))
 
             (setq ID-HERE (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb)))
