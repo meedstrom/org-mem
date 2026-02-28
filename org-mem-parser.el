@@ -316,25 +316,21 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 (defconst org-mem-parser--org-keyword-regexp "^[ 	]*#\\+\\(\\S-+?\\):[ 	]*\\(.*\\)$"
   "Copy of `org-keyword-regexp'.")
 
-;; FIXME: We should probably not always concat them, it's just for #+title,
-;;        #+subtitle and maybe some others.
-;;        Collect a list instead, and concat afterwards.
-;;        Cf. behaviors: (org-get-title) vs (org-collect-keywords '("title"))
-;;        when you have two or more #+title lines.
 (defun org-mem-parser--merge-same-keywords (keywords)
-  "In alist KEYWORDS, de-dup the cars by string-concatting the cdrs."
+  "In alist KEYWORDS, de-dup the cars by appending the cdrs."
   (let (new-alist)
     (cl-loop for (key . value) in keywords
              do (if-let* ((cell (assoc key new-alist)))
-                    (setcdr cell (concat (cdr cell) " " value))
+                    (setcdr cell (append value (cdr cell)))
                   (push (cons key value) new-alist)))
+    (cl-loop for cell in new-alist do (setcdr cell (reverse (cdr cell))))
     (nreverse new-alist)))
 
 (defun org-mem-parser--collect-keywords (end)
-  "Search for #+keywords until position END, and return an alist."
+  "Search for #+KEYWORDS: until position END, and return an alist."
   (cl-loop
    while (re-search-forward org-mem-parser--org-keyword-regexp end t)
-   collect (cons (downcase (match-string 1)) (match-string 2))))
+   collect (cons (upcase (match-string 1)) (list (match-string 2)))))
 
 
 ;;; Main
