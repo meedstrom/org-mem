@@ -19,7 +19,7 @@
 ;; URL:      https://github.com/meedstrom/org-mem
 ;; Created:  2025-03-15
 ;; Keywords: text
-;; Package-Version: 0.32.0
+;; Package-Version: 0.32.1
 ;; Package-Requires: ((emacs "29.1") (el-job "2.7.3") (llama "1.0") (truename-cache "0.3.2"))
 
 ;;; Commentary:
@@ -41,7 +41,7 @@
 ;;; Code:
 
 (define-obsolete-variable-alias 'org-mem--bump-int 'org-mem-internal-version "2026-01-27 (after 0.26.4)")
-(defconst org-mem-internal-version 39 "Not a version number, but bumped sometimes.")
+(defconst org-mem-internal-version 40 "Not a version number, but bumped sometimes.")
 
 (require 'cl-lib)
 (require 'subr-x)
