@@ -274,7 +274,9 @@ the subheading potentially has an ID of its own."
 
     ;; Start over and look for #+keywords
     (goto-char beg)
-    (setq org-mem-parser--found-keywords (org-mem-parser--collect-keywords end)))
+    (setq org-mem-parser--found-keywords
+          (nconc (org-mem-parser--collect-keywords end)
+                 org-mem-parser--found-keywords)))
   (goto-char (or end (point-max))))
 
 
@@ -330,10 +332,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
 (defun org-mem-parser--collect-keywords (end)
   "Search for #+keywords until position END, and return an alist."
-  (org-mem-parser--merge-same-keywords
-   (cl-loop
-    while (re-search-forward org-mem-parser--org-keyword-regexp end t)
-    collect (cons (downcase (match-string 1)) (match-string 2)))))
+  (cl-loop
+   while (re-search-forward org-mem-parser--org-keyword-regexp end t)
+   collect (cons (downcase (match-string 1)) (match-string 2))))
 
 
 ;;; Main
@@ -557,7 +558,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         TAGS
                         nil
                         PSEUDO-ID
-                        org-mem-parser--found-keywords)
+                        (org-mem-parser--merge-same-keywords
+                         org-mem-parser--found-keywords))
                 found-entries)
 
           ;; Prep
@@ -770,7 +772,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           TAGS
                           TODO-STATE
                           PSEUDO-ID
-                          org-mem-parser--found-keywords)
+                          (org-mem-parser--merge-same-keywords
+                           org-mem-parser--found-keywords))
                   found-entries)
             (goto-char (point-max))
             ;; NOTE: Famously slow `line-number-at-pos' fast in narrow region.
