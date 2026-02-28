@@ -314,6 +314,11 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 (defconst org-mem-parser--org-keyword-regexp "^[ 	]*#\\+\\(\\S-+?\\):[ 	]*\\(.*\\)$"
   "Copy of `org-keyword-regexp'.")
 
+;; FIXME: We should probably not always concat them, it's just for #+title,
+;;        #+subtitle and maybe some others.
+;;        Collect a list instead, and concat afterwards.
+;;        Cf. behaviors: (org-get-title) vs (org-collect-keywords '("title"))
+;;        when you have two or more #+title lines.
 (defun org-mem-parser--merge-same-keywords (keywords)
   "In alist KEYWORDS, de-dup the cars by string-concatting the cdrs."
   (let (new-alist)
@@ -417,7 +422,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (insert-file-contents file)
             (setq coding-system last-coding-system-used)
             ;; Better get the attributes now at the same time we read the file,
-            ;; in the off-chance it gets altered in the time between parsing
+            ;; on the off-chance it gets altered in the time between parsing
             ;; it and getting its attributes.
             (setq file-attr (file-attributes file 'integer)))
 
