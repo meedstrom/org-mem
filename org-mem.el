@@ -1386,11 +1386,11 @@ overrides a default message printed when `org-mem-do-cache-text' is t."
     (org-mem--invalidate-file-names bad-paths)
     ;; Build tables.
     (with-current-buffer (get-buffer-create " *org-mem-fundamental-scratch*" t)
-      (cl-loop for (_ problem file-data entries links) in parse-results do
+      (cl-loop for (_ problem file-datum entries links) in parse-results do
                (when problem (push problem problems))
-               (when file-data
-                 (puthash (car file-data) file-data org-mem--truename<>metadata)
-                 (run-hook-with-args 'org-mem--record-file-functions file-data))
+               (when file-datum
+                 (puthash (car file-datum) file-datum org-mem--truename<>metadata)
+                 (run-hook-with-args 'org-mem--record-file-functions file-datum))
                (dolist (entry entries)
                  (org-mem--record-entry entry)
                  (run-hook-with-args 'org-mem--record-entry-functions entry))

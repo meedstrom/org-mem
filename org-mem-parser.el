@@ -386,7 +386,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         (buffer-read-only t)
         bad-path
         found-entries
-        file-data
+        file-datum
         file-attr
         problem
         coding-system
@@ -778,7 +778,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
 
           ;; Done analyzing this file.
           (cl-assert (eobp))
-          (setq file-data (list file
+          (setq file-datum (list file
                                 file-attr
                                 LNUM
                                 (point)
@@ -789,7 +789,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       (( error )
        (widen)
        (setq problem (list (format-time-string "%H:%M") file (point) err (line-number-at-pos)))
-       (setq file-data (list file
+       (setq file-datum (list file
                              file-attr
                              (line-number-at-pos (point-max))
                              (point-max)
@@ -798,13 +798,13 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
       ;; Catch fake `skip-file' signal.  Already caught real error signals.
       (t
        (cl-assert (null problem))
-       (cl-assert (null file-data))
+       (cl-assert (null file-datum))
        (cl-assert (null found-entries))
        (cl-assert (null org-mem-parser--found-links))))
 
     (list bad-path
           problem
-          file-data
+          file-datum
           found-entries
           org-mem-parser--found-links)))
 
