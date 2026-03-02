@@ -337,31 +337,36 @@ Note: All tables cleared often, meant for memoizations."
 
 ;; This is the kind of thing I try not to have in org-mem, because look at all
 ;; the special-cases needed.  This one seems too useful to leave out, though.
-(defun org-mem-entry-at-point (&optional actually-file)
+(defun org-mem-entry-at-point (&optional actually-file interactive)
   "Return entry object near point in the current unmodified buffer.
 Only works if the buffer file has previously been scanned by org-mem.
 
 Optional argument ACTUALLY-FILE is for use in non-file-visiting
 buffers that presumably hold a copy of some file\\='s content,
-and then it should be the name of that file."
+and then it should be the name of that file.
+
+If INTERACTIVE, display the entry data using `org-mem-list-example'."
+  (interactive "i\np")
   (require 'org)
-  (when (buffer-modified-p)
-    (message "org-mem-entry-at-point: Results not guaranteed in a modified buffer"))
-  (unless (derived-mode-p 'org-mode)
-    (error "org-mem-entry-at-point: Buffer must be in org-mode"))
-  (let ((file (or actually-file (buffer-file-name (buffer-base-buffer))))
-        (id (org-entry-get nil "ID")))
-    (or (and id (org-mem-entry-by-id id))
-        (unless file
-          (error "org-mem-entry-at-point: Use in a file-visiting buffer or pass ACTUALLY-FILE"))
-        ;; May be better than `org-mem-entry-at-pos-in-file' if buffer modified.
-        (org-mem-entry-by-pseudo-id
-         (org-mem-parser--mk-id (file-attributes file)
-                                (buffer-substring (if (org-before-first-heading-p)
-                                                      (point-min)
-                                                    (org-entry-beginning-position))
-                                                  (org-entry-end-position))))
-        (org-mem-entry-at-pos-in-file (point) file))))
+  (if interactive
+      (org-mem-list-example (org-mem-entry-at-point actually-file))
+    (when (buffer-modified-p)
+      (message "org-mem-entry-at-point: Results not guaranteed in a modified buffer"))
+    (unless (derived-mode-p 'org-mode)
+      (error "org-mem-entry-at-point: Buffer must be in org-mode"))
+    (let ((file (or actually-file (buffer-file-name (buffer-base-buffer))))
+          (id (org-entry-get nil "ID")))
+      (or (and id (org-mem-entry-by-id id))
+          (unless file
+            (error "org-mem-entry-at-point: Use in a file-visiting buffer or pass ACTUALLY-FILE"))
+          ;; May be better than `org-mem-entry-at-pos-in-file' if buffer modified.
+          (org-mem-entry-by-pseudo-id
+           (org-mem-parser--mk-id (file-attributes file)
+                                  (buffer-substring (if (org-before-first-heading-p)
+                                                        (point-min)
+                                                      (org-entry-beginning-position))
+                                                    (org-entry-end-position))))
+          (org-mem-entry-at-pos-in-file (point) file)))))
 
 (defun org-mem-all-ids ()
   "All org-ids known to org-mem.
