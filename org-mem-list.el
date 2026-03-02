@@ -45,6 +45,29 @@
     (goto-char (org-mem-entry-pos entry))))
 
 ;;;###autoload
+(cl-defun org-mem-list--pop-to-tabulated-buffer (&key buffer format entries reverter)
+  "Create, populate and display a `tabulated-list-mode' buffer.
+
+BUFFER is a buffer or buffer name to use.
+FORMAT is the value to which `tabulated-list-format' should be set.
+ENTRIES is the value to which `tabulated-list-entries' should be set.
+
+Optional argument REVERTER is a function to add buffer-locally to
+`tabulated-list-revert-hook'."
+  (unless (and buffer format)
+    (error "org-mem-list--pop-to-tabulated-buffer: Mandatory arguments are BUFFER, FORMAT, ENTRIES"))
+  (when (null entries)
+    (message "No entries to tabulate"))
+  (pop-to-buffer (get-buffer-create buffer))
+  (tabulated-list-mode)
+  (setq tabulated-list-format format)
+  (tabulated-list-init-header)
+  (setq tabulated-list-entries entries)
+  (when reverter (add-hook 'tabulated-list-revert-hook reverter nil t))
+  (tabulated-list-print t))
+
+
+;;;###autoload
 (defun org-mem-list-entries ()
   (interactive)
   (if (fboundp 'inspector-inspect)
@@ -194,28 +217,6 @@ instead of default `org-mem-roamy--connection'."
             (setq-local sqlite--db db)
             (sqlite-mode-list-tables))
         (message "No DB yet")))))
-
-;;;###autoload
-(cl-defun org-mem-list--pop-to-tabulated-buffer (&key buffer format entries reverter)
-  "Create, populate and display a `tabulated-list-mode' buffer.
-
-BUFFER is a buffer or buffer name to use.
-FORMAT is the value to which `tabulated-list-format' should be set.
-ENTRIES is the value to which `tabulated-list-entries' should be set.
-
-Optional argument REVERTER is a function to add buffer-locally to
-`tabulated-list-revert-hook'."
-  (unless (and buffer format)
-    (error "org-mem-list--pop-to-tabulated-buffer: Mandatory arguments are BUFFER, FORMAT, ENTRIES"))
-  (when (null entries)
-    (message "No entries to tabulate"))
-  (pop-to-buffer (get-buffer-create buffer))
-  (tabulated-list-mode)
-  (setq tabulated-list-format format)
-  (tabulated-list-init-header)
-  (setq tabulated-list-entries entries)
-  (when reverter (add-hook 'tabulated-list-revert-hook reverter nil t))
-  (tabulated-list-print t))
 
 (provide 'org-mem-list)
 
