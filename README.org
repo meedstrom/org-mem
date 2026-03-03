@@ -1,10 +1,10 @@
-#+TITLE: Org-mem
-#+EXPORT_FILE_NAME: org-mem
+#+EXPORT_FILE_NAME: org-mem.texi
 #+TEXINFO_DIR_TITLE: Org-Mem: (org-mem).
 #+TEXINFO_DIR_DESC: Quick database of Org file contents
 #+TEXINFO_DIR_CATEGORY: Emacs
 #+HTML: <a href="https://repology.org/project/emacs%3Aorg-mem/versions"> <img src="https://repology.org/badge/vertical-allrepos/emacs%3Aorg-mem.svg" alt="Packaging status" align="right"> </a>
 
+* Org-mem
 A cache of metadata about the contents of all your Org files -- headings, links, timestamps and so on.
 
 Builds quickly, so that there is no need to persist data across sessions.
