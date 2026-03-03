@@ -30,14 +30,15 @@ Well---Org does ship the agenda, which has tools.  But you know what happens if 
 Example setup:
 
 #+begin_src elisp
-(setq org-mem-watch-dirs '("~/org/" "/mnt/stuff/notes/"))
-(setq org-mem-do-sync-with-org-id t)
+(setq org-mem-watch-dirs '("~/org" "/mnt/stuff/notes"))
 (org-mem-updater-mode)
 #+end_src
 
 That's it -- give it a couple of seconds, and now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  See examples of how to use them at section [[https://github.com/meedstrom/org-mem#elisp-api][Elisp API]]!
 
-The above example checks all files in =org-mem-watch-dirs= recursively, as well as files mentioned in =org-id-locations= and =org-id-extra-files=.
+See an example in detail by typing =M-x org-mem-list-example=.
+
+You do not even need to configure =org-mem-watch-dirs=, if Org is loaded.  Org-mem will guess where to look for Org files anyway!  That is controlled by the user option =org-mem-do-look-everywhere= (default t).
 
 ** Two APIs
 You get two different APIs to pick from, to access the same data.
