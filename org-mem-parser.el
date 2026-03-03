@@ -397,7 +397,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
         TAGS USE-TAG-INHERITANCE NONHERITABLE-TAGS
         TITLE HEADING-POS LNUM CRUMBS CLOCK-LINES
         TODO-STATE STATS-COOKIES INITIAL-STATS-COOKIES
-        SCHED DEADLINE CLOSED PRIORITY LEVEL PROPS
+        SCHEDULED DEADLINE CLOSED PRIORITY LEVEL PROPERTIES
         LEFT RIGHT
         (TODO-RE $default-todo-re))
     (condition-case err
@@ -474,12 +474,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
               (unless (looking-at-p "[ \t]*$")
                 (error "Code 13: Likely malformed :PROPERTIES: line"))
               (forward-line)
-              (setq PROPS (org-mem-parser--collect-properties
+              (setq PROPERTIES (org-mem-parser--collect-properties
                            (point)
                            (if (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
                                (pos-bol)
                              (error "Code 14: Could not find :END: of drawer"))))
-              (setq ID (cdr (assoc "ID" PROPS)))
+              (setq ID (cdr (assoc "ID" PROPERTIES)))
               (forward-line))
             ;; PERF: Find tight boundaries for later searches.
             (setq LEFT (point))
@@ -522,7 +522,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (let ((heritable-tags
                    (and USE-TAG-INHERITANCE
                         (seq-difference TAGS NONHERITABLE-TAGS))))
-              (push (list 0 1 1 TITLE ID heritable-tags PROPS) CRUMBS))
+              (push (list 0 1 1 TITLE ID heritable-tags PROPERTIES) CRUMBS))
 
             (setq PSEUDO-ID (org-mem-parser--mk-id file-attr (buffer-string)))
             (push PSEUDO-ID seen-hashes)
@@ -548,7 +548,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         nil
                         nil
                         nil
-                        PROPS
+                        PROPERTIES
                         nil
                         nil
                         nil
@@ -637,7 +637,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             (forward-line 1)
             (setq LEFT (point))
             (setq RIGHT (pos-eol))
-            (setq SCHED
+            (setq SCHEDULED
                   (and (re-search-forward "[ \t]*SCHEDULED: +" RIGHT t)
                        (org-mem-parser--time-string-to-int
                         (buffer-substring
@@ -657,12 +657,12 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         (buffer-substring
                          (point)
                          (+ (point) (skip-chars-forward "^]>\n"))))))
-            (when (or SCHED DEADLINE CLOSED)
+            (when (or SCHEDULED DEADLINE CLOSED)
               ;; Alright, so there was a planning-line, meaning any
               ;; :PROPERTIES: are not on this line, but the next.
               (forward-line 1))
 
-            (setq PROPS
+            (setq PROPERTIES
                   (if (looking-at-p "[ \t]*:PROPERTIES:")
                       (progn
                         (forward-line 1)
@@ -672,7 +672,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                              (pos-bol)
                            (error "Code 9: Couldn't find :END: of drawer"))))
                     nil))
-            (setq ID (cdr (assoc "ID" PROPS)))
+            (setq ID (cdr (assoc "ID" PROPERTIES)))
             (setq LEFT (point))
             ;; Rough start of body text (just a perf hack, fails gracefully)
             (setq RIGHT (re-search-forward "^[ \t]*[a-bd-z]" nil t))
@@ -733,7 +733,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                         (cl-loop for tag in TAGS
                                  unless (member tag NONHERITABLE-TAGS)
                                  collect tag))))
-              (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags PROPS)
+              (push (list LEVEL LNUM HEADING-POS TITLE ID heritable-tags PROPERTIES)
                     CRUMBS))
 
             (setq ID-HERE (cl-loop for crumb in CRUMBS thereis (cl-fifth crumb)))
@@ -758,8 +758,8 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
                           ;; Inherited properties
                           (cl-loop for crumb in (cdr CRUMBS)
                                    append (cl-seventh crumb))
-                          PROPS
-                          SCHED
+                          PROPERTIES
+                          SCHEDULED
                           STATS-COOKIES
                           ;; Inherited tags
                           (nreverse
