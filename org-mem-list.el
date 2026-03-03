@@ -178,9 +178,11 @@ To automatically warn, set `org-mem-do-warn-title-collisions'."
                                  (cons (org-mem-entry-file entry)
                                        (org-mem-link-pos link))))))))))
 
-;; TODO: Maybe generalize: track a list of open DBs and explore any of them
 ;;;###autoload
-(defun org-mem-list-db-contents (&optional db)
+(defalias 'org-mem-list-db-contents 'org-mem-list-db)
+
+;;;###autoload
+(defun org-mem-list-db (&optional db)
   "Explore contents of currently used SQLite DB.
 
 With optional argument DB, explore that database connection
