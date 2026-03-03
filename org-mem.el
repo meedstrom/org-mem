@@ -335,6 +335,7 @@ Note: All tables cleared often, meant for memoizations."
 
 ;;; To find objects to operate on
 
+;; TODO: Add to context menu
 ;; This is the kind of thing I try not to have in org-mem, because look at all
 ;; the special-cases needed.  This one seems too useful to leave out, though.
 (defun org-mem-entry-at-point (&optional actually-file interactive)
@@ -1798,7 +1799,7 @@ may be removed from the package."
        (declare (obsolete ,(cadr new) ,when))
        (unless checked-once
          (setq checked-once t)
-         (lwarn ,old :warning "Obsolete since %s, will be removed by %s; use `%s' instead. (Check your initfiles)"
+         (lwarn ,old :warning "Obsolete since %s, will be removed by %s; use `%s' instead. "
                 ,when ,removed-by ,new))
        (apply ,new args))))
 
