@@ -164,6 +164,8 @@ Aside from this variable, some filters are hard-coded:
   - Thus backups ending in ~, # or similar are excluded in any case,
     under the default setting for that variable
 - We exclude symlinks
+- For historical reasons, \"/.\" and \"/_\" are also hard-coded,
+  so removing them here has no effect for now
 
 Main reason to configure this is to prevent counting various kinds of
 \"back-up\" and \"auto-save\" files as duplicate ID locations,
@@ -171,7 +173,10 @@ especially such files appearing somewhere inside `org-mem-watch-dirs'.
 
 You can also speed up `org-mem-reset' a bit by excluding directories
 found inside `org-mem-watch-dirs' with a very large amount of files
-\(on the order of 100,000), such as the infamous \"node_modules\"."
+\(on the order of 100,000), such as the infamous \"node_modules\".
+
+A folder with many \"*/.git/\" repositories, such as \"/elpaca/\",
+can also be good to exclude."
   :type '(repeat string)
   :package-version '(org-mem . "0.32.0"))
 
