@@ -90,14 +90,15 @@ Current limitations
 Example setup:
 
 @lisp
-(setq org-mem-watch-dirs '("~/org/" "/mnt/stuff/notes/"))
-(setq org-mem-do-sync-with-org-id t)
+(setq org-mem-watch-dirs '("~/org" "/mnt/stuff/notes"))
 (org-mem-updater-mode)
 @end lisp
 
 That's it -- give it a couple of seconds@comma{} and now evalling @samp{(org-mem-all-entries)}@comma{} @samp{(org-mem-all-links)} and variants should return a lot of results.  See examples of how to use them at section @uref{https://github.com/meedstrom/org-mem#elisp-api, Elisp API}!
 
-The above example checks all files in @samp{org-mem-watch-dirs} recursively@comma{} as well as files mentioned in @samp{org-id-locations} and @samp{org-id-extra-files}.
+See an example in detail by typing @samp{M-x org-mem-list-example}.
+
+You do not even need to configure @samp{org-mem-watch-dirs}@comma{} if Org is loaded.  Org-mem will guess where to look for Org files anyway!  That is controlled by the user option @samp{org-mem-do-look-everywhere} (default t).
 
 @node Two APIs
 @chapter Two APIs
