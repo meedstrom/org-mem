@@ -380,6 +380,7 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
   "Gather entries, links and other data in FILE."
   (org-mem-parser--dirty-setup-if-edebug)
   (org-mem-parser--init)
+  (setq org-mem-parser--found-keywords nil)
   (setq org-mem-parser--found-links nil)
   (setq org-mem-parser--found-active-stamps nil)
   (let ((case-fold-search t)
