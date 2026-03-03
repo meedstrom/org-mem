@@ -121,7 +121,7 @@ Now, you have a new, all-fake org-roam.db!  Test that org-roam's =org-roam-db-qu
 (org-roam-db-query [:select * :from files :limit 10])
 #+end_src
 
-If it works, then various packages that depend on org-roam's DB should also work without issue.
+If it works, then various packages that depend on org-roam's DB should also work without issue.  However, you'll have to be content with them pulling in org-roam even if you never turn it on.
 
 N/B: because =(equal (org-roam-db) (org-mem-roamy-db))=, the above is equivalent to these expressions:
 
@@ -130,7 +130,30 @@ N/B: because =(equal (org-roam-db) (org-mem-roamy-db))=, the above is equivalent
 (emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
 #+end_src
 
-A known issue when when you run multiple Emacs instances: "attempt to write a readonly database".  Get unstuck with =M-: (org-roam-db--close-all)=.
+*** To developers
+
+If you write a package that actually only needed to use org-roam's DB and not its other utilities like =org-roam-capture=, you should be able to stop requiring org-roam, and do e.g.
+
+#+begin_src elisp
+(defun my-db ()
+  (cond ((fboundp 'org-roam-db) (org-roam-db))
+        ((fboundp 'org-mem-roamy-db) (org-mem-roamy-db))
+        (t (error "Enable either org-roam-db-autosync-mode or org-mem-roamy-db-mode"))
+#+end_src
+
+and then rewrite all your =(org-roam-db-query ...)= forms to:
+
+#+BEGIN_SRC elisp
+(emacsql (my-db) ...)
+#+END_SRC
+
+In theory, anyway ;-)
+
+Please report any issues!
+
+*** Known issue
+
+Error "attempt to write a readonly database" can happen when when you run multiple Emacs instances.  Get unstuck with =M-: (org-roam-db--close-all)=.
 
 *** View what info is in the DB
 
