@@ -50,6 +50,7 @@ Well---Org does ship the agenda@comma{} which has tools.  But you know what happ
 * No Org at init::
 * A SQLite database@comma{} for free::
 * Elisp API::
+* SQL API::
 * Tips::
 * Current limitations::
 * Future work::
@@ -60,10 +61,6 @@ Well---Org does ship the agenda@comma{} which has tools.  But you know what happ
 A SQLite database@comma{} for free
 
 * Without org-roam installed::
-* With org-roam installed::
-* To developers::
-* Known issue::
-* View what info is in the DB::
 
 Elisp API
 
@@ -72,6 +69,13 @@ Elisp API
 * Force an update::
 * Entries and links::
 * Full list of functions::
+
+SQL API
+
+* With org-roam installed::
+* To developers::
+* Known issue::
+* View what info is in the DB::
 
 Tips
 
@@ -169,10 +173,6 @@ In the future we may also create something that fits @uref{https://github.com/nd
 
 @menu
 * Without org-roam installed::
-* With org-roam installed::
-* To developers::
-* Known issue::
-* View what info is in the DB::
 @end menu
 
 @node Without org-roam installed
@@ -190,65 +190,7 @@ Test that it works:
 (emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
 @end lisp
 
-@node With org-roam installed
-@section With org-roam installed
-
-You can use this to end your dependence on @samp{org-roam-db-sync}.  Set the following to let org-mem overwrite the "org-roam.db" file.
-
-@lisp
-(setq org-roam-db-update-on-save nil)
-(setq org-mem-roamy-do-overwrite-real-db t)
-(org-mem-roamy-db-mode)
-@end lisp
-
-Now@comma{} you have a new@comma{} all-fake org-roam.db!  Test that org-roam's @samp{org-roam-db-query} works:
-
-@lisp
-(org-roam-db-query [:select * :from files :limit 10])
-@end lisp
-
-If it works@comma{} then various packages that depend on org-roam's DB should also work without issue.  However@comma{} you'll have to be content with them pulling in org-roam even if you never turn it on.
-
-N/B: because @samp{(equal (org-roam-db) (org-mem-roamy-db))}@comma{} the above is equivalent to these expressions:
-
-@lisp
-(emacsql (org-roam-db) [:select * :from files :limit 10])
-(emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
-@end lisp
-
-@node To developers
-@section To developers
-
-If you write a package that actually only needed to use org-roam's DB and not its other utilities like @samp{org-roam-capture}@comma{} you should be able to stop requiring org-roam@comma{} and do e.g.
-
-@lisp
-(defun my-db ()
-  (cond ((fboundp 'org-roam-db) (org-roam-db))
-        ((fboundp 'org-mem-roamy-db) (org-mem-roamy-db))
-        (t (error "Enable either org-roam-db-autosync-mode or org-mem-roamy-db-mode"))
-@end lisp
-
-and then rewrite all your @samp{(org-roam-db-query ...)} forms to:
-
-@lisp
-(emacsql (my-db) ...)
-@end lisp
-
-In theory@comma{} anyway ;-)
-
-Please report any issues!
-
-@node Known issue
-@section Known issue
-
-Error "attempt to write a readonly database" can happen when when you run multiple Emacs instances.  Get unstuck with @samp{M-: (org-roam-db--close-all)}.
-
-@node View what info is in the DB
-@section View what info is in the DB
-
-Use @samp{M-x org-mem-list-db-contents}.
-
-Or the new @samp{M-x org-roam-db-explore}@comma{} with exactly the same UI@.
+For more tips@comma{} see section @uref{https://github.com/meedstrom/org-mem#sql-api, SQL API}.
 
 @node Elisp API
 @chapter Elisp API
@@ -694,6 +636,76 @@ Some API for actually activating & using org-mem as a library:
 @item
 @samp{org-mem-updater-update}
 @end itemize
+
+@node SQL API
+@chapter SQL API
+
+@menu
+* With org-roam installed::
+* To developers::
+* Known issue::
+* View what info is in the DB::
+@end menu
+
+@node With org-roam installed
+@section With org-roam installed
+
+You can use this to end your dependence on @samp{org-roam-db-sync}.  Set the following to let org-mem overwrite the "org-roam.db" file.
+
+@lisp
+(setq org-roam-db-update-on-save nil)
+(setq org-mem-roamy-do-overwrite-real-db t)
+(org-mem-roamy-db-mode)
+@end lisp
+
+Now@comma{} you have a new@comma{} all-fake org-roam.db!  Test that org-roam's @samp{org-roam-db-query} works:
+
+@lisp
+(org-roam-db-query [:select * :from files :limit 10])
+@end lisp
+
+If it works@comma{} then various packages that depend on org-roam's DB should also work without issue.  However@comma{} you'll have to be content with them pulling in org-roam even if you never turn it on.
+
+N/B: because @samp{(equal (org-roam-db) (org-mem-roamy-db))}@comma{} the above is equivalent to these expressions:
+
+@lisp
+(emacsql (org-roam-db) [:select * :from files :limit 10])
+(emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
+@end lisp
+
+@node To developers
+@section To developers
+
+If you write a package that actually only needed to use org-roam's DB and not its other utilities like @samp{org-roam-capture}@comma{} you should be able to stop requiring org-roam@comma{} and do e.g.
+
+@lisp
+(defun my-db ()
+  (cond ((fboundp 'org-roam-db) (org-roam-db))
+        ((fboundp 'org-mem-roamy-db) (org-mem-roamy-db))
+        (t (error "Enable either org-roam-db-autosync-mode or org-mem-roamy-db-mode"))
+@end lisp
+
+and then rewrite all your @samp{(org-roam-db-query ...)} forms to:
+
+@lisp
+(emacsql (my-db) ...)
+@end lisp
+
+In theory@comma{} anyway ;-)
+
+Please report any issues!
+
+@node Known issue
+@section Known issue
+
+Error "attempt to write a readonly database" can happen when when you run multiple Emacs instances.  Get unstuck with @samp{M-: (org-roam-db--close-all)}.
+
+@node View what info is in the DB
+@section View what info is in the DB
+
+Use @samp{M-x org-mem-list-db-contents}.
+
+Or the new @samp{M-x org-roam-db-explore}@comma{} with exactly the same UI@.
 
 @node Tips
 @chapter Tips

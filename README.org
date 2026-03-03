@@ -105,61 +105,7 @@ Test that it works:
 (emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
 #+end_src
 
-*** With org-roam installed
-
-You can use this to end your dependence on =org-roam-db-sync=.  Set the following to let org-mem overwrite the "org-roam.db" file.
-
-#+begin_src elisp
-(setq org-roam-db-update-on-save nil)
-(setq org-mem-roamy-do-overwrite-real-db t)
-(org-mem-roamy-db-mode)
-#+end_src
-
-Now, you have a new, all-fake org-roam.db!  Test that org-roam's =org-roam-db-query= works:
-
-#+begin_src elisp
-(org-roam-db-query [:select * :from files :limit 10])
-#+end_src
-
-If it works, then various packages that depend on org-roam's DB should also work without issue.  However, you'll have to be content with them pulling in org-roam even if you never turn it on.
-
-N/B: because =(equal (org-roam-db) (org-mem-roamy-db))=, the above is equivalent to these expressions:
-
-#+begin_src elisp
-(emacsql (org-roam-db) [:select * :from files :limit 10])
-(emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
-#+end_src
-
-*** To developers
-
-If you write a package that actually only needed to use org-roam's DB and not its other utilities like =org-roam-capture=, you should be able to stop requiring org-roam, and do e.g.
-
-#+begin_src elisp
-(defun my-db ()
-  (cond ((fboundp 'org-roam-db) (org-roam-db))
-        ((fboundp 'org-mem-roamy-db) (org-mem-roamy-db))
-        (t (error "Enable either org-roam-db-autosync-mode or org-mem-roamy-db-mode"))
-#+end_src
-
-and then rewrite all your =(org-roam-db-query ...)= forms to:
-
-#+BEGIN_SRC elisp
-(emacsql (my-db) ...)
-#+END_SRC
-
-In theory, anyway ;-)
-
-Please report any issues!
-
-*** Known issue
-
-Error "attempt to write a readonly database" can happen when when you run multiple Emacs instances.  Get unstuck with =M-: (org-roam-db--close-all)=.
-
-*** View what info is in the DB
-
-Use =M-x org-mem-list-db-contents=.
-
-Or the new =M-x org-roam-db-explore=, with exactly the same UI.
+For more tips, see section [[https://github.com/meedstrom/org-mem#sql-api][SQL API]].
 
 ** Elisp API
 *** Example: Let org-agenda cast its net wide
@@ -413,6 +359,63 @@ Some API for actually activating & using org-mem as a library:
 - =org-mem-await=
 - =org-mem-reset=
 - =org-mem-updater-update=
+
+** SQL API
+*** With org-roam installed
+
+You can use this to end your dependence on =org-roam-db-sync=.  Set the following to let org-mem overwrite the "org-roam.db" file.
+
+#+begin_src elisp
+(setq org-roam-db-update-on-save nil)
+(setq org-mem-roamy-do-overwrite-real-db t)
+(org-mem-roamy-db-mode)
+#+end_src
+
+Now, you have a new, all-fake org-roam.db!  Test that org-roam's =org-roam-db-query= works:
+
+#+begin_src elisp
+(org-roam-db-query [:select * :from files :limit 10])
+#+end_src
+
+If it works, then various packages that depend on org-roam's DB should also work without issue.  However, you'll have to be content with them pulling in org-roam even if you never turn it on.
+
+N/B: because =(equal (org-roam-db) (org-mem-roamy-db))=, the above is equivalent to these expressions:
+
+#+begin_src elisp
+(emacsql (org-roam-db) [:select * :from files :limit 10])
+(emacsql (org-mem-roamy-db) [:select * :from files :limit 10])
+#+end_src
+
+*** To developers
+
+If you write a package that actually only needed to use org-roam's DB and not its other utilities like =org-roam-capture=, you should be able to stop requiring org-roam, and do e.g.
+
+#+begin_src elisp
+(defun my-db ()
+  (cond ((fboundp 'org-roam-db) (org-roam-db))
+        ((fboundp 'org-mem-roamy-db) (org-mem-roamy-db))
+        (t (error "Enable either org-roam-db-autosync-mode or org-mem-roamy-db-mode"))
+#+end_src
+
+and then rewrite all your =(org-roam-db-query ...)= forms to:
+
+#+BEGIN_SRC elisp
+(emacsql (my-db) ...)
+#+END_SRC
+
+In theory, anyway ;-)
+
+Please report any issues!
+
+*** Known issue
+
+Error "attempt to write a readonly database" can happen when when you run multiple Emacs instances.  Get unstuck with =M-: (org-roam-db--close-all)=.
+
+*** View what info is in the DB
+
+Use =M-x org-mem-list-db-contents=.
+
+Or the new =M-x org-roam-db-explore=, with exactly the same UI.
 
 ** Tips
 *** Encrypted files (=.org.gpg= =.org.age=)
