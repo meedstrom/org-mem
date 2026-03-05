@@ -2,9 +2,12 @@
 #+TEXINFO_DIR_TITLE: Org-Mem: (org-mem).
 #+TEXINFO_DIR_DESC: Quick database of Org file contents
 #+TEXINFO_DIR_CATEGORY: Emacs
-#+HTML: <a href="https://repology.org/project/emacs%3Aorg-mem/versions"> <img src="https://repology.org/badge/vertical-allrepos/emacs%3Aorg-mem.svg" alt="Packaging status" align="right"> </a>
-
+#+HTML: <a href="https://melpa.org/#/org-node"> <img alt="MELPA" src="https://melpa.org/packages/org-node-badge.svg"/></a>
+#+HTML: <a href="https://elpa.gnu.org/packages/org-mem.html"> <img src="https://elpa.gnu.org/packages/org-mem.svg" alt="GNU Elpa"></a>
+#+HTML: <a href="https://hpc.guix.info/package/emacs-org-mem"> <img src="https://repology.org/badge/version-for-repo/gnuguix/emacs%3Aorg-mem.svg?header=GNU%20Guix" alt="GNU Guix package"></a>
+#+HTML: <a href="https://repology.org/project/emacs%3Aorg-mem/versions"> <img src="https://repology.org/badge/version-for-repo/nix_unstable/emacs%3Aorg-mem.svg?header=nixpkgs" alt="nixpkgs unstable package"></a>
 * Org-mem
+
 A cache of metadata about the contents of all your Org files -- headings, links, timestamps and so on.
 
 Builds quickly, so that there is no need to persist data across sessions.
