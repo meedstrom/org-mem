@@ -793,7 +793,7 @@ Combines `org-mem-entry-tags-local' and `org-mem-entry-tags-inherited'."
 (defun org-mem-entry-deadline (entry)
   "DEADLINE-timestamp of ENTRY, suitable for `iso8601-parse'.
 WARNING: If the timestamp is expressed as a diary-sexp,
-such as <%%\(memq (calendar-day-of-week date) \\='(1 2 3 4 5)))>,
+such as <%%(memq (calendar-day-of-week date) \\='(1 2 3 4 5)))>,
 this returns nil!"
   (with-memoization (org-mem--table 46 entry)
     (let ((ts (org-mem-entry-deadline-int entry)))
@@ -802,7 +802,7 @@ this returns nil!"
 (defun org-mem-entry-scheduled (entry)
   "SCHEDULED-timestamp of ENTRY, suitable for `iso8601-parse'.
 WARNING: If the timestamp is expressed as a diary-sexp,
-such as <%%\(memq (calendar-day-of-week date) \\='(1 2 3 4 5)))>,
+such as <%%(memq (calendar-day-of-week date) \\='(1 2 3 4 5)))>,
 this returns nil!"
   (with-memoization (org-mem--table 47 entry)
     (let ((ts (org-mem-entry-scheduled-int entry)))
