@@ -33,6 +33,7 @@
 
 ;;; Targeted-scan
 
+;;;###autoload
 (defun org-mem-updater-update (&optional synchronous files)
   "Update cache for each file that has changed, appeared or disappeared.
 
