@@ -176,7 +176,7 @@ for every FILE, but wait and do a massed invocation afterwards."
     (cancel-timer org-mem-updater--reset-timer)))
 
 
-;;; Instant placeholders
+;;; Instant placeholders (OBSOLETE)
 
 (declare-function org-current-level "org")
 (declare-function org-element-context "org-element")
@@ -258,6 +258,7 @@ Use this if you cannot wait for `org-mem-updater-mode' to pick it up."
                        (point-max))
                  org-mem--truename<>metadata)))))
 
+;; Obsolete but good to keep as reference
 (defun org-mem-updater-mk-link-atpt ()
   "Return an `org-mem-link' object appropriate for link at point.
 It is not associated with any entries or files, however.
@@ -289,6 +290,7 @@ No support for citations."
                                        entry-text)))
     (error "No link at point %d in %s" (point) (current-buffer))))
 
+;; Obsolete but good to keep as reference
 (defun org-mem-updater-mk-entry-atpt ()
   "Return an `org-mem-entry' object appropriate for entry at point.
 It is not associated with any links or files, however.

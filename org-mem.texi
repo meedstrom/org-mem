@@ -1,7 +1,7 @@
 \input texinfo    @c -*- texinfo -*-
 @c %**start of header
 @setfilename org-mem.info
-@settitle Org-mem
+@settitle 
 @documentencoding UTF-8
 @documentlanguage en
 @c %**end of header
@@ -13,37 +13,17 @@
 
 @finalout
 @titlepage
-@title Org-mem
+@title 
 @author Martin Edström
 @end titlepage
 
 @ifnottex
 @node Top
-@top Org-mem
-
-A cache of metadata about the contents of all your Org files -- headings@comma{} links@comma{} timestamps and so on.
-
-Builds quickly@comma{} so that there is no need to persist data across sessions.
-
-My @samp{M-x org-mem-reset}:
-
-@example
-Org-mem saw 2418 files@comma{} 8388 headings@comma{} 8624 links (3418 IDs@comma{} 4874 ID-links) in 1.95s
-@end example
-
-This library came from asking myself "what could I move out of @uref{https://github.com/meedstrom/org-node, org-node}@comma{} that'd make sense in core?"  Maybe a proposal for upstream@comma{} or at least a proof-of-concept.
-
-Many notetaking packages now reinvent the wheel@comma{} when it comes to keeping track of some or many files and what may be in them.
-
-Example: org-roam's DB@comma{} org-node's hash tables@comma{} and other packages just re-run grep all the time@comma{} which still leads to writing elisp to cross-reference the results.
-
-And they must do this@comma{} because Org ships no tool to query across lots of files.
-
-Well---Org does ship the agenda@comma{} which has tools.  But you know what happens if you put 2@comma{}000 files into @samp{org-agenda-files}!  It needs to open each file in real-time to check anything in them@comma{} so everyday commands grind to a halt@comma{} or even crash: many OSes have a cap of 1@comma{}024 simultaneous file handles.
-
+@top 
 @end ifnottex
 
 @menu
+* Org-mem::
 * Quick start::
 * Two APIs::
 * Data only::
@@ -86,9 +66,33 @@ Current limitations
 * Limitation TRAMP::
 * Limitation Encrypted entries::
 * Limitation SETUPFILE::
+* Limitation diary-sexps::
 
 @end detailmenu
 @end menu
+
+@node Org-mem
+@chapter Org-mem
+
+A cache of metadata about the contents of all your Org files -- headings@comma{} links@comma{} timestamps and so on.
+
+Builds quickly@comma{} so that there is no need to persist data across sessions.
+
+My @samp{M-x org-mem-reset}:
+
+@example
+Org-mem saw 2418 files@comma{} 8388 headings@comma{} 8624 links (3418 IDs@comma{} 4874 ID-links) in 1.95s
+@end example
+
+This library came from asking myself "what could I move out of @uref{https://github.com/meedstrom/org-node, org-node}@comma{} that'd make sense in core?"  Maybe a proposal for upstream@comma{} or at least a proof-of-concept.
+
+Many notetaking packages now reinvent the wheel@comma{} when it comes to keeping track of some or many files and what may be in them.
+
+Example: org-roam's DB@comma{} org-node's hash tables@comma{} and other packages just re-run grep all the time@comma{} which still leads to writing elisp to cross-reference the results.
+
+And they must do this@comma{} because Org ships no tool to query across lots of files.
+
+Well---Org does ship the agenda@comma{} which has tools.  But you know what happens if you put 2@comma{}000 files into @samp{org-agenda-files}!  It needs to open each file in real-time to check anything in them@comma{} so everyday commands grind to a halt@comma{} or even crash: many OSes have a cap of 1@comma{}024 simultaneous file handles.
 
 @node Quick start
 @chapter Quick start
@@ -734,6 +738,7 @@ This needs extra config to tell org-mem's subprocesses how to open them. The fol
 * Limitation TRAMP::
 * Limitation Encrypted entries::
 * Limitation SETUPFILE::
+* Limitation diary-sexps::
 @end menu
 
 @node Limitation TRAMP
@@ -752,6 +757,23 @@ The body text of specific entries may be encrypted by @samp{org-crypt}.   If so@
 @section Limitation: SETUPFILE
 
 No support yet for buffer settings from @samp{#+SETUPFILE:}.
+
+@node Limitation diary-sexps
+@section Limitation: diary-sexps
+
+If you have a timestamp that's not a plain
+
+@example
+SCHEDULED: [2026-03-06 Fri 06:11]
+@end example
+
+but a diary-sexp like
+
+@example
+SCHEDULED: <%%(memq (calendar-day-of-week date) (1 2 3 4 5)))>
+@end example
+
+then @samp{(org-mem-entry-scheduled ENTRY)} returns nil@comma{} unfortunately.
 
 @node Future work
 @chapter Future work
