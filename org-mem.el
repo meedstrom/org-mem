@@ -94,11 +94,11 @@ If so, the text would only be available from the first time that
 
 This means that any Org file found amongst...
 
-- `recentf-list'
-- `org-agenda-text-search-extra-files'
-- `org-id-locations'
-- `org-id-extra-files'
-- `org-agenda-files'
+- variable `recentf-list'
+- variable `org-agenda-text-search-extra-files'
+- variable `org-id-locations'
+- variable `org-id-extra-files'
+- variable `org-agenda-files'
 - currently open Org buffers
 
 ... will have its directory added to the set of directories that org-mem
@@ -1240,7 +1240,7 @@ See `org-mem-parser--mk-id'."
   (:method ((xx string)) (org-mem-file-id-strict xx)))
 
 (cl-defgeneric org-mem-title (file/entry)
-  "Heading title, or file title or basename of ENTRY/FILE.
+  "Heading title, or file title or basename of FILE/ENTRY.
 Like `org-mem-entry-title', this always returns a string."
   (:method ((xx org-mem-entry)) (org-mem-entry-title xx))
   (:method ((xx string)) (org-mem-file-title-or-basename xx)))
