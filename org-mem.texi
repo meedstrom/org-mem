@@ -448,6 +448,37 @@ Getters operating on an entry object
 @samp{org-mem-roam-reflinks-to-entry}
 @end itemize
 
+Getters operating on a link object
+
+@itemize
+@item
+@samp{org-mem-id-link-p}
+@item
+@samp{org-mem-link-citation-p}
+@item
+@samp{org-mem-link-description}
+@item
+@samp{org-mem-link-entry}
+@item
+@samp{org-mem-link-entry-pseudo-id}
+@item
+@samp{org-mem-link-file}
+@item
+@samp{org-mem-link-file-truename}
+@item
+@samp{org-mem-link-nearby-id}
+@item
+@samp{org-mem-link-pos}
+@item
+@samp{org-mem-link-supplement}
+@item
+@samp{org-mem-link-target}
+@item
+@samp{org-mem-link-type}
+@item
+@samp{org-mem-roam-reflink-p}
+@end itemize
+
 Getters operating on a file name
 
 @itemize
@@ -489,37 +520,6 @@ Getters operating on a file name
 @samp{org-mem-file-title-strict}
 @item
 @samp{org-mem-file-title-topmost}
-@end itemize
-
-Getters operating on a link object
-
-@itemize
-@item
-@samp{org-mem-id-link-p}
-@item
-@samp{org-mem-link-citation-p}
-@item
-@samp{org-mem-link-description}
-@item
-@samp{org-mem-link-entry}
-@item
-@samp{org-mem-link-entry-pseudo-id}
-@item
-@samp{org-mem-link-file}
-@item
-@samp{org-mem-link-file-truename}
-@item
-@samp{org-mem-link-nearby-id}
-@item
-@samp{org-mem-link-pos}
-@item
-@samp{org-mem-link-supplement}
-@item
-@samp{org-mem-link-target}
-@item
-@samp{org-mem-link-type}
-@item
-@samp{org-mem-roam-reflink-p}
 @end itemize
 
 Getters that return entries

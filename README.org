@@ -265,6 +265,22 @@ Getters operating on an entry object
 - =org-mem-previous-entry=
 - =org-mem-roam-reflinks-to-entry=
 
+Getters operating on a link object
+
+- =org-mem-id-link-p=
+- =org-mem-link-citation-p=
+- =org-mem-link-description=
+- =org-mem-link-entry=
+- =org-mem-link-entry-pseudo-id=
+- =org-mem-link-file=
+- =org-mem-link-file-truename=
+- =org-mem-link-nearby-id=
+- =org-mem-link-pos=
+- =org-mem-link-supplement=
+- =org-mem-link-target=
+- =org-mem-link-type=
+- =org-mem-roam-reflink-p=
+
 Getters operating on a file name
 
 - =org-mem-entries-in-file= --- Alias =org-mem-file-entries=
@@ -286,22 +302,6 @@ Getters operating on a file name
 - =org-mem-file-title-or-basename=
 - =org-mem-file-title-strict=
 - =org-mem-file-title-topmost=
-
-Getters operating on a link object
-
-- =org-mem-id-link-p=
-- =org-mem-link-citation-p=
-- =org-mem-link-description=
-- =org-mem-link-entry=
-- =org-mem-link-entry-pseudo-id=
-- =org-mem-link-file=
-- =org-mem-link-file-truename=
-- =org-mem-link-nearby-id=
-- =org-mem-link-pos=
-- =org-mem-link-supplement=
-- =org-mem-link-target=
-- =org-mem-link-type=
-- =org-mem-roam-reflink-p=
 
 Getters that return entries
 
