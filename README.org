@@ -39,9 +39,14 @@ Example setup:
 
 That's it -- give it a couple of seconds, and now evalling =(org-mem-all-entries)=, =(org-mem-all-links)= and variants should return a lot of results.  See examples of how to use them at section [[https://github.com/meedstrom/org-mem#elisp-api][Elisp API]]!
 
-See an example in detail by typing =M-x org-mem-list-example=.
+Or see one example data object by typing =M-x org-mem-list-example=.
 
-You do not even need to configure =org-mem-watch-dirs=, if Org is loaded.  Org-mem will guess where to look for Org files anyway!  That is controlled by the user option =org-mem-do-look-everywhere= (default t).
+#+BEGIN_QUOTE
+[!TIP]
+You usually do not even need to configure =org-mem-watch-dirs=.  Org-mem will guess where to look for Org files anyway!  That is controlled by the user option =org-mem-do-look-everywhere= (default t).
+
+If org-mem is to be used early after init, before anything loads Org, it is helpful if your init enables recentf-mode with a high =recentf-max-saved-items=.  If not, then you may want to configure =org-mem-watch-dirs= after all.
+#+END_QUOTE
 
 * Two APIs
 You get two different APIs to pick from, to access the same data.
@@ -155,26 +160,11 @@ Now the following is an alternative:
 (org-mem-updater-mode)
 #+end_src
 
-** Force an update
-
-If you want to force-update the cache in synchronous code, you should now (since version 0.28.0) be able to do it like this.
-
-#+BEGIN_SRC elisp
-(org-mem-updater-update t)
-#+END_SRC
-
-To do a full reset:
-
-#+BEGIN_SRC elisp
-(org-mem-reset t)
-(org-mem-await "Manually resetting..." 60)
-#+END_SRC
-
 ** Entries and links
 
 We use two types of objects to help represent file contents: =org-mem-entry= objects and =org-mem-link= objects.  They involve some simplifications:
 
-- An =org-mem-link= object corresponds either to a proper Org link, or to a citation fragment like =@key1= in =[cite:@key1;@key2;@key3]=.
+- An =org-mem-link= object corresponds either to a proper Org link, or to a citation fragment like =@key2= in =[cite:@key1;@key2;@key3]=.
 
   - Check which it is with =org-mem-link-citation-p=.
 
@@ -189,6 +179,21 @@ We use two types of objects to help represent file contents: =org-mem-entry= obj
   - Some functions behave specially if the zeroth-level entry is empty, such that the first proper Org heading is on line 1: =(org-mem-entry-at-lnum-in-file 1 FILE)= then returns the entry for that heading instead of the zeroth-level entry. Ditto for =(org-mem-entry-at-pos-in-file 1 FILE)=.
 
     That is hopefully intuitive.  Opinions on API design are very welcome!
+
+** Force an update
+
+If you want to force-update the cache in synchronous code, you should now (since version 0.28.0) be able to do it like this.
+
+#+BEGIN_SRC elisp
+(org-mem-updater-update t)
+#+END_SRC
+
+To do a full reset:
+
+#+BEGIN_SRC elisp
+(org-mem-reset t)
+(org-mem-await "Manually resetting..." 60)
+#+END_SRC
 
 ** Full list of functions
 Updated [2026-02-26].

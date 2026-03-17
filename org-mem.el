@@ -95,11 +95,11 @@ If so, the text would only be available from the first time that
 This means that any Org file found amongst...
 
 - variable `recentf-list'
-- variable `org-agenda-text-search-extra-files'
-- variable `org-id-locations'
-- variable `org-id-extra-files'
 - variable `org-agenda-files'
-- currently open Org buffers
+- variable `org-agenda-text-search-extra-files'
+- variable `org-id-files'
+- variable `org-id-extra-files'
+- any currently open Org buffers
 
 ... will have its directory added to the set of directories that org-mem
 will scan.  They won\\='t be scanned recursively.
@@ -201,8 +201,9 @@ this expression \(with the \"inspector\" package\):
   :package-version '(org-mem . "0.21.0"))
 
 (defcustom org-mem-load-features nil
-  "List of features to load in child process.
-These features must be discoverable on `load-path'."
+  "List of features to require in child process.
+These features must be discoverable on `load-path'.
+Each feature is a symbol that may be seen in `features'."
   :type '(repeat symbol)
   :package-version '(org-mem . "0.21.0"))
 

@@ -46,8 +46,8 @@ Elisp API
 
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
-* Force an update::
 * Entries and links::
+* Force an update::
 * Full list of functions::
 
 SQL API
@@ -106,9 +106,15 @@ Example setup:
 
 That's it -- give it a couple of seconds@comma{} and now evalling @samp{(org-mem-all-entries)}@comma{} @samp{(org-mem-all-links)} and variants should return a lot of results.  See examples of how to use them at section @uref{https://github.com/meedstrom/org-mem#elisp-api, Elisp API}!
 
-See an example in detail by typing @samp{M-x org-mem-list-example}.
+Or see one example data object by typing @samp{M-x org-mem-list-example}.
 
-You do not even need to configure @samp{org-mem-watch-dirs}@comma{} if Org is loaded.  Org-mem will guess where to look for Org files anyway!  That is controlled by the user option @samp{org-mem-do-look-everywhere} (default t).
+@quotation
+[!TIP]
+You usually do not even need to configure @samp{org-mem-watch-dirs}.  Org-mem will guess where to look for Org files anyway!  That is controlled by the user option @samp{org-mem-do-look-everywhere} (default t).
+
+If org-mem is to be used early after init@comma{} before anything loads Org@comma{} it is helpful if your init enables recentf-mode with a high @samp{recentf-max-saved-items}.  If not@comma{} then you may want to configure @samp{org-mem-watch-dirs} after all.
+
+@end quotation
 
 @node Two APIs
 @chapter Two APIs
@@ -202,8 +208,8 @@ For more tips@comma{} see section @uref{https://github.com/meedstrom/org-mem#sql
 @menu
 * Example Let org-agenda cast its net wide::
 * Example Warn about dangling clocks at init::
-* Force an update::
 * Entries and links::
+* Force an update::
 * Full list of functions::
 @end menu
 
@@ -253,22 +259,6 @@ Now the following is an alternative:
 (org-mem-updater-mode)
 @end lisp
 
-@node Force an update
-@section Force an update
-
-If you want to force-update the cache in synchronous code@comma{} you should now (since version 0.28.0) be able to do it like this.
-
-@lisp
-(org-mem-updater-update t)
-@end lisp
-
-To do a full reset:
-
-@lisp
-(org-mem-reset t)
-(org-mem-await "Manually resetting..." 60)
-@end lisp
-
 @node Entries and links
 @section Entries and links
 
@@ -276,7 +266,7 @@ We use two types of objects to help represent file contents: @samp{org-mem-entry
 
 @itemize
 @item
-An @samp{org-mem-link} object corresponds either to a proper Org link@comma{} or to a citation fragment like @samp{@@key1} in @samp{[cite:@@key1;@@key2;@@key3]}.
+An @samp{org-mem-link} object corresponds either to a proper Org link@comma{} or to a citation fragment like @samp{@@key2} in @samp{[cite:@@key1;@@key2;@@key3]}.
 
 @itemize
 @item
@@ -304,6 +294,22 @@ Some functions behave specially if the zeroth-level entry is empty@comma{} such 
 That is hopefully intuitive.  Opinions on API design are very welcome!
 @end itemize
 @end itemize
+
+@node Force an update
+@section Force an update
+
+If you want to force-update the cache in synchronous code@comma{} you should now (since version 0.28.0) be able to do it like this.
+
+@lisp
+(org-mem-updater-update t)
+@end lisp
+
+To do a full reset:
+
+@lisp
+(org-mem-reset t)
+(org-mem-await "Manually resetting..." 60)
+@end lisp
 
 @node Full list of functions
 @section Full list of functions
