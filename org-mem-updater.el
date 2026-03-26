@@ -59,11 +59,11 @@ If you mess up the tables, use command `org-mem-reset'."
                  (modified-files
                   (cl-loop
                    for (truename . attr) in (org-mem--truenames-and-attrs)
-                   as real-mtime = (file-attribute-modification-time attr)
-                   as db-mtime = (prog1 (org-mem-file-mtime truename)
-                                   (remhash truename db-files))
-                   when (or (not db-mtime)
-                            (not (time-equal-p db-mtime real-mtime)))
+                   as disk-mtime = (file-attribute-modification-time attr)
+                   as db-mtime = (progn (remhash truename db-files)
+                                        (org-mem-file-mtime truename))
+                   when (or (not db-mtime) ;; New file.
+                            (not (time-equal-p db-mtime disk-mtime)))
                    collect truename))
                  (removed-files
                   (hash-table-keys db-files)))
@@ -146,15 +146,15 @@ Override this if you prefer different timer delays, or no timer."
 
 Designed for `after-save-hook' and as advice for `delete-file' and
 `rename-file'.  Such functions might be called many times in a loop,
-and this design is meant to avoid invoking `org-mem-updater-update'
+and this design tries to avoid invoking `org-mem-updater-update'
 for every FILE, but wait and do a massed invocation afterwards."
   (setq file (or file (buffer-file-name (buffer-base-buffer))))
   (when (and (stringp file) (cl-some (##string-suffix-p % file) org-mem-suffixes))
     (if (memq org-mem-updater--debounce-timer timer-list)
-      (timer-set-time org-mem-updater--debounce-timer
-                      (time-add (current-time) 0.5))
-    (setq org-mem-updater--debounce-timer
-          (run-with-timer 0.5 nil #'org-mem-updater-update)))))
+        (timer-set-time org-mem-updater--debounce-timer
+                        (time-add (current-time) 0.5))
+      (setq org-mem-updater--debounce-timer
+            (run-with-timer 0.5 nil #'org-mem-updater-update)))))
 
 ;;;###autoload
 (define-minor-mode org-mem-updater-mode
@@ -168,6 +168,9 @@ for every FILE, but wait and do a massed invocation afterwards."
         (add-hook 'after-save-hook                  #'org-mem-updater--update-soon)
         (advice-add 'rename-file :after             #'org-mem-updater--update-soon)
         (advice-add 'delete-file :after             #'org-mem-updater--update-soon)
+        ;; Enable timer just in case the initial scan fails for any reason.
+        ;; TODO: If the scan hangs forever every time, we don't really want to
+        ;; re-run on a timer... Find a way to warn.
         (org-mem-updater-adjust-reset-timer)
         (org-mem--scan-full))
     (remove-hook 'org-mem-post-full-scan-functions #'org-mem-updater-adjust-reset-timer)

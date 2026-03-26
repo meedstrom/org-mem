@@ -370,8 +370,8 @@ If INTERACTIVE, display the entry data using `org-mem-list-example'."
 
 (defun org-mem-all-ids ()
   "All org-ids known to org-mem.
-If `org-mem-do-sync-with-org-id' is nil, the output may NOT overlap
-perfectly with `org-id-locations'."
+The output may NOT overlap precisely with `org-id-locations', especially
+if `org-mem-do-sync-with-org-id' is nil."
   (with-memoization (org-mem--table 0 'org-mem-all-ids)
     (hash-table-keys org-mem--id<>entry)))
 
