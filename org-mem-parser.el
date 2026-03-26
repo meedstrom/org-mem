@@ -77,11 +77,8 @@ file, however org-mem-parser uses a work-around for that.
 
 It is stable enough for use-cases such as caching backlink previews,
 since the majority of entries are typically left unchanged over weeks."
-  (let ((nums (flatten-tree (file-attribute-file-identifier file-attribs))))
-    (string-to-number
-     (md5 (string-join (cons entry-string (mapcar #'number-to-string nums))
-                       " "))
-     16)))
+  (+ (sxhash (file-attribute-file-identifier file-attribs))
+     (string-to-number (md5 entry-string) 16)))
 
 (defun org-mem-parser--org-link-display-format (s)
   "Copy of `org-link-display-format'.
