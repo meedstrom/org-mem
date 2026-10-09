@@ -200,4 +200,54 @@
                  (org-mem-parser--merge-overlapping-regions
                   nil))))
 
+(defun org-mem-test--parse-string (text)
+  "Write TEXT to a temp file, parse it, and return the parse result."
+  (let ((file (make-temp-file "org-mem-test-" nil ".org" text)))
+    (unwind-protect
+        (let ((vars (org-mem--mk-work-vars))
+              ;; Else `org-mem-parser--dirty-setup-if-edebug' prompts.
+              (org-mem-inject-vars nil))
+          (cl-progv (mapcar #'car vars) (mapcar #'cdr vars)
+            (let ((org-mem-parser--outline-regexp nil))
+              (org-mem-parser--parse-file file))))
+      (delete-file file))))
+
+(ert-deftest org-mem-test-planning-line-re-matches-org ()
+  "The parser's copy of `org-planning-line-re' has not drifted."
+  (require 'org)
+  (should (equal org-mem-parser--planning-line-re org-planning-line-re)))
+
+(ert-deftest org-mem-test-planning-keyword-in-prose ()
+  "A planning keyword inside prose right after a heading is not a planning line."
+  (dolist (line '("- A missed repeating deadline: late, still due"
+                  "- A DEADLINE is stronger than SCHEDULED: past it"
+                  "- All steps closed: nothing left"))
+    (let* ((result (org-mem-test--parse-string
+                    (concat "* First\n" line "\n* Second\n* Third\n")))
+           (problem (nth 1 result))
+           (entries (nth 3 result)))
+      (should-not problem)
+      (should (equal '("First" "Second" "Third")
+                     (sort (cl-loop for e in entries
+                                    when (> (org-mem-entry-level e) 0)
+                                    collect (org-mem-entry-title e))
+                           #'string<)))
+      (dolist (e entries)
+        (should-not (org-mem-entry-scheduled e))
+        (should-not (org-mem-entry-deadline e))
+        (should-not (org-mem-entry-closed e))))))
+
+(ert-deftest org-mem-test-planning-line-any-order ()
+  "A real planning line is parsed whatever the order of its keywords."
+  (let* ((result (org-mem-test--parse-string
+                  (concat "* DONE Task\n"
+                          "  CLOSED: [2026-10-09 Fri 10:00] DEADLINE: <2026-10-10 Sat> SCHEDULED: <2026-10-08 Thu>\n"
+                          ":PROPERTIES:\n:ID: abc\n:END:\n")))
+         (e (car (nth 3 result))))
+    (should-not (nth 1 result))
+    (should (org-mem-entry-scheduled e))
+    (should (org-mem-entry-deadline e))
+    (should (org-mem-entry-closed e))
+    (should (equal "abc" (org-mem-entry-id e)))))
+
 ;;; org-mem-test.el ends here

@@ -339,6 +339,9 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
   "^[ \t]*:[_[:word:]-]+:[ \t]*$")
 (defconst org-mem-parser--todo-keyword-re
   (rx bol (* space) (or "#+todo: " "#+seq_todo: " "#+typ_todo: ")))
+(defconst org-mem-parser--planning-line-re
+  "^[ \t]*\\(\\(?:CLOSED\\|DEADLINE\\|SCHEDULED\\):\\)"
+  "Copy of `org-planning-line-re'.")
 
 (defvar org-mem-parser--outline-regexp nil)
 (defvar org-mem-parser--buf nil)
@@ -633,10 +636,14 @@ between buffer substrings \":PROPERTIES:\" and \":END:\"."
             ;; Put the cookies in the same order as they occurred in the heading.
             (setq STATS-COOKIES (nconc (nreverse INITIAL-STATS-COOKIES) STATS-COOKIES))
 
-            ;; See if the next line is a planning-line
+            ;; See if the next line is a planning-line.  It must start with
+            ;; a planning keyword, so prose such as "the deadline: tomorrow"
+            ;; is not one.
             (forward-line 1)
             (setq LEFT (point))
-            (setq RIGHT (pos-eol))
+            (setq RIGHT (if (looking-at-p org-mem-parser--planning-line-re)
+                            (pos-eol)
+                          (point)))
             (setq SCHEDULED
                   (and (re-search-forward "[ \t]*SCHEDULED: +" RIGHT t)
                        (org-mem-parser--time-string-to-int
